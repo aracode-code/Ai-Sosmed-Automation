@@ -1,0 +1,20 @@
+node_modules/
+.pnpm-store/
+dist/
+build/
+out/
+coverage/
+
+data/
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+
+.env
+.env.*
+!.env.example
+
+# secrets / session material — never commit (HLD §9.1, LLD §13.1)
+storage-state.json
+*.storageState.json
+cookies*.json

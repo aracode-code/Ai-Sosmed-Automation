@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "mode": "UNAVAILABLE",
+  "status": "UNAVAILABLE",
+  "reason": "Belum ada file sumber di repositori — hanya HLD.md, LLD.md, dan knowledge/. Tidak ada yang bisa diindeks.",
+  "indexed_commit": "",
+  "indexed_at": "",
+  "scope": [],
+  "counts": {
+    "files": 0,
+    "symbols": 0,
+    "imports": 0,
+    "apis": 0,
+    "db_objects": 0,
+    "tests": 0
+  },
+  "validation": {
+    "last_validated_at": "",
+    "result": "not_applicable",
+    "note": "Validasi index (§4.9) baru berlaku setelah P1 menghasilkan file sumber."
+  },
+  "fallback": {
+    "engine": "LIGHTWEIGHT_GREP",
+    "note": "Bila index SQLite belum dibangun, pencarian memakai ripgrep terhadap file aktual (§0.8 degradasi wajib)."
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "name": "ai-social-media-automation-agent",
+  "display_name": "AI Social Media Automation Agent",
+  "root": "F:/AiSosmedAutomation",
+  "type": "local-desktop-app",
+  "platform_host": "Windows 10.0.19045",
+  "current_state": "docs-only",
+  "detected_stack": {
+    "code": "none",
+    "tools_available": { "node": "v22.15.0", "git": "2.49.0", "pnpm": "unknown" }
+  },
+  "planned_stack": {
+    "monorepo": "pnpm workspace",
+    "language": "TypeScript strict",
+    "frontend": ["React", "Vite", "Tailwind"],
+    "backend": ["Node.js", "Fastify", "Zod"],
+    "database": ["SQLite", "Drizzle ORM", "WAL"],
+    "queue": "SQLite persistent queue",
+    "browser": "Playwright Chromium",
+    "ai": "DeepSeek API via provider adapter",
+    "media": ["ffmpeg", "ffprobe"],
+    "logging": "Pino",
+    "testing": ["Vitest", "Playwright Test"],
+    "packaging": "Electron atau Tauri (belum dipilih)"
+  },
+  "platforms": ["youtube", "tiktok", "instagram", "facebook", "x", "threads"],
+  "canonical_docs": { "hld": "HLD.md", "lld": "LLD.md" },
+  "timezone": { "scheduler_default": "Asia/Jakarta", "audit_storage": "UTC ISO-8601" }
+}
