@@ -3,6 +3,12 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
+  "types": "./src/server.ts",
+  "exports": {
+    ".": "./src/server.ts",
+    "./app": "./src/app.ts",
+    "./config": "./src/config.ts"
+  },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json",
     "dev": "tsx watch src/server.ts",

@@ -8,6 +8,21 @@ importers:
 
   .:
     devDependencies:
+      '@saa/database':
+        specifier: workspace:*
+        version: link:packages/database
+      '@saa/domain':
+        specifier: workspace:*
+        version: link:packages/domain
+      '@saa/local-api':
+        specifier: workspace:*
+        version: link:apps/local-api
+      '@saa/observability':
+        specifier: workspace:*
+        version: link:packages/observability
+      '@saa/workflow':
+        specifier: workspace:*
+        version: link:packages/workflow
       '@types/node':
         specifier: ^22.10.0
         version: 22.20.5

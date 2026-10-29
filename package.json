@@ -7,13 +7,18 @@
   },
   "packageManager": "pnpm@9.15.4",
   "scripts": {
-    "typecheck": "pnpm -r --if-present typecheck",
+    "typecheck": "corepack pnpm -r --if-present typecheck && tsc -p tests/tsconfig.json",
     "test": "vitest run",
     "dev": "pnpm --filter @saa/local-api dev",
     "start": "pnpm --filter @saa/local-api start",
     "migrate": "pnpm --filter @saa/database migrate"
   },
   "devDependencies": {
+    "@saa/database": "workspace:*",
+    "@saa/domain": "workspace:*",
+    "@saa/local-api": "workspace:*",
+    "@saa/observability": "workspace:*",
+    "@saa/workflow": "workspace:*",
     "@types/node": "^22.10.0",
     "drizzle-kit": "^0.30.0",
     "tsx": "^4.19.0",
