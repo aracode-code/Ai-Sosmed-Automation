@@ -106,4 +106,12 @@ describe('state machine — jalur pemulihan', () => {
       status: 'FAILED'
     });
   });
+
+  it('lease kedaluwarsa mengembalikan job ke QUEUED, tapi tidak dari PUBLISHING', () => {
+    expect(transitionJob('GENERATING', { type: 'RECOVER_REQUEUE' })).toEqual({
+      ok: true,
+      status: 'QUEUED'
+    });
+    expect(transitionJob('PUBLISHING', { type: 'RECOVER_REQUEUE' }).ok).toBe(false);
+  });
 });

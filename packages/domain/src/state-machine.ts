@@ -28,6 +28,7 @@ export type JobEvent =
   | { type: 'RETRYABLE_FAILURE' }
   | { type: 'RETRY_DUE'; target: RetrySafeState }
   | { type: 'REQUEUE' }
+  | { type: 'RECOVER_REQUEUE' }
   | { type: 'AMBIGUOUS_RESULT' }
   | { type: 'ESCALATE' }
   | { type: 'PERMANENT_FAILURE' }
@@ -62,6 +63,19 @@ const RETRYABLE_FAILURE_SOURCES: readonly JobStatus[] = [
 ];
 
 const AMBIGUOUS_SOURCES: readonly JobStatus[] = ['PUBLISHING', 'VERIFYING', 'RETRY_WAIT'];
+
+/** Lease kedaluwarsa (worker mati) boleh dikembalikan ke antrean, kecuali state dengan aksi eksternal. */
+const RECOVERABLE_STATES: readonly JobStatus[] = [
+  'QUEUED',
+  'PLANNING',
+  'GENERATING',
+  'DOWNLOADING',
+  'VALIDATING',
+  'AWAITING_APPROVAL',
+  'SCHEDULED',
+  'RETRY_WAIT',
+  'NEEDS_ATTENTION'
+];
 
 const IRREVERSIBLE_STATES: readonly JobStatus[] = ['PUBLISHING', 'VERIFYING'];
 
@@ -147,6 +161,9 @@ export function transitionJob(
 
     case 'REQUEUE':
       return current === 'NEEDS_ATTENTION' ? accept('QUEUED') : reject(current, event.type);
+
+    case 'RECOVER_REQUEUE':
+      return RECOVERABLE_STATES.includes(current) ? accept('QUEUED') : reject(current, event.type);
 
     case 'AMBIGUOUS_RESULT':
       return AMBIGUOUS_SOURCES.includes(current)
