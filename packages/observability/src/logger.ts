@@ -1,6 +1,8 @@
 import pino, { type DestinationStream, type Logger, type LoggerOptions } from 'pino';
 import { sanitizeForLog } from './sanitize';
 
+export type { Logger } from 'pino';
+
 export interface CreateLoggerOptions {
   level?: string;
   component?: string;
