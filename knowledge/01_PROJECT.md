@@ -9,7 +9,7 @@
 | Tipe | Aplikasi desktop lokal Windows, satu pengguna utama | VERIFIED (HLD §2.3) |
 | Deployment | Windows PC lokal; packaging Electron/Tauri belum dipilih | VERIFIED (HLD §4, LLD §19) |
 | Dokumen induk | `HLD.md` v1.0 dan `LLD.md` v1.0 (keduanya berstatus Draft) | VERIFIED |
-| Implementasi kode | **P1 Foundation selesai** — 5 paket workspace, 66 test hijau | VERIFIED (commit `debdaaf`, 2026-10-30) |
+| Implementasi kode | **P1 Foundation + P2 Agent core selesai** — 6 paket workspace, 95 test hijau | VERIFIED (commit `debdaaf`, `9cd360c`, 2026-10-30) |
 
 ## Tujuan Produk
 
@@ -42,7 +42,7 @@ Mengotomatisasi alur produksi video dari perencanaan sampai publikasi lintas pla
 | DB | SQLite + Drizzle, WAL, foreign_keys ON, migrasi versioned | waktu disimpan UTC ISO-8601 |
 | Queue | SQLite persistent queue | satu sumber kebenaran status job |
 | Browser | Playwright Chromium | satu profil = satu worker |
-| AI | DeepSeek provider adapter | key hanya di secret store |
+| AI | DeepSeek provider adapter (`fetch`, tanpa SDK) — ADR-0002 D1 | key hanya di secret store |
 | Media | Filesystem + ffprobe | metadata di DB, file di storage |
 | Logs | Pino | redaksi token/cookie/header |
 | Tests | Vitest + Playwright Test | contract test per adapter |
@@ -56,10 +56,11 @@ packages/domain           # entitas, JobType/JobStatus, error class, state machi
 packages/database         # schema Drizzle, client, migrator SQL, repository jobs/audit
 packages/workflow         # dispatcher, retry policy, recovery lease
 packages/observability    # logger Pino + redaksi secret
+packages/agent-core       # skema PlanDecision + planner + adapter DeepSeek + tool allowlist
 tests/integration         # migrasi, restart recovery, klaim lintas koneksi, envelope API
 ```
 
-Belum dibuat (P2–P7): `apps/desktop-ui`, `packages/{scheduler,agent-core,browser-engine,media,secrets}`, `packages/integrations/*`, `tests/{unit,e2e,fixtures}`, `docs/{security.md,runbook.md}`.
+Belum dibuat (P3–P7): `apps/desktop-ui`, `packages/{scheduler,browser-engine,media,secrets}`, `packages/integrations/*`, `tests/{unit,e2e,fixtures}`, `docs/{security.md,runbook.md}`.
 
 > Catatan: HLD/LLD berada di root repo (bukan `docs/`). Pindahkan hanya bila diputuskan di ADR — jangan memindahkan dokumen canonical tanpa jejak.
 
@@ -73,6 +74,8 @@ Belum dibuat (P2–P7): `apps/desktop-ui`, `packages/{scheduler,agent-core,brows
 - Retry awal: maksimal 3×, backoff eksponensial + jitter (LLD §15.1).
 - `PUBLISHED` hanya setelah bukti verifikasi; status ambigu → reconciliation, bukan retry buta.
 - Tidak ada shell tool untuk AI; tool registry = allowlist tervalidasi Zod (LLD §9.2–9.3).
+- Output DeepSeek = data tidak tepercaya: Zod + kebijakan campaign ditegakkan di luar model; output invalid setelah 1 perbaikan → `NEEDS_ATTENTION` (ADR-0002 D3, D5).
+- Tool AI: budget 8 panggilan/run, timeout 10 s, nama shell/exec/eval ditolak (ADR-0002 D7).
 - No secret di log, repo, state, index, atau snapshot.
 - Semua perintah paket dijalankan sebagai `corepack pnpm ...` — `pnpm` tidak ada di PATH mesin ini.
 - `DATABASE_PATH` relatif diresolusi terhadap root workspace (ADR-0001 D5).
@@ -86,6 +89,7 @@ Belum dibuat (P2–P7): `apps/desktop-ui`, `packages/{scheduler,agent-core,brows
 |---|---|
 | P0 Bootstrap knowledge OS | COMPLETED (2026-10-29) |
 | P1 Foundation (workspace, DB, API, logs, state machine, queue) | **COMPLETED (2026-10-30, commit `debdaaf`)** |
-| P2 Agent · P3 Flow · P4 Approval/Scheduler · P5 YouTube · P6 Platform lain · P7 Hardening | NOT STARTED |
+| P2 Agent core (kontrak planner, adapter DeepSeek, tool allowlist) | **COMPLETED (2026-10-30, commits `7d02a06`,`9cd360c`)** |
+| P3 Flow · P4 Approval/Scheduler · P5 YouTube · P6 Platform lain · P7 Hardening | NOT STARTED |
 
-Rincian fase + Definition of Done: `tasks/BACKLOG.md`. Bukti P1: `modules/foundation.md`.
+Rincian fase + Definition of Done: `tasks/BACKLOG.md`. Bukti P1: `modules/foundation.md`; P2: `modules/agent-core.md`.

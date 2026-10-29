@@ -7,8 +7,8 @@ Sumber fase + DoD: `LLD.md` §18. Urutan ini mengikat kecuali user menyatakan la
 | ID | Fase | Output | DoD | Status |
 |---|---|---|---|---|
 | P1 | Foundation | Workspace pnpm, schema DB + migrasi, Local API dasar, logging, domain state machine, persistent queue | Migrations · unit tests · `/health` · restart recovery | **COMPLETED** (2026-10-30, `debdaaf`) — bukti di `CURRENT.md` |
-| P2 | Agent | DeepSeek provider, planner, tool registry allowlist | Schema validation, budget/timeout, mock tests | NOT STARTED |
-| P3 | Flow | Playwright session manager, Google Flow adapter, validasi media | Smoke test pada akun sah, file tervalidasi | NOT STARTED |
+| P2 | Agent | DeepSeek provider, planner, tool registry allowlist | Schema validation, budget/timeout, mock tests | **COMPLETED** (2026-10-30, `7d02a06`,`9cd360c`) — bukti di `CURRENT.md` |
+| P3 | Flow | Playwright session manager, Google Flow adapter, validasi media | Smoke test pada akun sah, file tervalidasi | NOT STARTED (tertahan OD-1) |
 | P4 | Approval & Scheduler | Approval UI, schedules, quota, pause/resume | Approval binding + schedule persistence tests | NOT STARTED |
 | P5 | YouTube | Adapter publikasi pertama | Authorized test upload, verify, retry/reconciliation tests | NOT STARTED |
 | P6 | Platform lain | TikTok, Instagram, Facebook, X, Threads | Capability + contract test per adapter | NOT STARTED |
@@ -28,6 +28,9 @@ Sumber fase + DoD: `LLD.md` §18. Urutan ini mengikat kecuali user menyatakan la
 
 ## Backlog Teknis (turunan, belum dijadwalkan)
 
+- Wiring planner → dispatcher: handler `PLAN_CONTENT` memanggil `createPlanner`, memetakan `PlannerOutputError` → `NEEDS_ATTENTION`; butuh schema campaign/konten/aset (ADR-0002 D9).
+- Sumber API key DeepSeek (env vs Credential Manager) + uji live pertama adapter (status saat ini UNVERIFIED).
+- Keputusan owner: apakah planner menolak target dengan capability `unknown`, atau memberi peringatan (ADR-0002 D8).
 - ~~Pin versi Node LTS + pnpm; komit lockfile.~~ DONE 2026-10-30 — `engines >=22.12 <23`, `packageManager pnpm@9.15.4`, `pnpm-lock.yaml` dikomit.
 - Tentukan apakah `HLD.md`/`LLD.md` dipindah ke `docs/` (buat ADR bila ya).
 - Siapkan `docs/security.md` dan `docs/runbook.md` sebelum P7.

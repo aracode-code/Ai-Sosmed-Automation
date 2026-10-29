@@ -3,10 +3,11 @@
   "mode": "LIGHTWEIGHT_GREP",
   "status": "DEGRADED",
   "reason": "Tidak ada tool SQLite index di runtime ini (`sqlite_query_tool` missing). Pencarian memakai ripgrep terhadap source aktual; tidak ada code.db.",
-  "indexed_commit": "debdaaf9785d92bb5bdb4aae017c5d9f479a771b",
-  "indexed_at": "2026-10-30T00:07:00+07:00",
+  "indexed_commit": "9cd360c0f0ae26ffbc9c55ca4157e87b89d35075",
+  "indexed_at": "2026-10-30T04:30:00+07:00",
   "scope": [
     "apps/local-api/src/**",
+    "packages/agent-core/src/**",
     "packages/domain/src/**",
     "packages/database/src/**",
     "packages/workflow/src/**",
@@ -14,18 +15,18 @@
     "tests/integration/**"
   ],
   "counts": {
-    "files": 39,
-    "test_files": 11,
+    "files": 50,
+    "test_files": 15,
     "symbols": null,
     "imports": null,
     "apis": 4,
     "db_objects": 12,
-    "tests": 66
+    "tests": 95
   },
   "validation": {
-    "last_validated_at": "2026-10-30T00:07:00+07:00",
+    "last_validated_at": "2026-10-30T04:30:00+07:00",
     "result": "partial",
-    "note": "Scope = daftar `git ls-files '*.ts'` pada commit debdaaf (39 file, 11 test). Metadata simbol/import tidak dapat dihitung tanpa index SQLite — nilai null, bukan 0."
+    "note": "Scope = daftar `git ls-files '*.ts'` pada commit 9cd360c (50 file, 15 test). Metadata simbol/import tidak dapat dihitung tanpa index SQLite — nilai null, bukan 0."
   },
   "fallback": {
     "engine": "LIGHTWEIGHT_GREP",

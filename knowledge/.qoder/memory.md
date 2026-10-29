@@ -32,4 +32,6 @@
 - 2026-10-30 — (E1) Migrasi = `packages/database/migrations/*.sql` + tabel `schema_migrations`; `drizzle-kit generate` hanya menghasilkan SQL, jurnal `__drizzle_migrations` tidak dipakai.
 - 2026-10-30 — (E1) Klaim antrean memakai transaksi `immediate()` + `UPDATE` terjaga kondisi lease; transaksi ditutup sebelum pekerjaan eksternal (sesuai invariant 7).
 - 2026-10-30 — (E1) Script pnpm berjalan di direktori paket: `DATABASE_PATH` relatif wajib diresolusi terhadap root workspace (`packages/database/src/paths.ts`).
-- 2026-10-30 — Detail keputusan: `knowledge/decisions/ADR-0001-p1-stack-baseline.md`.
+- 2026-10-30 — (E1) Output AI invalid setelah perbaikan terbatas memakai kelas `AI_OUTPUT_INVALID` → retry policy `escalate` → `NEEDS_ATTENTION`; `VALIDATION` tetap untuk input/payload invalid (→ `FAILED`). Aturan campaign (platform, capability `unsupported`, batas caption, approval `required`) ditegakkan di `checkPlanAgainstCampaign`/`enforceApproval`, bukan di prompt.
+- 2026-10-30 — (E1) Tool AI hanya dapat dipanggil lewat `ToolRegistry` allowlist: Zod validasi input+output, budget 8 panggilan/run, timeout 10 s, nama shell/exec/eval/spawn ditolak; `ToolContext` tidak membawa secret.
+- 2026-10-30 — Detail keputusan: `knowledge/decisions/ADR-0001-p1-stack-baseline.md`, `knowledge/decisions/ADR-0002-p2-agent-core.md`.

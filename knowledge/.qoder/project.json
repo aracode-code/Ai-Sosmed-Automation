@@ -4,10 +4,10 @@
   "root": "F:/AiSosmedAutomation",
   "type": "local-desktop-app",
   "platform_host": "Windows 10.0.19045",
-  "current_state": "implemented-p1",
+  "current_state": "implemented-p2",
   "detected_stack": {
     "code": ["typescript", "node-esm"],
-    "packages": ["@saa/domain", "@saa/database", "@saa/workflow", "@saa/observability", "@saa/local-api"],
+    "packages": ["@saa/domain", "@saa/database", "@saa/workflow", "@saa/observability", "@saa/agent-core", "@saa/local-api"],
     "tools_available": {
       "node": "v22.15.0",
       "git": "2.49.0",
@@ -22,7 +22,7 @@
     "database": ["SQLite", "Drizzle ORM", "WAL", "better-sqlite3"],
     "queue": "SQLite persistent queue",
     "browser": "Playwright Chromium",
-    "ai": "DeepSeek API via provider adapter",
+    "ai": "DeepSeek API via provider adapter (fetch, tanpa SDK)",
     "media": ["ffmpeg", "ffprobe"],
     "logging": "Pino",
     "testing": ["Vitest", "Playwright Test"],

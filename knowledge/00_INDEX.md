@@ -2,7 +2,7 @@
 
 **Project:** AI Social Media Automation Agent
 **Dibuat:** 2026-10-29 (SESSION-2026-10-29-1)
-**Status:** P1 Foundation COMPLETED (2026-10-30) — kode aktual ada di `apps/` + `packages/`.
+**Status:** P1 Foundation + P2 Agent core COMPLETED (2026-10-30) — kode aktual ada di `apps/` + `packages/`.
 
 ---
 
@@ -12,8 +12,8 @@
 |---|---|
 | Arsitektur, komponen, alur bisnis, keputusan teknologi, roadmap | [`HLD.md`](../HLD.md) — §3 komponen, §4 stack, §5 alur, §6 integrasi, §14 keputusan arsitektur |
 | Struktur repo, domain model, state machine, schema DB, kontrak API, workflow, scheduler, agent, adapter, security, testing, acceptance criteria | [`LLD.md`](../LLD.md) — §3–§19 |
-| Keputusan implementasi & penyimpangan (stack, migrator, status drift HLD §7.1) | [`decisions/ADR-0001-p1-stack-baseline.md`](decisions/ADR-0001-p1-stack-baseline.md) |
-| Perilaku modul yang sudah diimplementasikan | [`modules/foundation.md`](modules/foundation.md) |
+| Keputusan implementasi & penyimpangan | [`decisions/ADR-0001-p1-stack-baseline.md`](decisions/ADR-0001-p1-stack-baseline.md) (stack P1, migrator, status drift HLD §7.1) · [`decisions/ADR-0002-p2-agent-core.md`](decisions/ADR-0002-p2-agent-core.md) (kontrak planner, output AI, tool allowlist) |
+| Perilaku modul yang sudah diimplementasikan | [`modules/foundation.md`](modules/foundation.md) (P1) · [`modules/agent-core.md`](modules/agent-core.md) (P2) |
 | State mesin (commit, task, index, validasi) | `.qoder/state.json` |
 | Status index kode | `.qoder/index/index-state.json` |
 | Konteks sesi aktif | `.qoder/context.md` |
@@ -31,8 +31,8 @@
 knowledge/
 ├── 00_INDEX.md              # berkas ini
 ├── 01_PROJECT.md            # identitas, ruang lingkup, konvensi, status implementasi
-├── decisions/ADR-*.md       # keputusan implementasi (ADR-0001: baseline stack P1)
-├── modules/<MODULE>.md      # pengetahuan modul (foundation.md = P1)
+├── decisions/ADR-*.md       # keputusan implementasi (ADR-0001 baseline P1, ADR-0002 agent P2)
+├── modules/<MODULE>.md      # pengetahuan modul (foundation.md = P1, agent-core.md = P2)
 ├── .qoder/
 │   ├── state.json           # state mesin (§3.1 AGENTS.md)
 │   ├── project.json         # identitas + stack terdeteksi
