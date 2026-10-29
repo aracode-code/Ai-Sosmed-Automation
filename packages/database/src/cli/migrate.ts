@@ -1,7 +1,11 @@
+import { dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { openDatabase } from '../client';
 import { appliedMigrations, runMigrations } from '../migrate';
+import { resolveWorkspacePath } from '../paths';
 
-const databasePath = process.env.DATABASE_PATH ?? './data/database/app.sqlite';
+const rawPath = process.env.DATABASE_PATH ?? './data/database/app.sqlite';
+const databasePath = resolveWorkspacePath(rawPath, dirname(fileURLToPath(import.meta.url)));
 
 const db = openDatabase(databasePath);
 try {

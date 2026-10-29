@@ -1,4 +1,4 @@
-import { openDatabase, runMigrations } from '@saa/database';
+import { openDatabase, resolveWorkspacePath, runMigrations } from '@saa/database';
 import { createLogger } from '@saa/observability';
 import { runStartupRecovery } from '@saa/workflow';
 import { buildApp } from './app';
@@ -12,15 +12,18 @@ async function main(): Promise<void> {
     pretty: config.env === 'development'
   });
 
-  const db = openDatabase(config.databasePath);
+  const databasePath = resolveWorkspacePath(config.databasePath);
+  const db = openDatabase(databasePath);
   const applied = runMigrations(db.raw);
-  logger.info({ database: config.databasePath, applied }, 'migrasi selesai');
+  logger.info({ database: databasePath, applied }, 'migrasi selesai');
 
   const recovery = runStartupRecovery(db, { logger });
-  logger.info(
-    { requeued: recovery.requeued.length, escalated: recovery.escalated.length },
-    'startup recovery selesai'
-  );
+  if (recovery.requeued.length + recovery.escalated.length > 0) {
+    logger.warn(
+      { requeued: recovery.requeued.length, escalated: recovery.escalated.length },
+      'job dipulihkan setelah restart'
+    );
+  }
 
   const app = buildApp({ db, config, logger, version: '0.1.0' });
 
