@@ -23,7 +23,7 @@ afterEach(() => {
 describe('migrasi', () => {
   it('menerapkan migrasi awal sekali dan membuat 12 tabel', () => {
     const db = tempDb();
-    expect(runMigrations(db.raw)).toEqual(['0000_init.sql']);
+    expect(runMigrations(db.raw)).toEqual(['0000_init.sql', '0001_campaign_platforms.sql']);
 
     const tables = (db.raw
       .prepare("SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name")
@@ -49,7 +49,25 @@ describe('migrasi', () => {
     const db = tempDb();
     runMigrations(db.raw);
     expect(runMigrations(db.raw)).toEqual([]);
-    expect(appliedMigrations(db.raw)).toEqual(['0000_init.sql']);
+    expect(appliedMigrations(db.raw)).toEqual([
+      '0000_init.sql',
+      '0001_campaign_platforms.sql'
+    ]);
+  });
+
+  it('menambahkan platforms_json pada campaign dengan default kosong', () => {
+    const db = tempDb();
+    runMigrations(db.raw);
+    db.raw
+      .prepare(
+        `INSERT INTO campaigns (id, name, niche, status, approval_mode, created_at)
+         VALUES ('c1', 'N', 'niche', 'active', 'required', '2026-01-01T00:00:00.000Z')`
+      )
+      .run();
+    const row = db.raw.prepare("SELECT platforms_json FROM campaigns WHERE id = 'c1'").get() as {
+      platforms_json: string;
+    };
+    expect(row.platforms_json).toBe('[]');
   });
 
   it('mengaktifkan WAL dan foreign keys', () => {

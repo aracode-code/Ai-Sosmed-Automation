@@ -13,6 +13,7 @@ export const campaigns = sqliteTable('campaigns', {
   niche: text('niche').notNull(),
   status: text('status').notNull(),
   approvalMode: text('approval_mode').notNull().default('required'),
+  platformsJson: text('platforms_json').notNull().default('[]'),
   createdAt: text('created_at').notNull()
 });
 

@@ -7,7 +7,30 @@ export interface Campaign {
   niche: string;
   status: string;
   approvalMode: 'automatic' | 'required';
+  /** Target platform campaign; disimpan sebagai `platforms_json` (ADR-0003). */
+  platforms: PlatformId[];
   createdAt: string;
+}
+
+export interface ContentItem {
+  id: string;
+  campaignId: string;
+  version: number;
+  topic: string;
+  prompt: unknown;
+  caption: unknown;
+  approvalStatus: 'pending' | 'approved' | 'rejected' | 'not_required';
+}
+
+export interface MediaAsset {
+  id: string;
+  contentId: string;
+  path: string;
+  sha256: string;
+  mimeType: string;
+  sizeBytes: number;
+  durationMs: number | null;
+  validationStatus: 'pending' | 'valid' | 'invalid';
 }
 
 export interface SocialAccount {

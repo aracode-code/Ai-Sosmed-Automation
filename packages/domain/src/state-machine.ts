@@ -25,6 +25,7 @@ export type JobEvent =
   | { type: 'PUBLISH_SUBMITTED' }
   | { type: 'VERIFICATION_SUCCEEDED'; evidence: PublishEvidence }
   | { type: 'VERIFICATION_FAILED' }
+  | { type: 'STEP_COMPLETED' }
   | { type: 'RETRYABLE_FAILURE' }
   | { type: 'RETRY_DUE'; target: RetrySafeState }
   | { type: 'REQUEUE' }
@@ -78,6 +79,14 @@ const RECOVERABLE_STATES: readonly JobStatus[] = [
 ];
 
 const IRREVERSIBLE_STATES: readonly JobStatus[] = ['PUBLISHING', 'VERIFYING'];
+
+/** Job per langkah workflow berakhir di COMPLETED; publication berakhir di PUBLISHED. */
+const STEP_COMPLETION_SOURCES: readonly JobStatus[] = [
+  'PLANNING',
+  'GENERATING',
+  'DOWNLOADING',
+  'VALIDATING'
+];
 
 function accept(status: JobStatus): TransitionResult {
   return { ok: true, status };
@@ -145,6 +154,11 @@ export function transitionJob(
 
     case 'VERIFICATION_FAILED':
       return current === 'VERIFYING' ? accept('RETRY_WAIT') : reject(current, event.type);
+
+    case 'STEP_COMPLETED':
+      return STEP_COMPLETION_SOURCES.includes(current)
+        ? accept('COMPLETED')
+        : reject(current, event.type);
 
     case 'RETRYABLE_FAILURE':
       return RETRYABLE_FAILURE_SOURCES.includes(current)

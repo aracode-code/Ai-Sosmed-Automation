@@ -64,7 +64,7 @@ describe('state machine — penolakan', () => {
   });
 
   it('menolak event apa pun dari status terminal', () => {
-    for (const status of ['PUBLISHED', 'FAILED', 'CANCELLED'] as const) {
+    for (const status of ['PUBLISHED', 'COMPLETED', 'FAILED', 'CANCELLED'] as const) {
       expect(transitionJob(status, { type: 'ESCALATE' }).ok).toBe(false);
     }
   });
@@ -105,6 +105,17 @@ describe('state machine — jalur pemulihan', () => {
       ok: true,
       status: 'FAILED'
     });
+  });
+
+  it('job per langkah berakhir di COMPLETED, bukan dari state publication', () => {
+    expect(transitionJob('PLANNING', { type: 'STEP_COMPLETED' })).toEqual({
+      ok: true,
+      status: 'COMPLETED'
+    });
+    expect(transitionJob('VALIDATING', { type: 'STEP_COMPLETED' }).ok).toBe(true);
+    expect(transitionJob('PUBLISHING', { type: 'STEP_COMPLETED' }).ok).toBe(false);
+    expect(transitionJob('VERIFYING', { type: 'STEP_COMPLETED' }).ok).toBe(false);
+    expect(transitionJob('SCHEDULED', { type: 'STEP_COMPLETED' }).ok).toBe(false);
   });
 
   it('lease kedaluwarsa mengembalikan job ke QUEUED, tapi tidak dari PUBLISHING', () => {

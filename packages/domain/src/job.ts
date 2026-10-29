@@ -23,6 +23,7 @@ export const JOB_STATUSES = [
   'PUBLISHING',
   'VERIFYING',
   'PUBLISHED',
+  'COMPLETED',
   'RETRY_WAIT',
   'NEEDS_ATTENTION',
   'FAILED',
@@ -31,7 +32,12 @@ export const JOB_STATUSES = [
 
 export type JobStatus = (typeof JOB_STATUSES)[number];
 
-export const TERMINAL_STATUSES: readonly JobStatus[] = ['PUBLISHED', 'FAILED', 'CANCELLED'];
+export const TERMINAL_STATUSES: readonly JobStatus[] = [
+  'PUBLISHED',
+  'COMPLETED',
+  'FAILED',
+  'CANCELLED'
+];
 
 export function isTerminalStatus(status: JobStatus): boolean {
   return TERMINAL_STATUSES.includes(status);

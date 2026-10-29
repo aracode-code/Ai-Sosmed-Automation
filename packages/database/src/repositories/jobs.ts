@@ -1,6 +1,15 @@
 import { randomUUID } from 'node:crypto';
-import { transitionJob, type Job, type JobStatus, type JobType } from '@saa/domain';
+import {
+  TERMINAL_STATUSES,
+  transitionJob,
+  type Job,
+  type JobStatus,
+  type JobType
+} from '@saa/domain';
 import type { SqliteDatabase } from '../client';
+
+/** Daftar terminal diturunkan dari domain agar SQL tidak pernah drift. */
+const TERMINAL_SQL = TERMINAL_STATUSES.map((status) => `'${status}'`).join(', ');
 
 interface JobRow {
   id: string;
@@ -108,6 +117,40 @@ export function getJob(raw: SqliteDatabase, id: string): Job | null {
   return row ? toJob(row) : null;
 }
 
+export function getJobByIdempotencyKey(raw: SqliteDatabase, key: string): Job | null {
+  const row = raw.prepare('SELECT * FROM jobs WHERE idempotency_key = ?').get(key) as
+    | JobRow
+    | undefined;
+  return row ? toJob(row) : null;
+}
+
+function isUniqueViolation(error: unknown): boolean {
+  const code = (error as { code?: unknown }).code;
+  return typeof code === 'string' && code.startsWith('SQLITE_CONSTRAINT');
+}
+
+/**
+ * Insert yang aman diulang: retry handler tidak membuat job duplikat untuk
+ * idempotency key yang sama, termasuk saat dua worker balapan.
+ */
+export function insertJobIdempotent(
+  raw: SqliteDatabase,
+  input: InsertJobInput,
+  now: string = new Date().toISOString()
+): Job {
+  const existing = getJobByIdempotencyKey(raw, input.idempotencyKey);
+  if (existing !== null) return existing;
+
+  try {
+    return insertJob(raw, input, now);
+  } catch (error) {
+    if (!isUniqueViolation(error)) throw error;
+    const raced = getJobByIdempotencyKey(raw, input.idempotencyKey);
+    if (raced === null) throw error;
+    return raced;
+  }
+}
+
 export interface ListJobsQuery {
   status?: JobStatus;
   limit?: number;
@@ -201,7 +244,7 @@ export function extendLease(
     .prepare(
       `UPDATE jobs SET lease_until = @leaseUntil, updated_at = @now
        WHERE id = @jobId AND lease_owner = @workerId
-         AND status NOT IN ('PUBLISHED', 'FAILED', 'CANCELLED')`
+         AND status NOT IN (${TERMINAL_SQL})`
     )
     .run(params);
   return info.changes > 0;
@@ -225,7 +268,7 @@ export function listExpiredLeases(raw: SqliteDatabase, now: string): Job[] {
     .prepare(
       `SELECT * FROM jobs
        WHERE lease_owner IS NOT NULL AND lease_until IS NOT NULL AND lease_until <= @now
-         AND status NOT IN ('PUBLISHED', 'FAILED', 'CANCELLED')`
+         AND status NOT IN (${TERMINAL_SQL})`
     )
     .all({ now }) as JobRow[];
   return rows.map(toJob);
@@ -260,6 +303,7 @@ export interface TransitionPatch {
   runAt?: string | null;
   lastErrorCode?: string | null;
   clearLease?: boolean;
+  contentId?: string;
 }
 
 export interface ApplyTransitionParams {
@@ -295,6 +339,10 @@ export function applyTransition(raw: SqliteDatabase, params: ApplyTransitionPara
   }
   if (patch.clearLease === true) {
     sets.push('lease_owner = NULL', 'lease_until = NULL');
+  }
+  if (patch.contentId !== undefined) {
+    sets.push('content_id = @contentId');
+    values.contentId = patch.contentId;
   }
 
   const info = raw

@@ -156,12 +156,18 @@ importers:
 
   packages/workflow:
     dependencies:
+      '@saa/agent-core':
+        specifier: workspace:*
+        version: link:../agent-core
       '@saa/database':
         specifier: workspace:*
         version: link:../database
       '@saa/domain':
         specifier: workspace:*
         version: link:../domain
+      zod:
+        specifier: ^3.24.0
+        version: 3.25.76
     devDependencies:
       '@types/node':
         specifier: ^22.10.0
