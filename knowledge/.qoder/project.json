@@ -4,17 +4,22 @@
   "root": "F:/AiSosmedAutomation",
   "type": "local-desktop-app",
   "platform_host": "Windows 10.0.19045",
-  "current_state": "docs-only",
+  "current_state": "implemented-p1",
   "detected_stack": {
-    "code": "none",
-    "tools_available": { "node": "v22.15.0", "git": "2.49.0", "pnpm": "unknown" }
+    "code": ["typescript", "node-esm"],
+    "packages": ["@saa/domain", "@saa/database", "@saa/workflow", "@saa/observability", "@saa/local-api"],
+    "tools_available": {
+      "node": "v22.15.0",
+      "git": "2.49.0",
+      "pnpm": "9.15.4 (via `corepack pnpm`; tidak ada di PATH)"
+    }
   },
   "planned_stack": {
     "monorepo": "pnpm workspace",
     "language": "TypeScript strict",
     "frontend": ["React", "Vite", "Tailwind"],
     "backend": ["Node.js", "Fastify", "Zod"],
-    "database": ["SQLite", "Drizzle ORM", "WAL"],
+    "database": ["SQLite", "Drizzle ORM", "WAL", "better-sqlite3"],
     "queue": "SQLite persistent queue",
     "browser": "Playwright Chromium",
     "ai": "DeepSeek API via provider adapter",
@@ -24,6 +29,6 @@
     "packaging": "Electron atau Tauri (belum dipilih)"
   },
   "platforms": ["youtube", "tiktok", "instagram", "facebook", "x", "threads"],
-  "canonical_docs": { "hld": "HLD.md", "lld": "LLD.md" },
+  "canonical_docs": { "hld": "HLD.md", "lld": "LLD.md", "adr": "knowledge/decisions/" },
   "timezone": { "scheduler_default": "Asia/Jakarta", "audit_storage": "UTC ISO-8601" }
 }

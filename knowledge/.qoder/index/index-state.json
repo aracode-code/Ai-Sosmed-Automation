@@ -1,26 +1,34 @@
 {
   "version": 1,
-  "mode": "UNAVAILABLE",
-  "status": "UNAVAILABLE",
-  "reason": "Belum ada file sumber di repositori — hanya HLD.md, LLD.md, dan knowledge/. Tidak ada yang bisa diindeks.",
-  "indexed_commit": "",
-  "indexed_at": "",
-  "scope": [],
+  "mode": "LIGHTWEIGHT_GREP",
+  "status": "DEGRADED",
+  "reason": "Tidak ada tool SQLite index di runtime ini (`sqlite_query_tool` missing). Pencarian memakai ripgrep terhadap source aktual; tidak ada code.db.",
+  "indexed_commit": "debdaaf9785d92bb5bdb4aae017c5d9f479a771b",
+  "indexed_at": "2026-10-30T00:07:00+07:00",
+  "scope": [
+    "apps/local-api/src/**",
+    "packages/domain/src/**",
+    "packages/database/src/**",
+    "packages/workflow/src/**",
+    "packages/observability/src/**",
+    "tests/integration/**"
+  ],
   "counts": {
-    "files": 0,
-    "symbols": 0,
-    "imports": 0,
-    "apis": 0,
-    "db_objects": 0,
-    "tests": 0
+    "files": 39,
+    "test_files": 11,
+    "symbols": null,
+    "imports": null,
+    "apis": 4,
+    "db_objects": 12,
+    "tests": 66
   },
   "validation": {
-    "last_validated_at": "",
-    "result": "not_applicable",
-    "note": "Validasi index (§4.9) baru berlaku setelah P1 menghasilkan file sumber."
+    "last_validated_at": "2026-10-30T00:07:00+07:00",
+    "result": "partial",
+    "note": "Scope = daftar `git ls-files '*.ts'` pada commit debdaaf (39 file, 11 test). Metadata simbol/import tidak dapat dihitung tanpa index SQLite — nilai null, bukan 0."
   },
   "fallback": {
     "engine": "LIGHTWEIGHT_GREP",
-    "note": "Bila index SQLite belum dibangun, pencarian memakai ripgrep terhadap file aktual (§0.8 degradasi wajib)."
+    "note": "Pencarian memakai ripgrep terhadap file aktual (§0.8 degradasi wajib). Index SQLite dibangun hanya bila tool tersedia atau kebutuhan pencarian melampaui grep."
   }
 }

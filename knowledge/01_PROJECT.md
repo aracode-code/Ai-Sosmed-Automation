@@ -9,7 +9,7 @@
 | Tipe | Aplikasi desktop lokal Windows, satu pengguna utama | VERIFIED (HLD §2.3) |
 | Deployment | Windows PC lokal; packaging Electron/Tauri belum dipilih | VERIFIED (HLD §4, LLD §19) |
 | Dokumen induk | `HLD.md` v1.0 dan `LLD.md` v1.0 (keduanya berstatus Draft) | VERIFIED |
-| Implementasi kode | **Belum ada** — 0 file sumber | VERIFIED (isi root 2026-10-29) |
+| Implementasi kode | **P1 Foundation selesai** — 5 paket workspace, 66 test hijau | VERIFIED (commit `debdaaf`, 2026-10-30) |
 
 ## Tujuan Produk
 
@@ -48,18 +48,20 @@ Mengotomatisasi alur produksi video dari perencanaan sampai publikasi lintas pla
 | Tests | Vitest + Playwright Test | contract test per adapter |
 | Secrets | Windows Credential Manager / DPAPI | DB hanya menyimpan `secret_ref` |
 
-## Struktur Repo Target (LLD §3) — PLANNED, belum dibuat
+## Struktur Repo (aktual per 2026-10-30)
 
 ```text
-apps/desktop-ui · apps/local-api
-packages/domain · database · workflow · scheduler · agent-core · browser-engine
-packages/integrations/{deepseek,google-flow,social/*}
-packages/{media,secrets,observability}
-tests/{unit,integration,e2e,fixtures}
-docs/{HLD.md,LLD.md,security.md,runbook.md}
+apps/local-api            # Fastify app + route health/jobs + entrypoint
+packages/domain           # entitas, JobType/JobStatus, error class, state machine
+packages/database         # schema Drizzle, client, migrator SQL, repository jobs/audit
+packages/workflow         # dispatcher, retry policy, recovery lease
+packages/observability    # logger Pino + redaksi secret
+tests/integration         # migrasi, restart recovery, klaim lintas koneksi, envelope API
 ```
 
-> Catatan: HLD/LLD saat ini berada di root repo (bukan `docs/`). Pindahkan hanya bila diputuskan di ADR — jangan memindahkan dokumen canonical tanpa jejak.
+Belum dibuat (P2–P7): `apps/desktop-ui`, `packages/{scheduler,agent-core,browser-engine,media,secrets}`, `packages/integrations/*`, `tests/{unit,e2e,fixtures}`, `docs/{security.md,runbook.md}`.
+
+> Catatan: HLD/LLD berada di root repo (bukan `docs/`). Pindahkan hanya bila diputuskan di ADR — jangan memindahkan dokumen canonical tanpa jejak.
 
 ## Aturan Dependency (LLD §3)
 
@@ -72,13 +74,18 @@ docs/{HLD.md,LLD.md,security.md,runbook.md}
 - `PUBLISHED` hanya setelah bukti verifikasi; status ambigu → reconciliation, bukan retry buta.
 - Tidak ada shell tool untuk AI; tool registry = allowlist tervalidasi Zod (LLD §9.2–9.3).
 - No secret di log, repo, state, index, atau snapshot.
+- Semua perintah paket dijalankan sebagai `corepack pnpm ...` — `pnpm` tidak ada di PATH mesin ini.
+- `DATABASE_PATH` relatif diresolusi terhadap root workspace (ADR-0001 D5).
+- Migrasi hanya lewat `packages/database/migrations/*.sql` + `schema_migrations`; jurnal drizzle-kit tidak dipakai (ADR-0001 D3).
+- Status job: 14 status LLD §4.2/§7.1 (bukan daftar HLD §7.1 — drift tercatat di ADR-0001 D6).
+- Quality gate P1: `tsc` strict + Vitest; lint/build artefak belum ada (ADR-0001 D7).
 
 ## Status Implementasi
 
 | Fase | Status |
 |---|---|
 | P0 Bootstrap knowledge OS | COMPLETED (2026-10-29) |
-| P1 Foundation (workspace, DB, API, logs, state machine, queue) | NOT STARTED |
+| P1 Foundation (workspace, DB, API, logs, state machine, queue) | **COMPLETED (2026-10-30, commit `debdaaf`)** |
 | P2 Agent · P3 Flow · P4 Approval/Scheduler · P5 YouTube · P6 Platform lain · P7 Hardening | NOT STARTED |
 
-Rincian fase + Definition of Done: `tasks/BACKLOG.md`.
+Rincian fase + Definition of Done: `tasks/BACKLOG.md`. Bukti P1: `modules/foundation.md`.

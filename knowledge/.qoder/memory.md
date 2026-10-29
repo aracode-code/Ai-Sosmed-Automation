@@ -1,8 +1,7 @@
 # Project Memory (L1)
 
-> Memori permanen terverifikasi. Sumber: `HLD.md` v1.0 / `LLD.md` v1.0
-> (E5 — verified documentation). **Belum ada yang terverifikasi terhadap kode, karena kode belum ada.**
-> Jangan menambah entri dari asumsi; entri tanpa sumber dilarang.
+> Memori permanen terverifikasi. Entri 1–14 bersumber `HLD.md`/`LLD.md` v1.0 (E5).
+> Entri bagian "Keputusan yang Sudah Diambil" yang menyebut commit bersumber kode aktual (E1).
 
 ## Invariant Wajib
 
@@ -29,3 +28,8 @@
 ## Keputusan yang Sudah Diambil
 
 - 2026-10-29 — Root canonical knowledge = `knowledge/`; `HLD.md`/`LLD.md` tetap di root repo sebagai sumber arsitektur canonical dan tidak disalin ke `knowledge/architecture/`, agar tidak ada dua salinan yang bisa drift.
+- 2026-10-30 — (E1) Transisi status **tidak boleh** ditulis langsung: dispatcher hanya bisa lewat `HandlerContext.transition` yang memanggil `transitionJob`; `VERIFICATION_SUCCEEDED` tanpa `externalPostId`/`permalink` + `verifiedAt` ditolak.
+- 2026-10-30 — (E1) Migrasi = `packages/database/migrations/*.sql` + tabel `schema_migrations`; `drizzle-kit generate` hanya menghasilkan SQL, jurnal `__drizzle_migrations` tidak dipakai.
+- 2026-10-30 — (E1) Klaim antrean memakai transaksi `immediate()` + `UPDATE` terjaga kondisi lease; transaksi ditutup sebelum pekerjaan eksternal (sesuai invariant 7).
+- 2026-10-30 — (E1) Script pnpm berjalan di direktori paket: `DATABASE_PATH` relatif wajib diresolusi terhadap root workspace (`packages/database/src/paths.ts`).
+- 2026-10-30 — Detail keputusan: `knowledge/decisions/ADR-0001-p1-stack-baseline.md`.

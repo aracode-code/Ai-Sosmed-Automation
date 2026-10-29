@@ -6,7 +6,7 @@ Sumber fase + DoD: `LLD.md` §18. Urutan ini mengikat kecuali user menyatakan la
 
 | ID | Fase | Output | DoD | Status |
 |---|---|---|---|---|
-| P1 | Foundation | Workspace pnpm, schema DB + migrasi, Local API dasar, logging, domain state machine, persistent queue | Migrations · unit tests · `/health` · restart recovery | **PLANNED** (DAG S1–S8 di `CURRENT.md`, gate G5 pending) |
+| P1 | Foundation | Workspace pnpm, schema DB + migrasi, Local API dasar, logging, domain state machine, persistent queue | Migrations · unit tests · `/health` · restart recovery | **COMPLETED** (2026-10-30, `debdaaf`) — bukti di `CURRENT.md` |
 | P2 | Agent | DeepSeek provider, planner, tool registry allowlist | Schema validation, budget/timeout, mock tests | NOT STARTED |
 | P3 | Flow | Playwright session manager, Google Flow adapter, validasi media | Smoke test pada akun sah, file tervalidasi | NOT STARTED |
 | P4 | Approval & Scheduler | Approval UI, schedules, quota, pause/resume | Approval binding + schedule persistence tests | NOT STARTED |
@@ -28,6 +28,8 @@ Sumber fase + DoD: `LLD.md` §18. Urutan ini mengikat kecuali user menyatakan la
 
 ## Backlog Teknis (turunan, belum dijadwalkan)
 
-- Pin versi Node LTS + pnpm; komit lockfile.
+- ~~Pin versi Node LTS + pnpm; komit lockfile.~~ DONE 2026-10-30 — `engines >=22.12 <23`, `packageManager pnpm@9.15.4`, `pnpm-lock.yaml` dikomit.
 - Tentukan apakah `HLD.md`/`LLD.md` dipindah ke `docs/` (buat ADR bila ya).
 - Siapkan `docs/security.md` dan `docs/runbook.md` sebelum P7.
+- Putuskan tool lint + build artefak (ADR-0001 D7) sebelum UI desktop dimulai.
+- Keputusan owner: `AGENTS.md` dikomit atau di-ignore.

@@ -2,7 +2,7 @@
 
 **Project:** AI Social Media Automation Agent
 **Dibuat:** 2026-10-29 (SESSION-2026-10-29-1)
-**Status:** Baseline dokumen; implementasi kode belum dimulai.
+**Status:** P1 Foundation COMPLETED (2026-10-30) — kode aktual ada di `apps/` + `packages/`.
 
 ---
 
@@ -12,6 +12,8 @@
 |---|---|
 | Arsitektur, komponen, alur bisnis, keputusan teknologi, roadmap | [`HLD.md`](../HLD.md) — §3 komponen, §4 stack, §5 alur, §6 integrasi, §14 keputusan arsitektur |
 | Struktur repo, domain model, state machine, schema DB, kontrak API, workflow, scheduler, agent, adapter, security, testing, acceptance criteria | [`LLD.md`](../LLD.md) — §3–§19 |
+| Keputusan implementasi & penyimpangan (stack, migrator, status drift HLD §7.1) | [`decisions/ADR-0001-p1-stack-baseline.md`](decisions/ADR-0001-p1-stack-baseline.md) |
+| Perilaku modul yang sudah diimplementasikan | [`modules/foundation.md`](modules/foundation.md) |
 | State mesin (commit, task, index, validasi) | `.qoder/state.json` |
 | Status index kode | `.qoder/index/index-state.json` |
 | Konteks sesi aktif | `.qoder/context.md` |
@@ -29,6 +31,8 @@
 knowledge/
 ├── 00_INDEX.md              # berkas ini
 ├── 01_PROJECT.md            # identitas, ruang lingkup, konvensi, status implementasi
+├── decisions/ADR-*.md       # keputusan implementasi (ADR-0001: baseline stack P1)
+├── modules/<MODULE>.md      # pengetahuan modul (foundation.md = P1)
 ├── .qoder/
 │   ├── state.json           # state mesin (§3.1 AGENTS.md)
 │   ├── project.json         # identitas + stack terdeteksi
@@ -40,7 +44,7 @@ knowledge/
 └── logs/
 ```
 
-Belum dibuat (dibuat hanya saat ada isi nyata): `architecture/`, `database/`, `api/`, `security/`, `modules/`, `decisions/`, `references/`, `.qoder/skills/`, `.qoder/mcp/`, `.qoder/cache/`.
+Belum dibuat (dibuat hanya saat ada isi nyata): `architecture/`, `database/`, `api/`, `security/`, `references/`, `.qoder/skills/`, `.qoder/mcp/`, `.qoder/cache/`.
 
 ---
 
