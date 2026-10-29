@@ -7,6 +7,7 @@ const ESCALATE_CLASSES: readonly ErrorClass[] = [
   'SECURITY_CHALLENGE',
   'UI_CHANGED',
   'AMBIGUOUS_RESULT',
+  'AI_OUTPUT_INVALID',
   'DISK'
 ];
 

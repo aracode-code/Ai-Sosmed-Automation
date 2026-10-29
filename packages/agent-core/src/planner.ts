@@ -22,6 +22,22 @@ export class PlannerError extends AppError {
   }
 }
 
+/**
+ * Output model tidak lolos skema/kebijakan setelah batas perbaikan. Kelas ini
+ * dipetakan retry policy ke `escalate` (NEEDS_ATTENTION), sesuai LLD §9.3 —
+ * bukan FAILED seperti VALIDATION biasa.
+ */
+export class PlannerOutputError extends AppError {
+  constructor(
+    message: string,
+    readonly details: string[] = [],
+    options: { cause?: unknown } = {}
+  ) {
+    super('AI_OUTPUT_INVALID', message, options);
+    this.name = 'PlannerOutputError';
+  }
+}
+
 export interface PlannerOptions {
   llm: LlmClient;
   /** Percobaan perbaikan setelah output pertama (default 1, LLD §9.3). */
@@ -66,8 +82,8 @@ function addUsage(total: LlmUsage | undefined, next: LlmUsage | undefined): LlmU
 
 /**
  * Planner dengan loop perbaikan terbatas. Output model divalidasi skema lalu
- * kebijakan campaign; kegagalan setelah batas perbaikan menjadi `PlannerError`
- * (kelas VALIDATION) yang oleh retry policy dipetakan ke status `NEEDS_ATTENTION`.
+ * kebijakan campaign; kegagalan setelah batas perbaikan menjadi `PlannerOutputError`
+ * (kelas AI_OUTPUT_INVALID) yang oleh retry policy dipetakan ke NEEDS_ATTENTION (LLD §9.3).
  */
 export function createPlanner(options: PlannerOptions): Planner {
   const maxRepairAttempts = options.maxRepairAttempts ?? 1;
@@ -125,7 +141,7 @@ export function createPlanner(options: PlannerOptions): Planner {
         }
 
         if (attempt === maxAttempts) {
-          throw new PlannerError(
+          throw new PlannerOutputError(
             plan === null
               ? `Output planner bukan PlanDecision valid setelah ${attempt} percobaan`
               : `Rencana melanggar kebijakan campaign setelah ${attempt} percobaan`,
@@ -139,7 +155,7 @@ export function createPlanner(options: PlannerOptions): Planner {
         );
       }
 
-      throw new PlannerError('Planner tidak menghasilkan keputusan');
+      throw new PlannerOutputError('Planner tidak menghasilkan keputusan');
     }
   };
 }

@@ -11,6 +11,7 @@ describe('classify', () => {
     expect(classify(new AppError('SECURITY_CHALLENGE', 'captcha'))).toBe('escalate');
     expect(classify(new AppError('AMBIGUOUS_RESULT', 'hasil tidak pasti'))).toBe('escalate');
     expect(classify(new AppError('VALIDATION', 'payload invalid'))).toBe('fail');
+    expect(classify(new AppError('AI_OUTPUT_INVALID', 'output planner invalid'))).toBe('escalate');
     expect(classify(new AppError('CANCELLED', 'user stop'))).toBe('cancel');
     expect(classify(new Error('apa saja'))).toBe('retry');
   });

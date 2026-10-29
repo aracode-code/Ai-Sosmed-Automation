@@ -1,5 +1,6 @@
 export type ErrorClass =
   | 'VALIDATION'
+  | 'AI_OUTPUT_INVALID'
   | 'AUTH'
   | 'RATE_LIMIT'
   | 'TRANSIENT_NETWORK'

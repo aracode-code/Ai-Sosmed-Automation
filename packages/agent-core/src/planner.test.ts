@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   createPlanner,
   PlannerError,
+  PlannerOutputError,
   type LlmClient,
   type LlmRequest,
   type PlannerInput
@@ -101,14 +102,14 @@ describe('planner', () => {
     expect(llm.calls[1]?.messages.at(-1)?.content).toContain('bukan target campaign');
   });
 
-  it('melempar PlannerError setelah batas perbaikan habis', async () => {
+  it('melempar PlannerOutputError setelah batas perbaikan habis', async () => {
     const llm = scriptedLlm(['{"campaignId":"cmp_1"}']);
     const planner = createPlanner({ llm, maxRepairAttempts: 1 });
 
     const error = await planner.plan(input).catch((caught: unknown) => caught);
 
-    expect(error).toBeInstanceOf(PlannerError);
-    expect(error).toMatchObject({ errorClass: 'VALIDATION' });
+    expect(error).toBeInstanceOf(PlannerOutputError);
+    expect(error).toMatchObject({ errorClass: 'AI_OUTPUT_INVALID' });
     expect(llm.calls).toHaveLength(2);
   });
 
