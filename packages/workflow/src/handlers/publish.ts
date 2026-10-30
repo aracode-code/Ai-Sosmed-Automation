@@ -273,7 +273,8 @@ export function createPublishHandler(deps: PublishDeps): JobHandler {
     error: unknown,
     attemptId: string
   ): Promise<void> {
-    if (classify(error) === 'retry') {
+    const decision = classify(error);
+    if (decision === 'retry') {
       retryLater(ctx, attemptId, errorClassOf(error));
       return;
     }
@@ -283,6 +284,11 @@ export function createPublishHandler(deps: PublishDeps): JobHandler {
       status: 'unknown',
       errorCode: errorClassOf(error)
     });
+    // Jalur eskalasi (AUTH/kuota/DISK) tidak pernah melewati escalateUnverified, jadi tanpa
+    // baris audit di sini kejadian yang menahan job tidak terlacak sama sekali.
+    if (decision === 'escalate') {
+      recordAudit(ctx, 'needs_attention', attemptId, errorClassOf(error));
+    }
     throw error;
   }
 
