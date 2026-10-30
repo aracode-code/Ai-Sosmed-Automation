@@ -1,7 +1,7 @@
 # Modul — Local API (App, Route, Composition Root)
 
-**Status:** P1–P5 backend (mock publish) + worker loop + dispatch jadwal COMPLETED (2026-10-30) · commit `debdaaf`, `4b513ab`, `6ad9547`, `7d13431`, `bfc7c72`
-**Sumber:** kode aktual (E1). Keputusan: `ADR-0001` (konfigurasi), `ADR-0003` D15, `ADR-0004` (worker + registry), `ADR-0005` (publikasi mock), `ADR-0006` (dispatch jadwal).
+**Status:** P1–P5 backend (mock publish) + worker loop + dispatch jadwal + produksi konten COMPLETED (2026-10-30) · commit `debdaaf`, `4b513ab`, `6ad9547`, `7d13431`, `bfc7c72`, `77fbb9c`
+**Sumber:** kode aktual (E1). Keputusan: `ADR-0001` (konfigurasi), `ADR-0003` D15, `ADR-0004` (worker + registry), `ADR-0005` (publikasi mock), `ADR-0006` (dispatch jadwal), `ADR-0007` (produksi konten per slot).
 
 ## Peta Berkas
 
@@ -27,7 +27,8 @@ loadConfig → createLogger → openDatabase → runMigrations → runStartupRec
 - Tanpa key: log peringatan tanpa nilai key, job `PLAN_CONTENT` akan berakhir `NEEDS_ATTENTION` + `NO_HANDLER`.
 - Tanpa adapter: `YOUTUBE_ADAPTER=off` (default) → log peringatan, job `PUBLISH` berakhir `NEEDS_ATTENTION` + `NO_HANDLER`.
 - `YOUTUBE_ADAPTER=mock` → `MockYouTubeAdapter` + log peringatan bahwa publikasi **PALSU** (ADR-0005 Y9).
-- `ScheduleDispatchLoop` memakai `createPublicationEnqueuer({ db, platforms: [publisher.platform] })`; loop hanya dijalankan bila `SCHEDULER_ENABLED=true`, adapter publikasi ada, dan worker aktif (ADR-0006 S6/S8). Tanpa adapter: log `adapter publikasi belum aktif; dispatch jadwal tidak dijalankan`.
+- `ScheduleDispatchLoop` memakai enqueuer komposit: `createPublicationEnqueuer({ db, platforms: [publisher.platform] })` **lalu** `createContentProductionEnqueuer({ db })` (produksi hanya bila planner ada). Loop hanya dijalankan bila `SCHEDULER_ENABLED=true`, adapter publikasi ada, dan worker aktif (ADR-0006 S6/S8). Tanpa adapter: log `adapter publikasi belum aktif; dispatch jadwal tidak dijalankan`. Tanpa planner: log `planner tidak aktif; produksi konten otomatis tidak dijalankan (hanya publikasi konten yang sudah ada)`.
+- Urutan publikasi → produksi dalam satu tick disengaja: konten yang siap pada slot ini tidak boleh tertahan oleh perencanaan konten berikutnya (ADR-0007 C4).
 - Shutdown (`SIGINT`/`SIGTERM`): `dispatchLoop.stop()` → `worker.stop()` → `app.close()` → `db.close()` (dispatch lebih dulu agar tidak ada job baru).
 - `workerId = worker_<pid>`; satu worker per proses, satu job per siklus (ADR-0004 W8).
 
@@ -69,4 +70,5 @@ curl http://127.0.0.1:4317/health
 
 - Auth lokal pada API (saat ini loopback-only sebagai batas keamanan).
 - Route untuk media/aset, approval UI, dan kontrol worker/scheduler (start/stop/status per proses).
-- Pembuatan konten otomatis: tidak ada pembuat job `PLAN_CONTENT` maupun route konten, sehingga dispatch jadwal hanya memproses konten yang sudah ada.
+- Pembuatan konten otomatis kini lewat scheduler (ADR-0007); tetap tidak ada route untuk memicu `PLAN_CONTENT` manual.
+- Produksi konten ikut berhenti bila adapter publikasi tidak terdaftar, karena loop dispatch digerbangi adapter (ADR-0006 S8).

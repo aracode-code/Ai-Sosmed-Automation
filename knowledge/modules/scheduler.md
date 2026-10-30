@@ -1,7 +1,7 @@
-# Modul — Scheduler (P4 engine + P4b dispatch)
+# Modul — Scheduler (P4 engine + P4b dispatch + P4c produksi)
 
-**Status:** COMPLETED (engine + API + dispatch periodik) 2026-10-30 · commit `4b513ab`, `bfc7c72`
-**Sumber:** kode aktual (E1). Keputusan: `ADR-0003` D10–D14, `ADR-0006` S1–S9. Kontrak: LLD §8.1–8.3.
+**Status:** COMPLETED (engine + API + dispatch + produksi konten) 2026-10-30 · commit `4b513ab`, `bfc7c72`, `77fbb9c`
+**Sumber:** kode aktual (E1). Keputusan: `ADR-0003` D10–D14, `ADR-0006` S1–S9, `ADR-0007` C1–C7. Kontrak: LLD §8.1–8.3.
 
 ## Peta Paket
 
@@ -12,6 +12,7 @@
 | `packages/scheduler/src/quota.ts` | `createDbQuotaGate`: hitung `publish_attempts` per `account + platform` dalam tanggal lokal schedule |
 | `packages/scheduler/src/scheduler.ts` | `Scheduler.runOnce(enqueue)`, `pause`/`resume` via tabel `settings` |
 | `packages/scheduler/src/dispatch.ts` | `enqueueDuePublicationJobs` + `createPublicationEnqueuer`: membuat job `PUBLISH` untuk konten siap (ADR-0006) |
+| `packages/scheduler/src/production.ts` | `enqueueDueContentPlan` + `createContentProductionEnqueuer`: membuat job `PLAN_CONTENT` per slot dengan pipeline kedalaman satu (ADR-0007) |
 | `packages/scheduler/src/dispatch-loop.ts` | `ScheduleDispatchLoop`: tick periodik pemanggil `runOnce` (timer `unref`, tick tidak tumpang tindih) |
 
 Dependensi: `@saa/database`, `@saa/domain`. Tidak mengimpor `workflow`.
@@ -42,6 +43,21 @@ Ringkasan hasil: `{paused, due, seeded, shifted, quotaSkipped, enqueued, failed[
 8. Job dibuat `QUEUED`, payload `{contentId, campaignId, accountId, platform}` — kontrak handler `PUBLISH`.
 
 Konsekuensi yang disadari: hanya konten terbaru, satu batch per slot, slot tetap maju walau tidak ada job (ADR-0006 S3/S7).
+
+## Produksi Konten per Slot (P4c)
+
+`createContentProductionEnqueuer({ db })` mengembalikan `EnqueueFn` yang membuat satu job `PLAN_CONTENT` per slot bila pipeline kosong:
+
+1. Campaign harus ada, `status === 'active'`, dan punya platform target.
+2. Ada `PLAN_CONTENT` non-terminal untuk campaign (`NEEDS_ATTENTION` dihitung aktif) → tidak ada job baru.
+3. Konten terbaru ada tetapi belum punya job `PUBLISH` → tidak ada job baru (kedalaman satu).
+4. Selain itu: job `PLAN_CONTENT` `QUEUED` dibuat dengan key `plan:<scheduleId>:<slot>`, payload `{campaignId}`.
+
+`slot` = `schedule.nextRunAt` saat jadwal due (fallback `context.now`). Helper `hasActiveJobForCampaign`/`hasJobForContent` tinggal di `@saa/database`.
+
+**Urutan dalam satu tick:** publikasi lebih dulu, lalu produksi. Tanpa urutan ini, konten yang baru direncanakan (belum punya media) akan menahan publikasi slot berjalan.
+
+Hasil berantai: slot 1 merencanakan konten → worker membuat konten + `GENERATE_VIDEO` → media valid → slot 2 menerbitkan konten itu **dan** merencanakan konten berikutnya.
 
 ## Loop Dispatch
 
@@ -77,12 +93,13 @@ Konsekuensi yang disadari: hanya konten terbaru, satu batch per slot, slot tetap
 
 ```bash
 corepack pnpm --filter @saa/scheduler typecheck
-corepack pnpm vitest run packages/scheduler    # time, schedule, quota, scheduler, dispatch, loop
+corepack pnpm vitest run packages/scheduler    # time, schedule, quota, scheduler, dispatch, production, loop
 ```
 
 ## Belum Ada
 
-- Pembuatan konten otomatis (`PLAN_CONTENT` periodik / route konten); dispatch hanya bekerja pada konten yang sudah ada.
 - UI jadwal.
 - Job `VERIFY_PUBLICATION`/`RECONCILE_PUBLICATION` terpisah.
 - Peninjauan ulang semantik "slot hangus" bila konten belum siap (ADR-0006 S7).
+- Lebih dari satu konten per slot / antrean konten lebih dalam (ADR-0007 C2/C3).
+- Kebijakan bila publikasi macet permanen: produksi saat ini ikut berhenti (ADR-0007 open item).

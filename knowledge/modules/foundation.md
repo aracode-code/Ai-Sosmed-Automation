@@ -30,7 +30,7 @@ Arah dependensi: `domain` ← `database` ← `workflow` ← `local-api`; `observ
 
 ```bash
 corepack pnpm typecheck                              # 9 paket + tests/ (per 2026-10-30)
-corepack pnpm test                                   # seluruh workspace (212 test per 2026-10-30)
+corepack pnpm test                                   # seluruh workspace (235 test per 2026-10-30)
 corepack pnpm migrate                                 # terapkan migrations/*.sql
 corepack pnpm start                                   # local API di 127.0.0.1:4317
 ```

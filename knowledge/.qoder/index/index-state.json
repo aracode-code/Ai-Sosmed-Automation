@@ -3,8 +3,8 @@
   "mode": "LIGHTWEIGHT_GREP",
   "status": "DEGRADED",
   "reason": "Tidak ada tool SQLite index di runtime ini (`sqlite_query_tool` missing). Pencarian memakai ripgrep terhadap source aktual; tidak ada code.db.",
-  "indexed_commit": "bfc7c722505febcd5c9202adf57627dcc4a4706b",
-  "indexed_at": "2026-10-30T08:50:00+07:00",
+  "indexed_commit": "77fbb9c156066ce687ef75dacff05a9489ebf5d9",
+  "indexed_at": "2026-10-30T09:05:00+07:00",
   "scope": [
     "apps/local-api/src/**",
     "packages/agent-core/src/**",
@@ -18,18 +18,18 @@
     "tests/integration/**"
   ],
   "counts": {
-    "files": 104,
-    "test_files": 32,
+    "files": 107,
+    "test_files": 34,
     "symbols": null,
     "imports": null,
     "apis": 15,
     "db_objects": 12,
-    "tests": 228
+    "tests": 235
   },
   "validation": {
-    "last_validated_at": "2026-10-30T08:50:00+07:00",
+    "last_validated_at": "2026-10-30T09:05:00+07:00",
     "result": "partial",
-    "note": "Scope = daftar `git ls-files '*.ts'` pada commit bfc7c7 (104 file, 32 test). Metadata simbol/import tidak dapat dihitung tanpa index SQLite — nilai null, bukan 0. Endpoint dihitung dari route terdaftar di apps/local-api/src/routes/*.ts (15). File baru P4b: packages/scheduler/src/{dispatch,dispatch-loop}.ts + test, apps/local-api/src/scheduler-dispatch.test.ts."
+    "note": "Scope = daftar `git ls-files '*.ts'` pada commit 77fbb9 (107 file, 34 test). Metadata simbol/import tidak dapat dihitung tanpa index SQLite — nilai null, bukan 0. Endpoint dihitung dari route terdaftar di apps/local-api/src/routes/*.ts (15). File baru P4c: packages/scheduler/src/production.ts + test, apps/local-api/src/content-production.test.ts."
   },
   "fallback": {
     "engine": "LIGHTWEIGHT_GREP",

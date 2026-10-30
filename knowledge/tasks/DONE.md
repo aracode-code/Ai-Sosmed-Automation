@@ -1,5 +1,14 @@
 # DONE
 
+## 2026-10-30 — SESSION-2026-10-30-5
+
+- **P4c — Produksi konten per slot** (commit `77fbb9c`).
+  - `packages/scheduler/src/production.ts`: `enqueueDueContentPlan` + `createContentProductionEnqueuer` — satu `PLAN_CONTENT` per slot, dengan guard kedalaman satu (`PLAN_CONTENT` non-terminal, atau konten terbaru belum punya job `PUBLISH`).
+  - Key idempoten `plan:<scheduleId>:<slot>`; helper `hasActiveJobForCampaign`/`hasJobForContent` di `@saa/database` (`NEEDS_ATTENTION` dihitung aktif).
+  - Composition root memakai enqueuer komposit: publikasi lebih dulu, lalu produksi (bila planner terdaftar) + log peringatan saat planner absen.
+  - Bukti: typecheck 9 paket PASS · **235 test passed** (34 file) · smoke boot port 4395 (mock adapter, tanpa API key) log gating benar.
+  - Keputusan: `decisions/ADR-0007-content-production-per-slot.md`; modul: `modules/{scheduler,local-api}.md`.
+
 ## 2026-10-30 — SESSION-2026-10-30-4
 
 - **P4b — Dispatch jadwal periodik → job `PUBLISH` otomatis** (commit `bfc7c72`).

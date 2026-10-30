@@ -75,7 +75,7 @@ SocialAdapter {
 ```bash
 corepack pnpm --filter @saa/youtube typecheck
 corepack pnpm vitest run packages/youtube packages/workflow/src/handlers/publish.test.ts
-corepack pnpm test                              # 212 test seluruh workspace
+corepack pnpm test                              # 235 test seluruh workspace
 YOUTUBE_ADAPTER=mock corepack pnpm start        # boot dengan adapter mock
 ```
 
