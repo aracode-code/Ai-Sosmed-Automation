@@ -14,6 +14,8 @@ describe('loadConfig', () => {
     expect(config.workerEnabled).toBe(true);
     expect(config.workerIntervalMs).toBe(1_000);
     expect(config.mediaRoot).toBe('./data/media');
+    expect(config.schedulerEnabled).toBe(true);
+    expect(config.schedulerIntervalMs).toBe(5_000);
     expect(config.youtubeAdapter).toBe('off');
   });
 
@@ -56,6 +58,16 @@ describe('loadConfig', () => {
     const config = loadConfig({ WORKER_ENABLED: 'false', WORKER_INTERVAL_MS: '250' });
     expect(config.workerEnabled).toBe(false);
     expect(config.workerIntervalMs).toBe(250);
+  });
+
+  it('mengatur dispatch jadwal lewat SCHEDULER_ENABLED dan menolak interval di luar rentang', () => {
+    const config = loadConfig({ SCHEDULER_ENABLED: 'false', SCHEDULER_INTERVAL_MS: '15000' });
+    expect(config.schedulerEnabled).toBe(false);
+    expect(config.schedulerIntervalMs).toBe(15_000);
+
+    expect(() => loadConfig({ SCHEDULER_INTERVAL_MS: '10' })).toThrow(ConfigError);
+    expect(() => loadConfig({ SCHEDULER_INTERVAL_MS: 'abc' })).toThrow(ConfigError);
+    expect(() => loadConfig({ SCHEDULER_INTERVAL_MS: '600000' })).toThrow(ConfigError);
   });
 
   it('tidak pernah menyimpan API key di AppConfig', () => {

@@ -2,6 +2,7 @@ import { createDeepSeekClient, createPlanner, type Planner } from '@saa/agent-co
 import { openDatabase, resolveWorkspacePath, runMigrations } from '@saa/database';
 import type { SocialAdapter } from '@saa/domain';
 import { createLogger } from '@saa/observability';
+import { createPublicationEnqueuer, Scheduler, ScheduleDispatchLoop } from '@saa/scheduler';
 import { Dispatcher, runStartupRecovery, Worker } from '@saa/workflow';
 import { MockYouTubeAdapter } from '@saa/youtube';
 import { buildApp } from './app';
@@ -78,6 +79,16 @@ async function main(): Promise<void> {
     logger
   });
 
+  const dispatchLoop = new ScheduleDispatchLoop({
+    scheduler: new Scheduler(db),
+    enqueue: createPublicationEnqueuer({
+      db,
+      platforms: publisher === undefined ? [] : [publisher.platform]
+    }),
+    intervalMs: config.schedulerIntervalMs,
+    logger
+  });
+
   const app = buildApp({
     db,
     config,
@@ -88,6 +99,8 @@ async function main(): Promise<void> {
 
   const shutdown = async (signal: string): Promise<void> => {
     logger.info({ signal }, 'shutdown dimulai');
+    // Dispatch dihentikan lebih dulu agar tidak ada job baru saat worker berhenti.
+    await dispatchLoop.stop();
     await worker.stop();
     await app.close();
     db.close();
@@ -117,6 +130,17 @@ async function main(): Promise<void> {
       logger.info({ intervalMs: config.workerIntervalMs }, 'worker dimulai');
     } else {
       logger.warn('worker dimatikan (WORKER_ENABLED=false); job tidak akan diproses');
+    }
+
+    if (!config.schedulerEnabled) {
+      logger.warn('dispatch jadwal dimatikan (SCHEDULER_ENABLED=false)');
+    } else if (publisher === undefined) {
+      logger.warn('adapter publikasi belum aktif; dispatch jadwal tidak dijalankan');
+    } else if (!config.workerEnabled) {
+      logger.warn('worker dimatikan; dispatch jadwal tidak dijalankan agar antrean tidak menumpuk');
+    } else {
+      dispatchLoop.start();
+      logger.info({ intervalMs: config.schedulerIntervalMs }, 'dispatch jadwal dimulai');
     }
   } catch (error) {
     logger.error({ err: error }, 'gagal menjalankan local api');

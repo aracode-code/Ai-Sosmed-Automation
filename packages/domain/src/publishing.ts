@@ -41,6 +41,28 @@ export interface PlatformCapabilities {
   limitations: string[];
 }
 
+export interface CaptionTarget {
+  caption: string;
+  title?: string;
+}
+
+/**
+ * Caption satu platform dari peta caption hasil planner. Bentuk tidak valid
+ * dianggap tidak tersedia — enqueuer dan handler PUBLISH wajib menolak sama.
+ */
+export function resolveCaption(caption: unknown, platform: PlatformId): CaptionTarget | null {
+  if (caption === null || typeof caption !== 'object' || Array.isArray(caption)) return null;
+  const entry = (caption as Record<string, unknown>)[platform];
+  if (entry === null || typeof entry !== 'object' || Array.isArray(entry)) return null;
+  const text = (entry as Record<string, unknown>).caption;
+  if (typeof text !== 'string' || text.trim() === '') return null;
+  const title = (entry as Record<string, unknown>).title;
+  return {
+    caption: text,
+    ...(typeof title === 'string' && title.trim() !== '' ? { title } : {})
+  };
+}
+
 export interface SocialAdapter {
   readonly platform: PlatformId;
   capabilities(): Promise<PlatformCapabilities>;

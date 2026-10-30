@@ -4,8 +4,8 @@ import {
   errorClassOf,
   hashCaption,
   PLATFORM_IDS,
+  resolveCaption,
   type MediaAsset,
-  type PlatformId,
   type PublishRequest,
   type PublishResult,
   type SocialAdapter
@@ -40,24 +40,6 @@ export interface PublishDeps {
   adapter: SocialAdapter;
   now?: () => Date;
   backoff?: Partial<BackoffConfig>;
-}
-
-interface CaptionTarget {
-  caption: string;
-  title?: string;
-}
-
-function captionFor(caption: unknown, platform: PlatformId): CaptionTarget | null {
-  if (caption === null || typeof caption !== 'object' || Array.isArray(caption)) return null;
-  const entry = (caption as Record<string, unknown>)[platform];
-  if (entry === null || typeof entry !== 'object' || Array.isArray(entry)) return null;
-  const text = (entry as Record<string, unknown>).caption;
-  if (typeof text !== 'string' || text.trim() === '') return null;
-  const title = (entry as Record<string, unknown>).title;
-  return {
-    caption: text,
-    ...(typeof title === 'string' && title.trim() !== '' ? { title } : {})
-  };
 }
 
 function pickValidAsset(assets: MediaAsset[]): MediaAsset | null {
@@ -128,7 +110,7 @@ export function createPublishHandler(deps: PublishDeps): JobHandler {
       throw new AppError('VALIDATION', `konten ${content.id} belum punya aset media valid`);
     }
 
-    const target = captionFor(content.caption, platform);
+    const target = resolveCaption(content.caption, platform);
     if (target === null) {
       throw new AppError('VALIDATION', `caption untuk platform ${platform} tidak tersedia`);
     }

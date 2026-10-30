@@ -14,6 +14,9 @@ const envSchema = z
     WORKER_ENABLED: z.enum(['true', 'false']).default('true'),
     WORKER_INTERVAL_MS: z.coerce.number().int().min(50).max(60_000).default(1_000),
     MEDIA_ROOT: z.string().min(1).default('./data/media'),
+    /** Dispatch jadwal → job PUBLISH; hanya berjalan bila adapter publikasi aktif. */
+    SCHEDULER_ENABLED: z.enum(['true', 'false']).default('true'),
+    SCHEDULER_INTERVAL_MS: z.coerce.number().int().min(1_000).max(300_000).default(5_000),
     /** `mock` hanya untuk uji alur; tidak pernah mengunggah ke YouTube sungguhan (OD-2/OD-5). */
     YOUTUBE_ADAPTER: z.enum(['off', 'mock']).default('off'),
     APP_ALLOW_NETWORK: z.enum(['true', 'false']).default('false')
@@ -39,6 +42,8 @@ export interface AppConfig {
   workerEnabled: boolean;
   workerIntervalMs: number;
   mediaRoot: string;
+  schedulerEnabled: boolean;
+  schedulerIntervalMs: number;
   youtubeAdapter: 'off' | 'mock';
 }
 
@@ -69,6 +74,8 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
     workerEnabled: env.WORKER_ENABLED === 'true',
     workerIntervalMs: env.WORKER_INTERVAL_MS,
     mediaRoot: env.MEDIA_ROOT,
+    schedulerEnabled: env.SCHEDULER_ENABLED === 'true',
+    schedulerIntervalMs: env.SCHEDULER_INTERVAL_MS,
     youtubeAdapter: env.YOUTUBE_ADAPTER
   };
 }
