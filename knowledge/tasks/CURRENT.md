@@ -1,58 +1,54 @@
 # CURRENT — Task Aktif
 
-**Session:** SESSION-2026-10-30-10
-**Updated:** 2026-10-30T11:45:00+07:00
-**Change class:** MEDIUM (komposisi runtime + repository + CLI baru; tanpa migrasi DB, route baru, dependensi, atau perubahan kontrak `SocialAdapter`)
+**Session:** SESSION-2026-10-30-11
+**Updated:** 2026-10-30T12:45:00+07:00
+**Change class:** SMALL (hanya menambah test integrasi lintas lapisan; tanpa perubahan kode produksi, migrasi, route, atau dependensi)
 
 ## Active Task
 
-_Tidak ada task aktif._ **Slice A4 (ADR-0008) selesai**: wiring composition root + onboarding akun YouTube (commit `0b4194f`).
+_Tidak ada task aktif._ **Slice A5 (ADR-0008) sebagian selesai**: uji lintas lapisan `PUBLISH` handler × `YouTubeApiAdapter` (commit `df9a2b7`). Sisa A5: smoke live owner.
 
 | Field | Nilai |
 |---|---|
-| Task terakhir | **A4 — wiring + onboarding akun** |
-| Status | **P5 PARTIAL** — A1+A2+A3+A4 DONE, A5 belum; upload nyata UNVERIFIED · **P4c/P4b COMPLETED** · P4 PARTIAL (UI) · P3 PARTIAL (Flow) |
+| Task terakhir | **A5 — uji lintas lapisan (`tests/integration/p5-publish-youtube-api.test.ts`)** |
+| Status | **P5 PARTIAL** — A1–A5 (uji lintas) DONE; smoke live + upload nyata UNVERIFIED · **P4c/P4b COMPLETED** · P4 PARTIAL (UI) · P3 PARTIAL (Flow) |
 | Mode eksekusi | SINGLE-WRITER sequential |
-| DoD tercapai | ✅ adapter `api` dibuat composition root · ✅ `resolveAsset` dari `media_assets` · ✅ env privat/status app · ✅ CLI pairing menulis `secret_ref` + `connection_status` · ✅ `reauth_required` disinkronkan · ✅ 9 test baru · ✅ typecheck + 301 test · ✅ smoke boot + smoke CLI |
+| DoD tercapai | ✅ rantai nyata handler → composition root → adapter API · ✅ 5 skenario (published/mismatch/rejected/kuota/reauth) · ✅ typecheck + 306 test · ✅ bukti 0 panggilan eksternal untuk akun `reauth_required` |
 
-## Bukti Slice A4 (aktual 2026-10-30)
+## Bukti Slice A5 (aktual 2026-10-30)
 
 | Bukti | Hasil |
 |---|---|
-| Commit | `0b4194f` — `feat(p5-a4): wiring composition root dan onboarding akun YouTube` (11 file, +667/−24) |
-| Berkas baru | `apps/local-api/src/publisher.ts`, `apps/local-api/src/publisher.test.ts`, `apps/local-api/src/pair-youtube.ts`, `packages/database/src/repositories/accounts.test.ts` |
-| Berkas diubah | `apps/local-api/src/{config,config.test,server}.ts`, `apps/local-api/package.json`, `packages/database/src/repositories/accounts.ts`, `packages/youtube/src/youtube-api-adapter{,.test}.ts` |
+| Commit | `df9a2b7` — `test(p5-a5): uji lintas lapisan handler publish dan adapter youtube api` (1 file, +357) |
+| Berkas baru | `tests/integration/p5-publish-youtube-api.test.ts` |
 | Typecheck | PASS — 9 paket + `tests/tsconfig.json` |
-| Test | `corepack pnpm test` → **39 file, 301 passed / 0 failed** (naik dari 292) |
-| Test baru | 9: repository `updateAccountConnection` (3), `createYouTubeApiPublisher` (3), hook `onReauthRequired` (2), config env baru (1) |
-| Smoke boot | `YOUTUBE_ADAPTER=api` + `YOUTUBE_APP_STATUS=testing` port 4411 → log `error` Testing, log adapter aktif (`privacy: private`), `handlers: ["GENERATE_VIDEO","PUBLISH"]`, `/health` ok, port bebas |
-| Smoke CLI | `pair:youtube` tanpa argumen / akun hilang / port invalid / tanpa client id → exit 2 dengan pesan tepat; `--label` dua kali → tetap 1 baris akun `disconnected` |
-| Dependensi | **Tidak ada penambahan** |
+| Test | `corepack pnpm test` → **40 file, 306 passed / 0 failed** (naik dari 301) |
+| Skenario 1 — sukses | job `PUBLISHED`; attempt `published` + `externalPostId 'yt_vid_a5'` + permalink + `verifiedAt`; urutan `POST`/`PUT`/`GET`; body init `categoryId 27`, `privacyStatus private`, `selfDeclaredMadeForKids false` |
+| Skenario 2 — privasi beda | attempt `unknown` + `YT_PRIVACY_MISMATCH`, job `NEEDS_ATTENTION`, attempts 0 |
+| Skenario 3 — video ditolak | job `FAILED` + `YT_UPLOAD_REJECTED`, attempt `failed`, attempts 1, tanpa retry |
+| Skenario 4 — kuota 403 | job `NEEDS_ATTENTION` + `AUTH`, attempt `unknown`, attempts 1, `runAt` null, **1 panggilan** (tidak ada byte terunggah), akun tetap `connected` |
+| Skenario 5 — belum dipasangkan | attempt `unknown` + `AUTH`, akun → `reauth_required` lewat hook, **0 panggilan**; job kedua ditolak penjaga `connection_status` (0 attempt, 0 panggilan) |
 
-## Kontrak A4 (yang harus dipakai A5)
+## Temuan yang Mengikat A6/uji live
 
-| Hal | Nilai |
+| Temuan | Dampak |
 |---|---|
-| Konstruksi | `createYouTubeApiPublisher({ db, config, credentials, store?, fetchImpl? })` → `SocialAdapter` (platform `youtube`) |
-| Aset | `resolveAsset` membaca `getMediaAsset(db, assetId)`; `null` → `validate` menolak & `publish` melempar `VALIDATION` |
-| Privasi | `AppConfig.youtubeUploadPrivacy` (env `YOUTUBE_UPLOAD_PRIVACY`, default `private`) |
-| Status app | `AppConfig.youtubeAppStatus` (env `YOUTUBE_APP_STATUS`, default `unknown`); `testing` → log `error` saat boot; tidak dapat dibaca dari API |
-| Reauth | Hook `onReauthRequired(accountId)` → `updateAccountConnection(…, 'reauth_required')`; panggilan `publish`/`getStatus` berikutnya ditolak handler (`AUTH`) sampai pairing ulang |
-| Onboarding | `corepack pnpm --filter @saa/local-api pair:youtube -- --account <id> \| --label "<label>" [--port <n>]`; butuh `GOOGLE_OAUTH_CLIENT_ID` |
-| `secret_ref` | `dpapi:youtube:<accountId>` (helper `youtubeSecretRef`) |
-| Browser | `rundll32 url.dll,FileProtocolHandler <url>` — URL tidak melewati shell |
+| `Dispatcher.handleFailure` menaikkan `attempts` pada eskalasi (`ESCALATE` → `NEEDS_ATTENTION`) | Asersi "tanpa retry" harus memeriksa `runAt === null`, bukan `attempts === 0`; jalur `unknown` dari `getStatus` tidak menaikkan attempts (eskalasi internal handler) |
+| `YouTubeApiAdapter.getStatus` tidak pernah mengembalikan `processing` | Jalur "belum terverifikasi" diwakili `unknown` (privasi beda / video tak ditemukan / idempoten tak dikenal); handler memperlakukannya sebagai `NEEDS_ATTENTION` |
+| Handler menolak akun non-`connected` **sebelum** `adapter.validate`/`publish` | `reauth_required` tidak pernah menghasilkan unggahan atau attempt baru — dikonfirmasi lintas lapisan, bukan hanya unit |
+| Token tidak ada di DPAPI → `ensureFreshAccessToken` mengembalikan `null` tanpa memanggil jaringan | Uji reauth aman dijalankan tanpa kredensial nyata |
 
 ## Impact Map
 
-- **Modul:** `youtube` (hook adapter), `database` (update akun), `local-api` (composition root, CLI, config).
+- **Modul:** `tests/integration` (baru), memakai `@saa/workflow`, `@saa/database`, `@saa/domain`, dan `apps/local-api/src/{config,publisher}`.
 - **DB/route/migrasi:** tidak berubah (12 tabel, 15 route, 3 migrasi).
-- **Rahasia:** token hanya di blob DPAPI + header `Authorization`; CLI mencetak nama kredensial dan waktu, bukan token; `GOOGLE_OAUTH_CLIENT_ID` tetap di luar `AppConfig`.
-- **Belum tersambung:** uji lintas handler `PUBLISH` + adapter nyata dan smoke live (A5).
+- **Rahasia:** token hanya di store memori; tidak ada kredensial nyata, tidak ada panggilan jaringan.
+- **Catatan dependensi:** `@saa/youtube` tidak ada di `devDependencies` root, sehingga test memakai bentuk struktural `CredentialStore` alih-alih impor paket; tidak ada perubahan `package.json`/lockfile.
 
 ## Drift Tercatat
 
-- A5 belum ada → **P5 tetap PARTIAL**; upload nyata UNVERIFIED.
-- `capabilities().authStatus` adapter `api` masih `disconnected` karena `accountId` tidak diisi composition root (dipakai hanya bila satu akun dipilih manual).
+- Smoke live belum → **P5 tetap PARTIAL**; upload nyata UNVERIFIED.
+- `capabilities().authStatus` adapter `api` masih `disconnected` karena composition root tidak mengisi `accountId` (status nyata ada di `social_accounts.connection_status`).
 - Pemetaan idempotency → videoId hilang saat restart (hasil `unknown`, bukan tebakan); resume bertahap HTTP 308 belum ada.
 - F2 CONFLICT (privasi project unverified) dan klasifikasi scope `youtube.upload` hanya bisa dipastikan saat uji live.
 - Drift lama: kuota scheduler menghitung semua status attempt; `VERIFY_PUBLICATION`/`RECONCILE_PUBLICATION` belum job terpisah; `AGENTS.md` untracked.
@@ -64,10 +60,7 @@ _Tidak ada gelombang aktif._ `state.open_wave = null`.
 ## Next Session Handoff
 
 1. Boot urut §11.14; jangan pindai ulang HLD/LLD.
-2. **A5 — uji lintas handler + smoke live**:
-   - test integrasi `PUBLISH` handler + `YouTubeApiAdapter` dengan HTTP palsu: jalur `published`, `failed` non-retryable, `processing` → `NEEDS_ATTENTION`, dan `reauth_required` → attempt `unknown` + akun `reauth_required`;
-   - verifikasi handler menolak akun `reauth_required` sebelum aksi eksternal (`AUTH` → `NEEDS_ATTENTION`, tanpa attempt baru);
-   - smoke manual owner: pairing nyata lalu unggah satu video `private`, bukti dari `videos.list`.
-3. **Prasyarat faktual owner** untuk uji live: project Google Cloud + billing, jenis akun Google (Workspace/gmail), channel target, izin membuat OAuth client Desktop, status app (Production/Internal), konfirmasi privasi awal.
+2. **Sisa A5 — smoke live (owner)**: pairing nyata `corepack pnpm --filter @saa/local-api pair:youtube -- --label "<channel>"` dengan `GOOGLE_OAUTH_CLIENT_ID` valid, lalu satu unggahan `private` dan bukti `videos.list` (`privacyStatus private`). Catat respons nyata untuk F2/F6/F7.
+3. **Prasyarat faktual owner**: project Google Cloud + billing, jenis akun Google (Workspace/gmail), channel target, izin membuat OAuth client Desktop, status app (Production/Internal), konfirmasi privasi awal.
 4. Jangan menyatakan P5 COMPLETED sebelum ada unggahan nyata yang terverifikasi (bukti `videos.list`).
 5. Pilihan lain yang masih terbuka: approval UI desktop, OD-1 (Flow nyata), kebijakan saat publikasi macet.

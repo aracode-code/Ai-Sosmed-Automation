@@ -1,6 +1,6 @@
 # Modul — YouTube (Adapter Publikasi Mock + PUBLISH Handler)
 
-**Status:** PARTIAL — adapter **mock** + handler PUBLISH + verify/reconcile COMPLETED; keputusan adapter nyata selesai (ADR-0008) dengan **A1 credential store** (`442d3be`), **A2 OAuth client** (`5cbe70b`), **A3 adapter API** (`26e557a`), dan **A4 wiring + onboarding** (`0b4194f`) DONE; A5 (uji lintas handler + smoke live) belum; upload nyata **UNVERIFIED**
+**Status:** PARTIAL — adapter **mock** + handler PUBLISH + verify/reconcile COMPLETED; keputusan adapter nyata selesai (ADR-0008) dengan **A1 credential store** (`442d3be`), **A2 OAuth client** (`5cbe70b`), **A3 adapter API** (`26e557a`), **A4 wiring + onboarding** (`0b4194f`), dan **A5 uji lintas lapisan** (`df9a2b7`) DONE; smoke live (pairing + unggah nyata) belum; upload nyata **UNVERIFIED**
 **Sumber:** kode aktual (E1). Keputusan: `ADR-0005` (Y1–Y10), `ADR-0008` (OD-2/OD-5). Kontrak: LLD §11.1–§11.4.
 
 ## Peta Paket
@@ -17,6 +17,7 @@
 | `apps/local-api/src/publisher.ts` | `createYouTubeApiPublisher` — komposisi adapter `api`: aset dari `media_assets`, token DPAPI, sinkron `reauth_required` (A4) |
 | `apps/local-api/src/pair-youtube.ts` | CLI `pair:youtube` — onboarding akun: pairing PKCE lalu `secret_ref` + `connection_status` (A4) |
 | `packages/workflow/src/handlers/publish.ts` | Handler langkah `PUBLISH`: validasi → approval binding → attempt → publish → reconcile |
+| `tests/integration/p5-publish-youtube-api.test.ts` | Rantai nyata handler → composition root → adapter API dengan `fetch` palsu (A5) |
 
 Arah dependensi: `@saa/youtube` → `@saa/domain`; `@saa/workflow` → `@saa/domain` + `@saa/database` (adapter disuntikkan, bukan diimpor).
 
@@ -158,7 +159,7 @@ Alasan dua baris terakhir: `videos.insert` tidak idempoten — retry otomatis bi
 | Penanda reauth | `YouTubeAuthError` `reauth_required` (dari `publish` maupun `getStatus`) → hook adapter menulis `connection_status = 'reauth_required'`; kegagalan menulis tidak menutupi galat auth |
 | Repository | `updateAccountConnection(raw, id, { connectionStatus, secretRef? })` — `secretRef: undefined` mempertahankan nilai lama; label/platform tidak disentuh |
 
-## Adapter Nyata — Keputusan (ADR-0008; A1–A4 selesai, uji live belum)
+## Adapter Nyata — Keputusan (ADR-0008; A1–A5 uji lintas selesai, uji live belum)
 
 | Aspek | Keputusan |
 |---|---|
@@ -174,12 +175,27 @@ Alasan dua baris terakhir: `videos.insert` tidak idempoten — retry otomatis bi
 
 Catatan konflik: referensi resmi `videos.insert` (2026-10-30) menyatakan project unverified **tidak** dibatasi private, sementara issue tracker Google 572863050 mempertanyakan inkonsistensi dokumen. Karena itu privasi `public` tidak boleh diasumsikan sampai terbukti pada uji nyata.
 
+## Uji Lintas Lapisan (A5, aktual)
+
+`tests/integration/p5-publish-youtube-api.test.ts` menjalankan rantai **tanpa adapter mock**: `Dispatcher` → `createPublishHandler` → `createYouTubeApiPublisher` → `YouTubeApiAdapter` → `fetch` palsu, dengan token di store memori dan aset di disk sementara.
+
+| Skenario | Hasil yang ditegakkan |
+|---|---|
+| Unggahan sukses | job `PUBLISHED`; attempt `published` + `externalPostId`/`permalink`/`verifiedAt`; urutan panggilan `POST` → `PUT` → `GET`; body init memuat title/description/`categoryId 27`/`selfDeclaredMadeForKids false` |
+| Privasi tidak sesuai | attempt `unknown` + `YT_PRIVACY_MISMATCH`, job `NEEDS_ATTENTION`, attempts 0 |
+| Video ditolak YouTube | job `FAILED` + `YT_UPLOAD_REJECTED`, attempt `failed`, tanpa retry |
+| Kuota habis (403 `quotaExceeded`) | job `NEEDS_ATTENTION` + `AUTH`, attempt `unknown`, hanya 1 panggilan, akun tetap `connected` |
+| Belum dipasangkan | akun → `reauth_required` via hook; **0 panggilan eksternal**; job berikutnya ditolak penjaga `connection_status` (0 attempt, 0 panggilan) |
+
+Catatan: `getStatus` adapter API tidak pernah mengembalikan `processing`; jalur "belum terverifikasi" diwakili `unknown` (privasi beda / video tak ditemukan), dan handler memperlakukannya sama (`NEEDS_ATTENTION`).
+
 ## Perintah
 
 ```bash
 corepack pnpm --filter @saa/youtube typecheck
 corepack pnpm vitest run packages/youtube packages/workflow/src/handlers/publish.test.ts
-corepack pnpm test                              # 301 test seluruh workspace
+corepack pnpm vitest run tests/integration/p5-publish-youtube-api.test.ts
+corepack pnpm test                              # 306 test seluruh workspace
 YOUTUBE_ADAPTER=mock corepack pnpm start        # boot dengan adapter mock
 YOUTUBE_ADAPTER=api GOOGLE_OAUTH_CLIENT_ID=<id> YOUTUBE_APP_STATUS=production corepack pnpm start
 corepack pnpm --filter @saa/local-api pair:youtube -- --label "kanal utama"
@@ -187,7 +203,7 @@ corepack pnpm --filter @saa/local-api pair:youtube -- --label "kanal utama"
 
 ## Belum Ada
 
-- Uji lintas handler `PUBLISH` + adapter nyata (retry/eskalasi) dan smoke manual owner pada channel sah — slice A5.
+- Smoke live: pairing nyata + satu unggahan `private` dengan bukti `videos.list` (sisa slice A5; butuh prasyarat owner).
 - Resume bertahap HTTP 308 (`Content-Range`) dan rekonsiliasi lintas restart belum ada.
 - Handler `VERIFY_PUBLICATION` / `RECONCILE_PUBLICATION` sebagai job terpisah.
 - Klasifikasi `publish_attempts` untuk kuota harian (semua status masih dihitung).

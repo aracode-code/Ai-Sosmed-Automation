@@ -1,5 +1,16 @@
 # DONE
 
+## 2026-10-30 — SESSION-2026-10-30-11
+
+- **Slice A5 (bagian uji) — lintas lapisan `PUBLISH` handler × `YouTubeApiAdapter`** (commit `df9a2b7`).
+  - `tests/integration/p5-publish-youtube-api.test.ts`: rantai **tanpa mock adapter** — `Dispatcher` → `createPublishHandler` → `createYouTubeApiPublisher` → `YouTubeApiAdapter` → `fetch` palsu, dengan store kredensial di memori dan aset di disk sementara.
+  - Lima skenario: unggahan sukses (`PUBLISHED`, bukti videoId/permalink, urutan `POST`/`PUT`/`GET`, body init `categoryId 27`/`private`/`madeForKids false`), privasi mismatch (`unknown` + `YT_PRIVACY_MISMATCH` → `NEEDS_ATTENTION`), video ditolak (`FAILED` + `YT_UPLOAD_REJECTED`), kuota 403 (`AUTH` → `NEEDS_ATTENTION`, 1 panggilan, akun tetap `connected`), akun belum dipasangkan (`reauth_required` + 0 panggilan; job berikutnya ditolak penjaga `connection_status` tanpa attempt baru).
+  - Temuan: `Dispatcher` menaikkan `attempts` pada eskalasi (jadi asersi memakai `runAt === null`); `getStatus` adapter API tidak pernah mengembalikan `processing`, jalur belum-terverifikasi diwakili `unknown`.
+  - Catatan dependensi: `@saa/youtube` tidak ada di root `devDependencies`, sehingga store memakai bentuk struktural; tidak ada perubahan `package.json`/lockfile.
+  - Bukti: typecheck 9 paket + `tests/tsconfig.json` PASS · **306 test passed** (40 file; 5 test integrasi baru).
+  - Sisa A5: smoke live owner (pairing nyata + unggah `private` + bukti `videos.list`) — belum.
+  - Keputusan: `decisions/ADR-0008-youtube-real-adapter-od2-od5.md` bagian A5; modul: `modules/youtube.md`.
+
 ## 2026-10-30 — SESSION-2026-10-30-10
 
 - **Slice A4 — wiring composition root + onboarding akun YouTube** (commit `0b4194f`).

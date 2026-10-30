@@ -1,13 +1,13 @@
 # L0 — Active Context
 
-**Session:** SESSION-2026-10-30-10
-**Updated:** 2026-10-30T11:45:00+07:00
+**Session:** SESSION-2026-10-30-11
+**Updated:** 2026-10-30T12:45:00+07:00
 **Autonomy:** L1 (BALANCED)
-**Change class terakhir:** MEDIUM (komposisi runtime + repository + CLI onboarding; tanpa migrasi DB, route baru, dependensi, atau perubahan kontrak adapter)
+**Change class terakhir:** SMALL (satu test integrasi lintas lapisan; tanpa perubahan kode produksi, migrasi, route, dependensi, atau kontrak adapter)
 
 ## Current Task
 
-**Tidak ada task aktif.** Permintaan owner **"lanjutkan"** dilanjutkan dengan **A4 — wiring composition root + onboarding akun YouTube** — selesai dan terverifikasi (2026-10-30, commit `0b4194f`).
+**Tidak ada task aktif.** Permintaan owner **"lanjutkan"** dilanjutkan dengan **A5 — uji lintas lapisan `PUBLISH` handler × `YouTubeApiAdapter`** — selesai dan terverifikasi (2026-10-30, commit `df9a2b7`). Sisa A5: smoke live owner.
 
 | Fase | Commit | Isi |
 |---|---|---|
@@ -24,8 +24,9 @@
 | K — A2 OAuth client | `5cbe70b` | Pairing PKCE loopback, exchange/refresh `fetch`, `reauth_required`, record token di DPAPI |
 | L — A3 adapter API | `26e557a` | `YouTubeApiAdapter`: `videos.insert` resumable, `videos.list` + verifikasi `privacyStatus`, pemetaan D6 |
 | M — A4 wiring + onboarding | `0b4194f` | `createYouTubeApiPublisher`, CLI `pair:youtube`, `updateAccountConnection`, env privasi/status app, hook `onReauthRequired` |
+| N — A5 uji lintas lapisan | `df9a2b7` | Test integrasi handler `PUBLISH` × composition root × adapter API dengan `fetch` palsu |
 
-Status fase: **P3 PARTIAL** (Flow nyata, OD-1) · **P4 PARTIAL** (UI approval) · **P4b COMPLETED** · **P4c COMPLETED** · **P5 PARTIAL** (A1–A4 DONE; A5 dan upload nyata UNVERIFIED).
+Status fase: **P3 PARTIAL** (Flow nyata, OD-1) · **P4 PARTIAL** (UI approval) · **P4b COMPLETED** · **P4c COMPLETED** · **P5 PARTIAL** (A1–A5 uji lintas DONE; smoke live + upload nyata UNVERIFIED).
 
 ## Konteks Minimum
 
@@ -36,7 +37,7 @@ Status fase: **P3 PARTIAL** (Flow nyata, OD-1) · **P4 PARTIAL** (UI approval) �
 
 ## Fakta Aktif (terverifikasi)
 
-- 8 paket workspace + `apps/local-api`; 117 file TS tracked, 39 file test, **301 test hijau** (commit `0b4194f`); typecheck 9 paket + `tests/tsconfig.json` PASS.
+- 8 paket workspace + `apps/local-api`; 118 file TS tracked, 40 file test, **306 test hijau** (commit `df9a2b7`); typecheck 9 paket + `tests/tsconfig.json` PASS.
 - Migrasi tetap 3 berkas (`0000_init`, `0001_campaign_platforms`, `0002_scheduler_and_approval`); 12 tabel; 15 route.
 - Rantai otomatis penuh: slot 1 → `PLAN_CONTENT` → `GENERATE_VIDEO` → media valid → slot 2 → `PUBLISH` + `PLAN_CONTENT` berikutnya → berulang.
 - Pipeline kedalaman satu: slot ditahan bila ada `PLAN_CONTENT` non-terminal (termasuk `NEEDS_ATTENTION`) atau konten terbaru belum punya job `PUBLISH`.
@@ -51,22 +52,22 @@ Status fase: **P3 PARTIAL** (Flow nyata, OD-1) · **P4 PARTIAL** (UI approval) �
 - **OAuth client (E1, `5cbe70b`):** `pairYouTubeAccount` (loopback `127.0.0.1` port acak, PKCE S256, state konstan-waktu, `access_type=offline`+`prompt=consent`), `exchangeAuthorizationCode`/`refreshAccessToken` via `fetch` (timeout 15 s, respons ≤16 KB), `ensureFreshAccessToken` (refresh bila sisa <60 s), record `youtube-<accountId>` di DPAPI (`accessToken`, `refreshToken`, `tokenType`, `scope`, `expiresAt`, `clientId`, `pairedAt`). `openUrl` disuntikkan — modul tidak memanggil shell.
 - **Adapter API (E1, `26e557a`):** `YouTubeApiAdapter` memakai `ensureFreshAccessToken` → header `Authorization`; `videos.insert` resumable (`uploadType=resumable`, `part=snippet,status`) lalu `videos.list?part=status`; `published` hanya bila `privacyStatus` sama dengan permintaan (`private` default, `categoryId 27`, `selfDeclaredMadeForKids=false`). `quotaExceeded`/`uploadLimitExceeded` → kelas `AUTH` (eskalasi tanpa retry); kegagalan setelah PUT dikirim → `unknown` (tidak pernah retry) karena `videos.insert` tidak idempoten.
 - **Konfigurasi (E1):** `YOUTUBE_ADAPTER=off|mock|api`; `YOUTUBE_UPLOAD_PRIVACY=private|unlisted|public` (default `private`); `YOUTUBE_APP_STATUS=testing|production|unknown` (default `unknown`). `loadYouTubeCredentials()` membaca `GOOGLE_OAUTH_CLIENT_ID`/`GOOGLE_OAUTH_CLIENT_SECRET` di luar `AppConfig`.
-- **Wiring + onboarding (E1, `0b4194f`):** `createYouTubeApiPublisher` (aset dari `media_assets`, token DPAPI, privasi dari config, `onReauthRequired` → `connection_status='reauth_required'`); CLI `pair:youtube` (`--account`/`--label`, browser via `rundll32`, tanpa shell) menulis `secret_ref='dpapi:youtube:<id>'` + `connected`; `YOUTUBE_ADAPTER=api` kini mendaftarkan `PUBLISH` bila `GOOGLE_OAUTH_CLIENT_ID` ada; `YOUTUBE_APP_STATUS=testing` → log `error` saat boot.
+- **Wiring + onboarding (E1, `0b4194f`):** `createYouTubeApiPublisher` (aset dari `media_assets`, token DPAPI, privasi dari config, `onReauthRequired` → `connection_status='reauth_required'`); CLI `pair:youtube` (`--account`/`--label`, browser via `rundll32`, tanpa shell) menulis `secret_ref='dpapi:youtube:<id>'` + `connected`; `YOUTUBE_ADAPTER=api` mendaftarkan `PUBLISH` bila `GOOGLE_OAUTH_CLIENT_ID` ada; `YOUTUBE_APP_STATUS=testing` → log `error` saat boot.
+- **Uji lintas lapisan (E1, `df9a2b7`):** `tests/integration/p5-publish-youtube-api.test.ts` menjalankan rantai nyata `Dispatcher → PUBLISH handler → createYouTubeApiPublisher → YouTubeApiAdapter → fetch palsu`; membuktikan `PUBLISHED` (videoId/permalink/verifiedAt, urutan POST/PUT/GET), privasi mismatch → `unknown` + `NEEDS_ATTENTION`, `uploadStatus rejected` → `FAILED`, kuota 403 → `AUTH` + hanya 1 panggilan, dan akun tanpa token → `reauth_required` + **0 panggilan** + job berikutnya ditolak sebelum aksi eksternal.
 
-## Keputusan Sesi Ini (A4)
+## Keputusan Sesi Ini (A5)
 
-1. Aset diresolusi lewat `getMediaAsset` di `apps/local-api/src/publisher.ts` — paket `@saa/youtube` tetap bebas database, dan hanya jalur `publish`/`validate` yang menyentuh disk.
-2. Sinkronisasi `reauth_required` ditempatkan sebagai hook adapter (`onReauthRequired`), bukan wrapper `SocialAdapter`: `getStatus(idempotencyKey)` tidak membawa `accountId`, sedangkan adapter menyimpan pemetaan tersebut.
-3. Kegagalan callback reauth ditelan dengan sengaja agar galat auth asli tidak tertutupi; status akun bersifat informatif, bukan penentu keselamatan unggahan.
-4. `YOUTUBE_APP_STATUS` wajib dilaporkan owner (tidak ada API resmi); `testing` diperlakukan sebagai galat, `unknown` sebagai peringatan — tidak ada asumsi "production".
-5. CLI pairing memakai `rundll32 url.dll,FileProtocolHandler` (bukan `cmd /c start`) karena URL otorisasi memuat `&`; URL tidak pernah melewati shell.
-6. Akun baru dari `--label` dibuat `disconnected` dan baru menjadi `connected` setelah exchange token sukses — status tidak pernah dinaikkan tanpa bukti.
+1. Test memakai rantai komposisi **nyata** (composition root + adapter API) dengan `fetch` palsu, bukan adapter tiruan — pemetaan error, verifikasi privasi, dan sinkronisasi `reauth_required` diuji sebagaimana dirangkai di runtime.
+2. `@saa/youtube` tidak ada di `devDependencies` root; test memakai bentuk struktural `CredentialStore` dan tidak menambah dependensi/lockfile.
+3. Eskalasi dispatcher menaikkan `attempts`; bukti "tanpa retry" memakai `runAt === null`, bukan `attempts === 0`. Jalur `unknown` dari `getStatus` tidak menaikkan attempts karena eskalasi dilakukan di dalam handler.
+4. `getStatus` adapter API tidak pernah mengembalikan `processing`; jalur belum-terverifikasi diwakili `unknown` (privasi beda / video tak ditemukan / key tak dikenal), dan handler memperlakukannya sama.
 
 ## Langkah Berikutnya
 
-1. **A5 — uji lintas handler + smoke live**: test `PUBLISH` + `YouTubeApiAdapter` dengan HTTP palsu (published/failed/processing/reauth), verifikasi akun `reauth_required` ditolak sebelum aksi eksternal, lalu smoke manual owner (unggah `private` + bukti `videos.list`).
-2. Prasyarat faktual owner untuk uji live: project Google Cloud + billing, jenis akun Google, channel target, izin membuat OAuth client Desktop, status app (Production/Internal), konfirmasi privasi awal.
-3. Pilihan lain yang masih terbuka: approval UI desktop, OD-1 (Flow nyata), kebijakan saat publikasi macet.
+1. **Smoke live owner** — pairing nyata via `pair:youtube` dengan `GOOGLE_OAUTH_CLIENT_ID` sah, lalu satu unggahan `private` beserta bukti `videos.list`; catat respons nyata untuk F2/F6/F7.
+2. Prasyarat faktual owner: project Google Cloud + billing, jenis akun Google (Workspace/gmail), channel target, izin membuat OAuth client Desktop, status app (Production/Internal), konfirmasi privasi awal.
+3. Jangan menyatakan P5 COMPLETED sebelum unggahan nyata terverifikasi.
+4. Pilihan lain yang masih terbuka: approval UI desktop, OD-1 (Flow nyata), kebijakan saat publikasi macet.
 
 ## Asumsi Terbuka (jangan dibangun di atasnya tanpa verifikasi)
 
@@ -82,7 +83,6 @@ Status fase: **P3 PARTIAL** (Flow nyata, OD-1) · **P4 PARTIAL** (UI approval) �
 - Lint/build artefak belum dipilih (ADR-0001 D7); `AGENTS.md` masih untracked.
 - Mock generator bukan video valid untuk pemutaran; mock adapter tidak mengunggah apa pun.
 - DPAPI hanya teruji pada Windows 10 host ini; perilaku di mesin lain (termasuk domain-joined/roaming profile) belum diverifikasi.
-- OAuth baru diuji dengan HTTP palsu + loopback lokal; belum pernah bertemu server Google sungguhan.
-- Adapter API baru diuji dengan HTTP palsu; bentuk respons `videos.insert`/`videos.list` yang sebenarnya belum diverifikasi pada channel sah.
+- OAuth dan adapter API baru diuji dengan `fetch` palsu (termasuk lintas lapisan); belum pernah bertemu server Google sungguhan.
 - Resume bertahap (HTTP 308 + `Content-Range`) belum diimplementasikan; unggahan ulang setelah 308 memulai sesi baru.
 - Pemetaan idempotency → videoId hilang saat proses restart, sehingga rekonsiliasi lintas restart belum tersedia.

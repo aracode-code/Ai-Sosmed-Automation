@@ -60,7 +60,7 @@ Implementasi dan test bisa berjalan dengan HTTP palsu tanpa ini; **uji live** me
 - Mode `Testing` adalah jebakan operasional (token 7 hari); onboarding wajib mencatat status publikasi app dan tanggal pairing.
 - Tidak ada perubahan schema DB, route API, atau dependensi npm pada keputusan ini.
 
-## Rencana Implementasi (slice, belum dikerjakan)
+## Rencana Implementasi (slice, status aktual)
 
 | Slice | Isi | Status |
 |---|---|---|
@@ -68,7 +68,7 @@ Implementasi dan test bisa berjalan dengan HTTP palsu tanpa ini; **uji live** me
 | A2 | OAuth client: pairing loopback + PKCE, refresh token, `reauth_required` | **DONE** (2026-10-30, `5cbe70b`) |
 | A3 | `YouTubeApiAdapter`: `validate`, `publish` (resumable upload), `getStatus` (`videos.list`), pemetaan error D6 | **DONE** (2026-10-30, `26e557a`) |
 | A4 | Wiring composition root + onboarding akun + log status app (Testing/Production) saat boot | **DONE** (2026-10-30, `0b4194f`) |
-| A5 | Test dengan HTTP palsu (tanpa kredensial) + smoke manual oleh owner pada channel sah | belum |
+| A5 | Test dengan HTTP palsu (tanpa kredensial) + smoke manual oleh owner pada channel sah | **SEBAGIAN** — uji lintas lapisan DONE (`df9a2b7`); smoke live belum |
 
 ### A1 — yang sudah ada (E1)
 
@@ -125,6 +125,23 @@ Implementasi dan test bisa berjalan dengan HTTP palsu tanpa ini; **uji live** me
 - `apps/local-api/src/server.ts` — cabang `api`: tanpa client id → peringatan + `PUBLISH` tidak terdaftar; `YOUTUBE_APP_STATUS=testing` → log level `error` (ADR melarang operasi), `unknown` → peringatan; adapter aktif → log `privacy` + `handlers: ["GENERATE_VIDEO","PUBLISH"]`.
 - Bukti: typecheck 9 paket + `tests/tsconfig.json` PASS; **39 file test, 301 passed / 0 failed** (9 test baru: 3 repository, 3 publisher, 2 hook adapter, 1 config); smoke boot `YOUTUBE_ADAPTER=api` + `YOUTUBE_APP_STATUS=testing` port 4411 → log `error` Testing, `handlers` memuat `PUBLISH`, `/health` ok, port bebas; CLI `pair:youtube` tanpa argumen/akun hilang/port invalid → exit 2 dengan pesan benar, `--label` berulang tidak menggandakan akun (1 baris `disconnected`).
 - Belum: uji lintas handler `PUBLISH` + adapter nyata dan smoke live (A5); resume 308; rekonsiliasi lintas restart.
+
+### A5 — uji lintas lapisan (E1)
+
+`tests/integration/p5-publish-youtube-api.test.ts` menyusun rantai **nyata** tanpa mock adapter: `Dispatcher` → `createPublishHandler` → `createYouTubeApiPublisher` → `YouTubeApiAdapter` → `fetch` palsu (token di store memori, aset media di disk sementara, DB sqlite hasil migrasi). Lima skenario:
+
+| Skenario | Jalur | Hasil terverifikasi |
+|---|---|---|
+| Unggahan sukses | `POST` sesi → `PUT` byte → `videos.list` privasi `private` | job `PUBLISHED`; attempt `published` + `externalPostId`/`permalink`/`verifiedAt`; body init memuat `title`/`description`/`categoryId 27`/`selfDeclaredMadeForKids false`; 3 panggilan eksternal (POST/PUT/GET) |
+| Privasi tidak sesuai | `videos.list` melaporkan `public` | attempt `unknown` + `YT_PRIVACY_MISMATCH`, job `NEEDS_ATTENTION`, attempts tetap 0, tanpa retry |
+| Video ditolak YouTube | `uploadStatus: rejected` | job `FAILED` + `YT_UPLOAD_REJECTED`, attempt `failed`, attempts 1, tanpa retry |
+| Kuota habis | `403 quotaExceeded` pada inisialisasi | job `NEEDS_ATTENTION` + `AUTH`, attempt `unknown`, hanya 1 panggilan (tidak ada byte terunggah), akun tetap `connected` (kuota bukan masalah pairing) |
+| Belum dipasangkan | store tanpa token | attempt `unknown` + `AUTH`, akun ditulis `reauth_required` oleh hook composition root, **0 panggilan eksternal**; job berikutnya ditolak di penjaga `connection_status` (0 attempt, 0 panggilan baru) |
+
+Catatan penyimpangan dari rencana handoff: `YouTubeApiAdapter.getStatus` **tidak pernah** mengembalikan `processing` — ia memetakan ke `published` (privasi cocok), `failed` (ditolak/dihapus), atau `unknown` (privasi beda/tidak ditemukan). Karena itu skenario "processing → `NEEDS_ATTENTION`" diuji sebagai `unknown` → `NEEDS_ATTENTION`, yang merupakan jalur nyata adapter.
+
+- Bukti: typecheck 9 paket + `tests/tsconfig.json` PASS; **40 file test, 306 passed / 0 failed** (5 test integrasi baru).
+- Belum: smoke live (pairing + unggah `private` nyata dengan bukti `videos.list`) — butuh prasyarat owner.
 
 ## Open Items
 
