@@ -63,8 +63,42 @@ export function insertMediaAsset(raw: SqliteDatabase, input: InsertMediaInput): 
   return asset;
 }
 
-export function getMediaAsset(raw: SqliteDatabase, id: string): MediaAsset | null {
-  const row = raw.prepare('SELECT * FROM media_assets WHERE id = ?').get(id) as
+/** Idempoten per id: retry handler memperbarui baris yang sama, bukan menggandakan. */
+export function upsertMediaAsset(raw: SqliteDatabase, input: InsertMediaInput): MediaAsset {
+  const id = input.id ?? `med_${randomUUID()}`;
+  raw
+    .prepare(
+      `INSERT INTO media_assets (
+        id, content_id, path, sha256, mime_type, size_bytes, duration_ms, validation_status
+      ) VALUES (
+        @id, @contentId, @path, @sha256, @mimeType, @sizeBytes, @durationMs, @validationStatus
+      )
+      ON CONFLICT(id) DO UPDATE SET
+        content_id = excluded.content_id,
+        path = excluded.path,
+        sha256 = excluded.sha256,
+        mime_type = excluded.mime_type,
+        size_bytes = excluded.size_bytes,
+        duration_ms = excluded.duration_ms,
+        validation_status = excluded.validation_status`
+    )
+    .run({
+      id,
+      contentId: input.contentId,
+      path: input.path,
+      sha256: input.sha256,
+      mimeType: input.mimeType,
+      sizeBytes: input.sizeBytes,
+      durationMs: input.durationMs ?? null,
+      validationStatus: input.validationStatus
+    });
+
+  const asset = getMediaAsset(raw, id);
+  if (asset === null) throw new Error(`media asset ${id} gagal disimpan`);
+  return asset;
+}
+
+export function getMediaAsset(raw: SqliteDatabase, id: string): MediaAsset | null {  const row = raw.prepare('SELECT * FROM media_assets WHERE id = ?').get(id) as
     | MediaRow
     | undefined;
   return row ? toMedia(row) : null;

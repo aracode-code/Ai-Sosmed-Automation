@@ -37,6 +37,17 @@ describe('state machine — happy path', () => {
     expect(pending).toBe('AWAITING_APPROVAL');
     expect(run(pending, [{ type: 'APPROVED' }])).toBe('SCHEDULED');
   });
+
+  it('job GENERATE_VIDEO masuk ke GENERATING dari QUEUED lalu COMPLETED', () => {
+    expect(run('QUEUED', [{ type: 'START_GENERATION' }, { type: 'STEP_COMPLETED' }])).toBe(
+      'COMPLETED'
+    );
+  });
+
+  it('START_GENERATION ditolak bila job sudah berjalan', () => {
+    expect(transitionJob('GENERATING', { type: 'START_GENERATION' }).ok).toBe(false);
+    expect(transitionJob('PLANNING', { type: 'START_GENERATION' }).ok).toBe(false);
+  });
 });
 
 describe('state machine — penolakan', () => {

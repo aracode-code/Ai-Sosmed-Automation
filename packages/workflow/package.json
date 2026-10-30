@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@saa/agent-core": "workspace:*",
+    "@saa/browser-engine": "workspace:*",
     "@saa/database": "workspace:*",
     "@saa/domain": "workspace:*",
     "zod": "^3.24.0"

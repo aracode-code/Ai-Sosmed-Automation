@@ -14,6 +14,7 @@
     "migrate": "corepack pnpm --filter @saa/database migrate"
   },
   "devDependencies": {
+    "@saa/browser-engine": "workspace:*",
     "@saa/database": "workspace:*",
     "@saa/domain": "workspace:*",
     "@saa/local-api": "workspace:*",

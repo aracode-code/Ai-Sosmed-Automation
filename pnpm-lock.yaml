@@ -8,6 +8,9 @@ importers:
 
   .:
     devDependencies:
+      '@saa/browser-engine':
+        specifier: workspace:*
+        version: link:packages/browser-engine
       '@saa/database':
         specifier: workspace:*
         version: link:packages/database
@@ -87,6 +90,22 @@ importers:
       zod:
         specifier: ^3.24.0
         version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: ^22.10.0
+        version: 22.20.5
+      typescript:
+        specifier: ^5.7.0
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.0
+        version: 2.1.9(@types/node@22.20.5)
+
+  packages/browser-engine:
+    dependencies:
+      '@saa/domain':
+        specifier: workspace:*
+        version: link:../domain
     devDependencies:
       '@types/node':
         specifier: ^22.10.0
@@ -184,6 +203,9 @@ importers:
       '@saa/agent-core':
         specifier: workspace:*
         version: link:../agent-core
+      '@saa/browser-engine':
+        specifier: workspace:*
+        version: link:../browser-engine
       '@saa/database':
         specifier: workspace:*
         version: link:../database

@@ -16,6 +16,7 @@ export type RetrySafeState =
 
 export type JobEvent =
   | { type: 'START_PLANNING' }
+  | { type: 'START_GENERATION' }
   | { type: 'PLAN_READY' }
   | { type: 'GENERATION_COMPLETED' }
   | { type: 'DOWNLOAD_COMPLETED' }
@@ -122,6 +123,9 @@ export function transitionJob(
   switch (event.type) {
     case 'START_PLANNING':
       return current === 'QUEUED' ? accept('PLANNING') : reject(current, event.type);
+
+    case 'START_GENERATION':
+      return current === 'QUEUED' ? accept('GENERATING') : reject(current, event.type);
 
     case 'PLAN_READY':
       return current === 'PLANNING' ? accept('GENERATING') : reject(current, event.type);

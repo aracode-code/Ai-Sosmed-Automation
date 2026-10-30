@@ -9,6 +9,7 @@ export type ErrorClass =
   | 'SECURITY_CHALLENGE'
   | 'AMBIGUOUS_RESULT'
   | 'DISK'
+  | 'RESOURCE_BUSY'
   | 'CANCELLED'
   | 'UNKNOWN';
 
