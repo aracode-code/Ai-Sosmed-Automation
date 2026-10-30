@@ -30,11 +30,11 @@ Arah dependensi: `@saa/agent-core` → `@saa/domain` + `zod`. Tidak mengimpor da
 ```bash
 corepack pnpm --filter @saa/agent-core typecheck
 corepack pnpm vitest run packages/agent-core     # 29 test
-corepack pnpm test                                # 95 test seluruh workspace
+corepack pnpm test                                # seluruh workspace (179 test per 2026-10-30)
 ```
 
 ## Belum Ada (P2+)
 
-- Wiring planner ke dispatcher (`PLAN_CONTENT`): butuh schema campaign/konten/aset dan handler yang memetakan `PlannerOutputError` → `NEEDS_ATTENTION`.
+- ~~Wiring planner ke dispatcher (`PLAN_CONTENT`)~~ DONE 2026-10-30 (`826a732`) — lihat `modules/workflow.md`.
 - Uji live DeepSeek (butuh keputusan sumber API key).
 - Kanal peringatan untuk target dengan capability `unknown` (saat ini hanya `unsupported` yang memblokir).

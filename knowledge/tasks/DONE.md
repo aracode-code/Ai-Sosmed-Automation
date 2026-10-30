@@ -1,5 +1,18 @@
 # DONE
 
+## 2026-10-30 — SESSION-2026-10-30-1
+
+- **Fase A — Wiring planner ke PLAN_CONTENT** (commit `826a732`).
+  - Handler `createPlanContentHandler`; status `COMPLETED` + event `STEP_COMPLETED`; migrasi `0001` (`campaigns.platforms_json`); konten `cnt_<jobId>` + job `GENERATE_VIDEO` idempotent.
+  - Bukti: typecheck PASS · test handler (sukses, needs_human, wait, output invalid, campaign hilang, replay).
+- **Fase B — P4 approval + scheduler backend** (commit `4b513ab`).
+  - Approval binding (versi konten, sha aset, hash caption kanonik, akun, platform) + `reason` + audit; migrasi `0002`; paket `@saa/scheduler` (zona waktu, window/quiet, kuota, pause); route campaigns/approvals/schedules/accounts.
+  - Bukti: **159 test passed** saat itu (13 test API P4); bug ujung quiet diperbaiki.
+- **Fase C — P3 Flow mock** (commit `013531a`, `b8c85e0`).
+  - Paket `@saa/browser-engine`: kontrak `VideoGenerator`, mock deterministik, validasi media (containment/magic/checksum/probe), lock profil; handler `GENERATE_VIDEO` + `upsertMediaAsset`.
+  - Bukti gabungan akhir: typecheck 7 paket PASS · **179 test passed** · migrasi `0001`/`0002` diterapkan ke DB lokal · smoke boot `/health`, `/api/v1/schedules`, pause/resume.
+  - Keputusan: `decisions/ADR-0003-workflow-p4-p3-mock.md`; modul: `modules/{workflow,scheduler,browser-engine}.md`.
+
 ## 2026-10-30 — SESSION-2026-10-29-1
 
 - **P2 — Agent core** (commits `7d02a06`, `9cd360c`).

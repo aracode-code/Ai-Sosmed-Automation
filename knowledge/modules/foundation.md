@@ -28,8 +28,8 @@ Arah dependensi: `domain` ← `database` ← `workflow` ← `local-api`; `observ
 ## Perintah
 
 ```bash
-corepack pnpm typecheck                              # 5 paket + tests/
-corepack pnpm test                                   # 66 test
+corepack pnpm typecheck                              # 7 paket + tests/ (per 2026-10-30)
+corepack pnpm test                                   # seluruh workspace (179 test per 2026-10-30)
 corepack pnpm migrate                                 # terapkan migrations/*.sql
 corepack pnpm start                                   # local API di 127.0.0.1:4317
 ```
@@ -38,4 +38,4 @@ corepack pnpm start                                   # local API di 127.0.0.1:4
 
 ## Belum Ada (P2+)
 
-Worker loop yang terus-menerus polling, handler job nyata (planner/generator), scheduler, adapter platform, UI dashboard, Playwright, auth lokal, lint/build artefak.
+Worker loop yang terus-menerus polling dan registrasi handler di `apps/local-api`, adapter platform, UI dashboard, Playwright, auth lokal, lint/build artefak. (Scheduler + handler PLAN_CONTENT/GENERATE_VIDEO sudah ada — lihat `modules/scheduler.md`, `modules/workflow.md`.)

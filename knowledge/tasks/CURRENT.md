@@ -1,58 +1,53 @@
 # CURRENT — Task Aktif
 
-**Session:** SESSION-2026-10-29-1
-**Updated:** 2026-10-30T04:30:00+07:00
-**Change class:** LARGE (P2 Agent core: paket baru, kontrak AI, menyentuh pemetaan error lintas paket)
+**Session:** SESSION-2026-10-30-1
+**Updated:** 2026-10-30T08:07:00+07:00
+**Change class:** LARGE (wiring workflow, 2 paket baru, 2 migrasi, 15 endpoint)
 
 ## Active Task
 
-_Tidak ada task aktif._ **P2 — Agent core COMPLETED** (commits `7d02a06`, `9cd360c`, 2026-10-30).
+_Tidak ada task aktif._ **Wiring PLAN_CONTENT (A) + P4 backend (B) + P3 mock (C) selesai** (2026-10-30).
 
 | Field | Nilai |
 |---|---|
-| Task terakhir | **P2 — Agent core** |
-| Status | **COMPLETED** |
+| Task terakhir | **A/B/C — workflow, approval/scheduler, P3 mock** |
+| Status | **PARTIAL** terhadap fase: P4 butuh UI + loop worker; P3 butuh Flow nyata (OD-1) |
 | Mode eksekusi | SINGLE-WRITER sequential (`SINGLE-WRITER JUSTIFIED`, §10.14) |
-| DoD | ✅ Zod schema · ✅ budget/timeout · ✅ mock tests · ✅ gagal → `NEEDS_ATTENTION` |
+| DoD tercapai | ✅ handler + test nyata · ✅ approval binding · ✅ jadwal persisten · ✅ media tervalidasi · ✅ typecheck + 179 test |
 
-## Bukti DoD P2
+## Fase & Commit
 
-| Bukti | Hasil aktual (2026-10-30) |
-|---|---|
-| Typecheck | `corepack pnpm run typecheck` → 6 paket + `tests/tsconfig.json`, PASS |
-| Test suite | `corepack pnpm test` → 15 file, **95 passed / 0 failed** (agent-core 29) |
-| Schema validation | `planDecisionSchema`/`plannerInputSchema`; 10 test `plan.test.ts` |
-| Budget/timeout | Registry budget 8 + timeout 10 s (7 test); DeepSeek timeout 60 s |
-| Mock | LLM skrip + `fetch` palsu; **tidak ada** panggilan DeepSeek nyata |
-
-## DAG P2 (selesai)
-
-```text
-S1 scaffold ──► S2 plan schema/kebijakan ──► S4 planner ──► S5 tests ──► S6 sync
-                        │                        ▲
-                        └──► S3 DeepSeek/fetch ───┘   (+ tool registry)
-```
-
-| Slice | Commit | Isi |
+| Fase | Commit | Isi |
 |---|---|---|
-| S1–S5 + perbaikan pemetaan error | `7d02a06` | paket `agent-core`: `plan`, `llm`, `deepseek`, `prompts`, `planner`, `tools` + 29 test |
-| fix(error class) | `9cd360c` | `AI_OUTPUT_INVALID` → `escalate`; `PlannerOutputError` untuk output model invalid; test retry + planner |
-| S6 Sync | commit ini | ADR-0002, `modules/agent-core.md`, state/index/context/memory/task/log |
+| A | `826a732` | `PLAN_CONTENT`: status `COMPLETED` + event `STEP_COMPLETED`, `campaigns.platforms_json` (migrasi `0001`), konten + job `GENERATE_VIDEO` idempotent |
+| B | `4b513ab` | Approval binding + API approve/reject, `approvals.reason`, migrasi `0002` (`next_run_at`, `quiet_*`), paket `@saa/scheduler`, API campaigns/schedules/accounts |
+| C | `013531a`, `b8c85e0` | Paket `@saa/browser-engine` (mock Flow, validasi media, probe, lock profil), handler `GENERATE_VIDEO`, `upsertMediaAsset` |
+
+## Bukti (aktual 2026-10-30)
+
+| Bukti | Hasil |
+|---|---|
+| Typecheck | `corepack pnpm run typecheck` → 7 paket + `tests/tsconfig.json`, PASS |
+| Test suite | `corepack pnpm test` → 25 file, **179 passed / 0 failed** |
+| Migrasi lokal | `corepack pnpm migrate` → `0001`, `0002` diterapkan ke `data/database/app.sqlite`; total 3 |
+| Smoke boot | `corepack pnpm start` → `GET /health` 200 `{status:ok,db:ok}` · `GET /api/v1/schedules` 200 `{items:[]}` · `POST /scheduler/pause|resume` 200; proses dihentikan setelah uji |
+| Jaringan | Tidak ada panggilan DeepSeek/Flow nyata; generator mock deterministik |
 
 ## Impact Map (aktual)
 
-- **Kode:** paket baru `packages/agent-core` (13 file); `@saa/domain` (`ErrorClass` + `AI_OUTPUT_INVALID`); `@saa/workflow` (`ESCALATE_CLASSES` + test).
-- **DB:** tidak berubah (12 tabel).
-- **API:** tidak berubah (4 endpoint); planner belum diekspos.
-- **Dokumentasi:** `decisions/ADR-0002`, `modules/agent-core.md`, `00_INDEX.md`, `01_PROJECT.md`, `tasks/*`, `logs/2026-10-30.md`.
-- **Security:** key DeepSeek hanya di closure adapter; tool tanpa shell; `ToolContext` tanpa secret.
+- **Kode:** `packages/workflow/src/handlers/{plan-content,generate-video}.ts`; paket baru `packages/scheduler`, `packages/browser-engine`; `packages/domain` (`approval.ts`, `schedule.ts`, `entities.ts`, 15 status, `RESOURCE_BUSY`); `packages/database` (repo accounts/approvals/media/schedules/settings, `upsertMediaAsset`); `apps/local-api` (4 grup route baru, `errorEnvelope` bersama).
+- **DB:** migrasi `0001_campaign_platforms.sql`, `0002_scheduler_and_approval.sql`; tetap 12 tabel.
+- **API:** 15 route terdaftar (sebelumnya 4).
+- **Dokumentasi:** `decisions/ADR-0003-workflow-p4-p3-mock.md`, `modules/{workflow,scheduler,browser-engine}.md`, `00_INDEX`, `01_PROJECT`, state/index/context/memory, tasks, log.
+- **Security:** approval memverifikasi caption+aset sebelum menyetujui; route accounts tidak mengekspos `secretRef`/`profileKey`; media path dibatasi `outputRoot`; tidak ada secret baru.
 
 ## Drift Tercatat
 
-- `AI_OUTPUT_INVALID` adalah kelas tambahan di luar tabel LLD §15 — diperlukan agar LLD §9.3 (`NEEDS_ATTENTION`) dapat dipenuhi (ADR-0002 D5). LLD tidak diubah.
-- Capability `unknown` tidak memblokir rencana di planner; gerbang akhir di adapter + approval (ADR-0002 D8). Belum ada kanal peringatan.
-- HLD §7.1 (13 status) vs LLD §4.2 (14 status) — tetap seperti ADR-0001 D6.
-- `AGENTS.md` untracked — menunggu keputusan owner (komit / ignore).
+- Status job kini 15 (`COMPLETED` untuk job langkah); HLD §7.1 (13) dan LLD §4.2 (14) belum diperbarui — drift desain lama, dicatat di ADR-0003.
+- `RESOURCE_BUSY` adalah kelas error tambahan di luar tabel LLD §15 (default retry).
+- Kuota menghitung semua status `publish_attempts`; definisi final menunggu P5.
+- Durasi media dari generator dipakai bila probe tidak tersedia; tidak ada penanda di schema DB.
+- `AGENTS.md` untracked — menunggu keputusan owner.
 
 ## Team Scope
 
@@ -61,10 +56,10 @@ _Tidak ada gelombang aktif._ `state.open_wave = null`.
 ## Next Session Handoff
 
 1. Boot urut §11.14; jangan pindai ulang HLD/LLD.
-2. **Menunggu keputusan owner** untuk langkah berikutnya:
-   - (a) wiring planner ke dispatcher (`PLAN_CONTENT`) — butuh schema campaign/konten/aset; `PlannerOutputError` wajib → `NEEDS_ATTENTION`;
-   - (b) `PLAN P4` approval/scheduler — tidak bergantung OD-1;
-   - (c) P3 dengan adapter Flow **mock** (P3 penuh tetap tertahan OD-1).
-3. Keputusan owner yang masih terbuka: sumber API key DeepSeek (env vs Credential Manager) untuk uji live.
-4. Jangan mulai P3 penuh (Google Flow nyata) sebelum OD-1 terjawab.
-5. Bila owner mengubah prioritas, revisi tabel ini sebelum menyentuh kode.
+2. **Menunggu keputusan owner**:
+   - (a) worker loop + registrasi handler di `apps/local-api` (agar job benar-benar diproses);
+   - (b) **P5 YouTube** — publish/verify/reconcile dengan adapter nyata;
+   - (c) approval UI (React) di atas API yang sudah ada;
+   - (d) jawab **OD-1** agar adapter Flow nyata bisa dibangun.
+3. Jangan menyatakan P3/P4 COMPLETED sebelum Flow nyata / UI + loop selesai.
+4. Keputusan owner yang masih terbuka: sumber API key DeepSeek, `AGENTS.md`, lint/build tool.

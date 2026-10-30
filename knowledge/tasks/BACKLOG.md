@@ -8,8 +8,8 @@ Sumber fase + DoD: `LLD.md` §18. Urutan ini mengikat kecuali user menyatakan la
 |---|---|---|---|---|
 | P1 | Foundation | Workspace pnpm, schema DB + migrasi, Local API dasar, logging, domain state machine, persistent queue | Migrations · unit tests · `/health` · restart recovery | **COMPLETED** (2026-10-30, `debdaaf`) — bukti di `CURRENT.md` |
 | P2 | Agent | DeepSeek provider, planner, tool registry allowlist | Schema validation, budget/timeout, mock tests | **COMPLETED** (2026-10-30, `7d02a06`,`9cd360c`) — bukti di `CURRENT.md` |
-| P3 | Flow | Playwright session manager, Google Flow adapter, validasi media | Smoke test pada akun sah, file tervalidasi | NOT STARTED (tertahan OD-1) |
-| P4 | Approval & Scheduler | Approval UI, schedules, quota, pause/resume | Approval binding + schedule persistence tests | NOT STARTED |
+| P3 | Flow | Playwright session manager, Google Flow adapter, validasi media | Smoke test pada akun sah, file tervalidasi | **PARTIAL** (2026-10-30, `013531a`) — mock + validasi media + lock profil selesai; Flow nyata tertahan OD-1 |
+| P4 | Approval & Scheduler | Approval UI, schedules, quota, pause/resume | Approval binding + schedule persistence tests | **PARTIAL** (2026-10-30, `4b513ab`) — backend + engine + 13 test API; UI approval & loop worker belum |
 | P5 | YouTube | Adapter publikasi pertama | Authorized test upload, verify, retry/reconciliation tests | NOT STARTED |
 | P6 | Platform lain | TikTok, Instagram, Facebook, X, Threads | Capability + contract test per adapter | NOT STARTED |
 | P7 | Hardening | Packaging, backup, security review, runbook | Acceptance criteria + release checklist | NOT STARTED |
@@ -28,9 +28,13 @@ Sumber fase + DoD: `LLD.md` §18. Urutan ini mengikat kecuali user menyatakan la
 
 ## Backlog Teknis (turunan, belum dijadwalkan)
 
-- Wiring planner → dispatcher: handler `PLAN_CONTENT` memanggil `createPlanner`, memetakan `PlannerOutputError` → `NEEDS_ATTENTION`; butuh schema campaign/konten/aset (ADR-0002 D9).
+- **Worker loop belum ada:** `apps/local-api` belum memanggil `Dispatcher.runOnce` periodik dan belum mendaftarkan handler; scheduler belum dijalankan periodik. Tanpa ini job hanya diproses di test.
+- **Approval UI** (React) di atas `POST /api/v1/content/:id/approve|reject`.
+- **P5 sebelum mulai:** tetapkan status `publish_attempts` yang dihitung kuota, dan sambungkan `Scheduler.enqueue` ke pembuatan job publikasi.
+- **Adapter Flow nyata** membutuhkan OD-1 (akses/kebijakan) dan sesi browser pada akun sah.
 - Sumber API key DeepSeek (env vs Credential Manager) + uji live pertama adapter (status saat ini UNVERIFIED).
 - Keputusan owner: apakah planner menolak target dengan capability `unknown`, atau memberi peringatan (ADR-0002 D8).
+- ~~Wiring planner → dispatcher `PLAN_CONTENT`~~ DONE 2026-10-30 (`826a732`) — ADR-0003 D1–D6.
 - ~~Pin versi Node LTS + pnpm; komit lockfile.~~ DONE 2026-10-30 — `engines >=22.12 <23`, `packageManager pnpm@9.15.4`, `pnpm-lock.yaml` dikomit.
 - Tentukan apakah `HLD.md`/`LLD.md` dipindah ke `docs/` (buat ADR bila ya).
 - Siapkan `docs/security.md` dan `docs/runbook.md` sebelum P7.

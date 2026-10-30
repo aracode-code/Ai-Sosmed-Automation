@@ -9,7 +9,7 @@
 | Tipe | Aplikasi desktop lokal Windows, satu pengguna utama | VERIFIED (HLD §2.3) |
 | Deployment | Windows PC lokal; packaging Electron/Tauri belum dipilih | VERIFIED (HLD §4, LLD §19) |
 | Dokumen induk | `HLD.md` v1.0 dan `LLD.md` v1.0 (keduanya berstatus Draft) | VERIFIED |
-| Implementasi kode | **P1 Foundation + P2 Agent core selesai** — 6 paket workspace, 95 test hijau | VERIFIED (commit `debdaaf`, `9cd360c`, 2026-10-30) |
+| Implementasi kode | **P1 + P2 + P3 mock + P4 backend selesai** — 7 paket workspace + local API, 179 test hijau | VERIFIED (commit `debdaaf` … `013531a`, 2026-10-30) |
 
 ## Tujuan Produk
 
@@ -51,16 +51,18 @@ Mengotomatisasi alur produksi video dari perencanaan sampai publikasi lintas pla
 ## Struktur Repo (aktual per 2026-10-30)
 
 ```text
-apps/local-api            # Fastify app + route health/jobs + entrypoint
-packages/domain           # entitas, JobType/JobStatus, error class, state machine
-packages/database         # schema Drizzle, client, migrator SQL, repository jobs/audit
-packages/workflow         # dispatcher, retry policy, recovery lease
+apps/local-api            # Fastify: health, jobs, campaigns, approvals, schedules, accounts
+packages/domain           # entitas, JobType/JobStatus, error class, state machine, approval binding, schedule config
+packages/database         # schema Drizzle 12 tabel, client, migrator SQL, repository
+packages/workflow         # dispatcher, retry, recovery, handler PLAN_CONTENT + GENERATE_VIDEO
 packages/observability    # logger Pino + redaksi secret
 packages/agent-core       # skema PlanDecision + planner + adapter DeepSeek + tool allowlist
+packages/scheduler        # zona waktu, window/quiet, kuota harian, Scheduler pause/runOnce
+packages/browser-engine   # kontrak VideoGenerator, mock Flow, validasi media, lock profil
 tests/integration         # migrasi, restart recovery, klaim lintas koneksi, envelope API
 ```
 
-Belum dibuat (P3–P7): `apps/desktop-ui`, `packages/{scheduler,browser-engine,media,secrets}`, `packages/integrations/*`, `tests/{unit,e2e,fixtures}`, `docs/{security.md,runbook.md}`.
+Belum dibuat (P3 penuh–P7): `apps/desktop-ui`, adapter Flow nyata, `packages/integrations/*`, `docs/{security.md,runbook.md}`.
 
 > Catatan: HLD/LLD berada di root repo (bukan `docs/`). Pindahkan hanya bila diputuskan di ADR — jangan memindahkan dokumen canonical tanpa jejak.
 
@@ -80,7 +82,11 @@ Belum dibuat (P3–P7): `apps/desktop-ui`, `packages/{scheduler,browser-engine,m
 - Semua perintah paket dijalankan sebagai `corepack pnpm ...` — `pnpm` tidak ada di PATH mesin ini.
 - `DATABASE_PATH` relatif diresolusi terhadap root workspace (ADR-0001 D5).
 - Migrasi hanya lewat `packages/database/migrations/*.sql` + `schema_migrations`; jurnal drizzle-kit tidak dipakai (ADR-0001 D3).
-- Status job: 14 status LLD §4.2/§7.1 (bukan daftar HLD §7.1 — drift tercatat di ADR-0001 D6).
+- Media: generator menulis ke `outputRoot` (relatif `content/<contentId>`); setiap path divalidasi containment + checksum sebelum dicatat sebagai `media_assets` (ADR-0003 D18–D19).
+- Approval: terikat versi konten + sha256 aset + hash caption + akun + platform; mismatch → `409 APPROVAL_MISMATCH` (ADR-0003 D7–D9).
+- Scheduler: `next_run_at` persisten, kuota harian per akun+platform, pause lewat `settings` — tidak menghapus jadwal (ADR-0003 D10–D14).
+- P3 saat ini memakai generator **mock** (MP4-shaped, bukan video yang dapat diputar); Flow asli menunggu OD-1 (ADR-0003 D16–D17).
+- Status job: 15 status (termasuk `COMPLETED` untuk job langkah); publication tetap berakhir `PUBLISHED`.
 - Quality gate P1: `tsc` strict + Vitest; lint/build artefak belum ada (ADR-0001 D7).
 
 ## Status Implementasi
@@ -90,6 +96,8 @@ Belum dibuat (P3–P7): `apps/desktop-ui`, `packages/{scheduler,browser-engine,m
 | P0 Bootstrap knowledge OS | COMPLETED (2026-10-29) |
 | P1 Foundation (workspace, DB, API, logs, state machine, queue) | **COMPLETED (2026-10-30, commit `debdaaf`)** |
 | P2 Agent core (kontrak planner, adapter DeepSeek, tool allowlist) | **COMPLETED (2026-10-30, commits `7d02a06`,`9cd360c`)** |
-| P3 Flow · P4 Approval/Scheduler · P5 YouTube · P6 Platform lain · P7 Hardening | NOT STARTED |
+| P3 Flow (mock adapter + validasi media + handler GENERATE_VIDEO) | **PARTIAL (2026-10-30, commits `013531a`,`b8c85e0`)** — Flow nyata tertahan OD-1 |
+| P4 Approval & Scheduler (backend + engine) | **PARTIAL (2026-10-30, commit `4b513ab`)** — UI approval & loop worker belum ada |
+| P5 YouTube · P6 Platform lain · P7 Hardening | NOT STARTED |
 
-Rincian fase + Definition of Done: `tasks/BACKLOG.md`. Bukti P1: `modules/foundation.md`; P2: `modules/agent-core.md`.
+Rincian fase + Definition of Done: `tasks/BACKLOG.md`. Bukti: `modules/foundation.md` (P1), `modules/agent-core.md` (P2), `modules/workflow.md`, `modules/scheduler.md`, `modules/browser-engine.md`.
