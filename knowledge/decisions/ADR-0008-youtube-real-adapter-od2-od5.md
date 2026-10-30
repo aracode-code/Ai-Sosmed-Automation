@@ -68,7 +68,7 @@ Implementasi dan test bisa berjalan dengan HTTP palsu tanpa ini; **uji live** me
 | A2 | OAuth client: pairing loopback + PKCE, refresh token, `reauth_required` | **DONE** (2026-10-30, `5cbe70b`) |
 | A3 | `YouTubeApiAdapter`: `validate`, `publish` (resumable upload), `getStatus` (`videos.list`), pemetaan error D6 | **DONE** (2026-10-30, `26e557a`) |
 | A4 | Wiring composition root + onboarding akun + log status app (Testing/Production) saat boot | **DONE** (2026-10-30, `0b4194f`) |
-| A5 | Test dengan HTTP palsu (tanpa kredensial) + smoke manual oleh owner pada channel sah | **SEBAGIAN** — uji lintas lapisan DONE (`df9a2b7`); smoke live belum |
+| A5 | Test dengan HTTP palsu (tanpa kredensial) + smoke manual oleh owner pada channel sah | **SEBAGIAN** — uji lintas lapisan DONE (`df9a2b7`, diperkuat `8b8a698`); smoke live belum |
 
 ### A1 — yang sudah ada (E1)
 
@@ -128,19 +128,24 @@ Implementasi dan test bisa berjalan dengan HTTP palsu tanpa ini; **uji live** me
 
 ### A5 — uji lintas lapisan (E1)
 
-`tests/integration/p5-publish-youtube-api.test.ts` menyusun rantai **nyata** tanpa mock adapter: `Dispatcher` → `createPublishHandler` → `createYouTubeApiPublisher` → `YouTubeApiAdapter` → `fetch` palsu (token di store memori, aset media di disk sementara, DB sqlite hasil migrasi). Lima skenario:
+`tests/integration/p5-publish-youtube-api.test.ts` menyusun rantai **nyata** tanpa mock adapter: `Dispatcher` → `createPublishHandler` → `createYouTubeApiPublisher` → `YouTubeApiAdapter` → `fetch` palsu (token di store memori, aset media di disk sementara, DB sqlite hasil migrasi). Delapan skenario:
 
 | Skenario | Jalur | Hasil terverifikasi |
 |---|---|---|
-| Unggahan sukses | `POST` sesi → `PUT` byte → `videos.list` privasi `private` | job `PUBLISHED`; attempt `published` + `externalPostId`/`permalink`/`verifiedAt`; body init memuat `title`/`description`/`categoryId 27`/`selfDeclaredMadeForKids false`; 3 panggilan eksternal (POST/PUT/GET) |
-| Privasi tidak sesuai | `videos.list` melaporkan `public` | attempt `unknown` + `YT_PRIVACY_MISMATCH`, job `NEEDS_ATTENTION`, attempts tetap 0, tanpa retry |
+| Unggahan sukses | `POST` sesi → `PUT` byte → `videos.list` privasi `private` | job `PUBLISHED`; attempt `published` + `externalPostId`/`permalink`/`verifiedAt`; body init memuat `title`/`description`/`categoryId 27`/`selfDeclaredMadeForKids false`; 3 panggilan eksternal (POST/PUT/GET); header `Authorization: Bearer <token>` pada inisialisasi & verifikasi, **tidak** pada PUT sesi |
+| Privasi tidak sesuai | `videos.list` melaporkan `public` | attempt `unknown` + `YT_PRIVACY_MISMATCH`, job `NEEDS_ATTENTION`, attempts tetap 0, `runAt` null (tanpa retry) |
 | Video ditolak YouTube | `uploadStatus: rejected` | job `FAILED` + `YT_UPLOAD_REJECTED`, attempt `failed`, attempts 1, tanpa retry |
-| Kuota habis | `403 quotaExceeded` pada inisialisasi | job `NEEDS_ATTENTION` + `AUTH`, attempt `unknown`, hanya 1 panggilan (tidak ada byte terunggah), akun tetap `connected` (kuota bukan masalah pairing) |
+| Kuota habis | `403 quotaExceeded` pada inisialisasi | job `NEEDS_ATTENTION` + `AUTH`, attempt `unknown`, hanya 1 panggilan (tidak ada byte terunggah), audit `needs_attention` tercatat, akun tetap `connected` (kuota bukan masalah pairing) |
 | Belum dipasangkan | store tanpa token | attempt `unknown` + `AUTH`, akun ditulis `reauth_required` oleh hook composition root, **0 panggilan eksternal**; job berikutnya ditolak di penjaga `connection_status` (0 attempt, 0 panggilan baru) |
+| Refresh token kedaluwarsa | `access_token` kedaluwarsa → `POST https://oauth2.googleapis.com/token` (`grant_type=refresh_token`) | token baru tersimpan ulang di store (refresh token lama dipertahankan), unggahan & verifikasi memakai `Bearer` baru, job `PUBLISHED`, akun tetap `connected` |
+| Refresh dicabut | token endpoint `400 invalid_grant` | `reauth_required` (kelas `AUTH`), **1 panggilan** (hanya token endpoint), akun → `reauth_required`, tidak ada unggahan |
+| Aset tidak terbaca | berkas media dihapus sebelum dispatch | handler menolak di `adapter.validate` (`PUBLISH_VALIDATION`), job `FAILED` + `VALIDATION`, **0 panggilan**, attempt `failed` |
+
+Perbaikan hasil review: eskalasi error adapter (AUTH/kuota/DISK) kini menulis audit `needs_attention`; sebelumnya attempt menjadi `unknown` tanpa jejak audit karena jalur itu tidak melewati `escalateUnverified`.
 
 Catatan penyimpangan dari rencana handoff: `YouTubeApiAdapter.getStatus` **tidak pernah** mengembalikan `processing` — ia memetakan ke `published` (privasi cocok), `failed` (ditolak/dihapus), atau `unknown` (privasi beda/tidak ditemukan). Karena itu skenario "processing → `NEEDS_ATTENTION`" diuji sebagai `unknown` → `NEEDS_ATTENTION`, yang merupakan jalur nyata adapter.
 
-- Bukti: typecheck 9 paket + `tests/tsconfig.json` PASS; **40 file test, 306 passed / 0 failed** (5 test integrasi baru).
+- Bukti: typecheck 9 paket + `tests/tsconfig.json` PASS; **40 file test, 309 passed / 0 failed** (8 test integrasi).
 - Belum: smoke live (pairing + unggah `private` nyata dengan bukti `videos.list`) — butuh prasyarat owner.
 
 ## Open Items

@@ -181,13 +181,16 @@ Catatan konflik: referensi resmi `videos.insert` (2026-10-30) menyatakan project
 
 | Skenario | Hasil yang ditegakkan |
 |---|---|
-| Unggahan sukses | job `PUBLISHED`; attempt `published` + `externalPostId`/`permalink`/`verifiedAt`; urutan panggilan `POST` → `PUT` → `GET`; body init memuat title/description/`categoryId 27`/`selfDeclaredMadeForKids false` |
-| Privasi tidak sesuai | attempt `unknown` + `YT_PRIVACY_MISMATCH`, job `NEEDS_ATTENTION`, attempts 0 |
+| Unggahan sukses | job `PUBLISHED`; attempt `published` + `externalPostId`/`permalink`/`verifiedAt`; urutan panggilan `POST` → `PUT` → `GET`; header `Authorization: Bearer` pada inisialisasi & verifikasi, tidak pada PUT sesi; body init memuat title/description/`categoryId 27`/`selfDeclaredMadeForKids false` |
+| Privasi tidak sesuai | attempt `unknown` + `YT_PRIVACY_MISMATCH`, job `NEEDS_ATTENTION`, attempts 0, `runAt` null |
 | Video ditolak YouTube | job `FAILED` + `YT_UPLOAD_REJECTED`, attempt `failed`, tanpa retry |
-| Kuota habis (403 `quotaExceeded`) | job `NEEDS_ATTENTION` + `AUTH`, attempt `unknown`, hanya 1 panggilan, akun tetap `connected` |
+| Kuota habis (403 `quotaExceeded`) | job `NEEDS_ATTENTION` + `AUTH`, attempt `unknown`, hanya 1 panggilan, audit `needs_attention`, akun tetap `connected` |
 | Belum dipasangkan | akun → `reauth_required` via hook; **0 panggilan eksternal**; job berikutnya ditolak penjaga `connection_status` (0 attempt, 0 panggilan) |
+| Refresh token kedaluwarsa | `POST` ke token endpoint `grant_type=refresh_token`; token baru tersimpan ulang, unggahan/verifikasi memakai token baru, job `PUBLISHED` |
+| Refresh dicabut (`invalid_grant`) | `AUTH` → `NEEDS_ATTENTION`, hanya 1 panggilan (token endpoint), akun → `reauth_required`, tanpa unggahan |
+| Aset tidak terbaca | `PUBLISH_VALIDATION` → job `FAILED` + `VALIDATION`, attempt `failed`, **0 panggilan** |
 
-Catatan: `getStatus` adapter API tidak pernah mengembalikan `processing`; jalur "belum terverifikasi" diwakili `unknown` (privasi beda / video tak ditemukan), dan handler memperlakukannya sama (`NEEDS_ATTENTION`).
+Catatan: `getStatus` adapter API tidak pernah mengembalikan `processing`; jalur "belum terverifikasi" diwakili `unknown` (privasi beda / video tak ditemukan), dan handler memperlakukannya sama (`NEEDS_ATTENTION`). Eskalasi error adapter (AUTH/kuota/DISK) menulis audit `needs_attention` lewat `handleAdapterError`, bukan hanya lewat `escalateUnverified`.
 
 ## Perintah
 
@@ -195,7 +198,7 @@ Catatan: `getStatus` adapter API tidak pernah mengembalikan `processing`; jalur 
 corepack pnpm --filter @saa/youtube typecheck
 corepack pnpm vitest run packages/youtube packages/workflow/src/handlers/publish.test.ts
 corepack pnpm vitest run tests/integration/p5-publish-youtube-api.test.ts
-corepack pnpm test                              # 306 test seluruh workspace
+corepack pnpm test                              # 309 test seluruh workspace
 YOUTUBE_ADAPTER=mock corepack pnpm start        # boot dengan adapter mock
 YOUTUBE_ADAPTER=api GOOGLE_OAUTH_CLIENT_ID=<id> YOUTUBE_APP_STATUS=production corepack pnpm start
 corepack pnpm --filter @saa/local-api pair:youtube -- --label "kanal utama"

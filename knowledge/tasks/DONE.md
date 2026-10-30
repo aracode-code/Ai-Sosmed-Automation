@@ -1,5 +1,15 @@
 # DONE
 
+## 2026-10-30 — SESSION-2026-10-30-12
+
+- **Review + perbaikan uji lintas lapisan A5** (commit `8b8a698`).
+  - `packages/workflow/src/handlers/publish.ts`: `handleAdapterError` mencatat audit `needs_attention` untuk kelas eskalasi — sebelumnya AUTH/kuota/DISK meninggalkan attempt `unknown` tanpa jejak audit karena jalur itu tidak melewati `escalateUnverified`.
+  - `tests/integration/p5-publish-youtube-api.test.ts` diperkuat dari 5 → 8 skenario: header `Authorization` pada inisialisasi & verifikasi (tidak pada PUT sesi), refresh token kedaluwarsa → token baru dipakai & record tersimpan ulang, `400 invalid_grant` → `reauth_required` tanpa unggahan, aset hilang → `PUBLISH_VALIDATION` tanpa panggilan jaringan; ditambah asersi `runAt === null` pada mismatch/rejected dan baris audit pada kuota.
+  - Kebersihan: `youtubeSecretRef()` dipakai, `tokenRecord()` bertipe `Partial<TokenRecordShape>`, `Record<string, any>` dihapus, deklarasi state dipindah ke atas `harness`, komentar alasan jam dinding pada `expiresAt`.
+  - Bukti: typecheck 9 paket + `tests/tsconfig.json` PASS · **309 test passed** (40 file; berkas A5 sendiri 8/8). Tanpa perubahan dependensi.
+  - Sisa A5: smoke live owner (pairing nyata + unggah `private` + bukti `videos.list`) — belum.
+  - Keputusan: `decisions/ADR-0008-youtube-real-adapter-od2-od5.md` bagian A5; modul: `modules/youtube.md`.
+
 ## 2026-10-30 — SESSION-2026-10-30-11
 
 - **Slice A5 (bagian uji) — lintas lapisan `PUBLISH` handler × `YouTubeApiAdapter`** (commit `df9a2b7`).
