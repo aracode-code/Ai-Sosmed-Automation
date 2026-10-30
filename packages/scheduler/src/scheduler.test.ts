@@ -213,7 +213,8 @@ describe('createDbQuotaGate', () => {
     campaignId: string,
     accountId: string,
     attemptedAt: string,
-    suffix: string
+    suffix: string,
+    errorCode: string | null = null
   ): void {
     const job = insertJob(db.raw, {
       jobType: 'PUBLISH',
@@ -224,10 +225,10 @@ describe('createDbQuotaGate', () => {
     db.raw
       .prepare(
         `INSERT INTO publish_attempts
-         (id, job_id, account_id, platform, idempotency_key, status, attempted_at)
-         VALUES (?, ?, ?, 'youtube', ?, 'submitted', ?)`
+         (id, job_id, account_id, platform, idempotency_key, status, attempted_at, error_code)
+         VALUES (?, ?, ?, 'youtube', ?, 'unknown', ?, ?)`
       )
-      .run(`pa_${suffix}`, job.id, accountId, `pa:${suffix}`, attemptedAt);
+      .run(`pa_${suffix}`, job.id, accountId, `pa:${suffix}`, attemptedAt, errorCode);
   }
 
   it('menghitung per account+platform pada tanggal lokal jadwal', () => {
@@ -250,5 +251,27 @@ describe('createDbQuotaGate', () => {
     seedAttempt(db, campaign.id, other.id, '2026-01-01T17:30:00.000Z', 'hari-2');
     expect(gate.isExceeded(schedule, '2026-01-01')).toBe(true);
     expect(gate.isExceeded(schedule, '2026-01-02')).toBe(false);
+  });
+
+  it('mengabaikan attempt yang berhenti sebelum aksi eksternal', () => {
+    const db = openMigrated(tempDbPath().file);
+    const { schedule, campaign } = seedSchedule(db, { dailyLimit: 1 });
+    const youtube = insertSocialAccount(db.raw, { platform: 'youtube', label: 'yt' });
+    const gate = createDbQuotaGate(db);
+
+    seedAttempt(db, campaign.id, youtube.id, '2026-01-01T03:00:00.000Z', 'lokal', 'PUBLISH_VALIDATION');
+    seedAttempt(db, campaign.id, youtube.id, '2026-01-01T03:01:00.000Z', 'disk', 'DISK');
+    expect(gate.isExceeded(schedule, '2026-01-01')).toBe(false);
+
+    // Penolakan YouTube tetap dihitung: unggahan sudah dikirim dan memakai kuota.
+    seedAttempt(
+      db,
+      campaign.id,
+      youtube.id,
+      '2026-01-01T03:02:00.000Z',
+      'jarak',
+      'YT_UPLOAD_REJECTED'
+    );
+    expect(gate.isExceeded(schedule, '2026-01-01')).toBe(true);
   });
 });
