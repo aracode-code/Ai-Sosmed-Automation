@@ -32,7 +32,7 @@ function buildPublisher(
 ): SocialAdapter | undefined {
   if (config.youtubeAdapter === 'api') {
     logger.warn(
-      'YOUTUBE_ADAPTER=api belum terhubung ke handler (slice A3–A4, ADR-0008); job PUBLISH tidak terdaftar'
+      'YOUTUBE_ADAPTER=api belum terhubung ke handler (slice A4, ADR-0008); job PUBLISH tidak terdaftar'
     );
     return undefined;
   }
