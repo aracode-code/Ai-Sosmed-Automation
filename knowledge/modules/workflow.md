@@ -38,7 +38,7 @@ Arah dependensi: `@saa/workflow` → `@saa/agent-core`, `@saa/browser-engine`, `
 ## PUBLISH
 
 - Payload `{ contentId, campaignId, accountId, platform }`; adapter harus platform yang sama.
-- Prasyarat: campaign + konten (versi terbaru) + akun terhubung + aset `valid` + caption platform; mode `required` wajib approval yang masih mengikat.
+- Prasyarat: campaign + konten (versi terbaru) + akun terhubung + aset `valid` + caption platform (`resolveCaption` di `@saa/domain`, dipakai juga oleh enqueuer scheduler); mode `required` wajib approval yang masih mengikat.
 - `PUBLISH_STARTED` diterima dari `SCHEDULED` dan `QUEUED` (promosi retry mengembalikan job ke `QUEUED` — ADR-0005 Y4).
 - Attempt dicatat sebelum aksi eksternal (`publish:<jobId>` unik); status akhir hanya dari `adapter.getStatus` (Y2–Y3).
 - Retry lewat `PUBLISH_SUBMITTED → VERIFICATION_FAILED` karena `PUBLISHING` tidak dapat langsung ke `RETRY_WAIT` (Y5).
@@ -62,11 +62,11 @@ Arah dependensi: `@saa/workflow` → `@saa/agent-core`, `@saa/browser-engine`, `
 ```bash
 corepack pnpm --filter @saa/workflow typecheck
 corepack pnpm vitest run packages/workflow      # dispatcher, worker, retry, recovery, handler
-corepack pnpm test                              # 212 test seluruh workspace
+corepack pnpm test                              # 228 test seluruh workspace
 ```
 
 ## Belum Ada
 
 - Handler `DOWNLOAD_VIDEO`, `VALIDATE_MEDIA`, `CREATE_METADATA`, `REQUEST_APPROVAL`, `VERIFY_PUBLICATION`, `RECONCILE_PUBLICATION`.
 - Pemilihan generator per campaign/akun (saat ini satu `VideoGenerator` disuntikkan).
-- Pemicu dispatch jadwal periodik (worker hanya mengambil job; lihat `modules/scheduler.md`).
+- Job `PUBLISH` kini dibuat otomatis oleh dispatch jadwal (`modules/scheduler.md`, ADR-0006), bukan oleh handler di paket ini.

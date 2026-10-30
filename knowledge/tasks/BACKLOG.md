@@ -9,7 +9,8 @@ Sumber fase + DoD: `LLD.md` §18. Urutan ini mengikat kecuali user menyatakan la
 | P1 | Foundation | Workspace pnpm, schema DB + migrasi, Local API dasar, logging, domain state machine, persistent queue | Migrations · unit tests · `/health` · restart recovery | **COMPLETED** (2026-10-30, `debdaaf`) — bukti di `CURRENT.md` |
 | P2 | Agent | DeepSeek provider, planner, tool registry allowlist | Schema validation, budget/timeout, mock tests | **COMPLETED** (2026-10-30, `7d02a06`,`9cd360c`) — bukti di `CURRENT.md` |
 | P3 | Flow | Playwright session manager, Google Flow adapter, validasi media | Smoke test pada akun sah, file tervalidasi | **PARTIAL** (2026-10-30, `013531a`) — mock + validasi media + lock profil selesai; Flow nyata tertahan OD-1 |
-| P4 | Approval & Scheduler | Approval UI, schedules, quota, pause/resume | Approval binding + schedule persistence tests | **PARTIAL** (2026-10-30, `4b513ab`,`6ad9547`) — backend + engine + worker loop selesai; UI approval & dispatch jadwal periodik belum |
+| P4 | Approval & Scheduler | Approval UI, schedules, quota, pause/resume | Approval binding + schedule persistence tests | **PARTIAL** (2026-10-30, `4b513ab`,`6ad9547`) — backend + engine + worker loop selesai; UI approval belum |
+| P4b | Dispatch jadwal (turunan P4/P5) | Loop dispatch periodik + enqueuer job `PUBLISH` | Tick berulang tidak menggandakan job; siap-konten dinilai sebelum enqueue | **COMPLETED** (2026-10-30, `bfc7c72`) — ADR-0006 |
 | P5 | YouTube | Adapter publikasi pertama | Authorized test upload, verify, retry/reconciliation tests | **PARTIAL** (2026-10-30, `7d13431`) — kontrak + adapter mock + PUBLISH handler + verify/reconcile + test retry selesai; upload nyata UNVERIFIED (OD-2/OD-5) |
 | P6 | Platform lain | TikTok, Instagram, Facebook, X, Threads | Capability + contract test per adapter | NOT STARTED |
 | P7 | Hardening | Packaging, backup, security review, runbook | Acceptance criteria + release checklist | NOT STARTED |
@@ -30,7 +31,8 @@ Sumber fase + DoD: `LLD.md` §18. Urutan ini mengikat kecuali user menyatakan la
 
 - ~~Worker loop + registrasi handler di `apps/local-api`~~ DONE 2026-10-30 (`6ad9547`) — ADR-0004.
 - ~~Kontrak adapter publikasi + adapter YouTube mock + handler `PUBLISH` + verify/reconcile~~ DONE 2026-10-30 (`7d13431`) — ADR-0005. Upload nyata tetap menunggu OD-2/OD-5.
-- **Dispatch jadwal periodik belum ada:** `Scheduler` belum dipanggil periodik dan belum membuat job publikasi; worker loop hanya mengambil job yang sudah ada. Belum ada pemanggil yang meng-enqueue job `PUBLISH` setelah approval.
+- ~~Dispatch jadwal periodik + pembuatan job `PUBLISH` otomatis~~ DONE 2026-10-30 (`bfc7c72`) — ADR-0006. Sisa: pembuatan konten otomatis agar slot tidak hangus.
+- **Pembuatan konten otomatis** (job `PLAN_CONTENT` periodik / route konten) — dispatch hanya bekerja pada konten yang sudah ada; campaign tanpa konten/aset melewatkan slot (ADR-0006 S7).
 - **Approval UI** (React) di atas `POST /api/v1/content/:id/approve|reject`.
 - **Tetapkan status `publish_attempts` yang dihitung kuota harian** (saat ini semua status dihitung, termasuk `failed`/`unknown`).
 - **Adapter YouTube nyata** membutuhkan OD-2 (izin/aplikasi) + OD-5 (OAuth, scope, storage token); sekarang hanya mock dengan prefiks `mock_`.

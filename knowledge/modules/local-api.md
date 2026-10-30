@@ -1,7 +1,7 @@
 # Modul — Local API (App, Route, Composition Root)
 
-**Status:** P1–P5 backend (mock publish) + worker loop COMPLETED (2026-10-30) · commit `debdaaf`, `4b513ab`, `6ad9547`, `7d13431`
-**Sumber:** kode aktual (E1). Keputusan: `ADR-0001` (konfigurasi), `ADR-0003` D15, `ADR-0004` (worker + registry), `ADR-0005` (publikasi mock).
+**Status:** P1–P5 backend (mock publish) + worker loop + dispatch jadwal COMPLETED (2026-10-30) · commit `debdaaf`, `4b513ab`, `6ad9547`, `7d13431`, `bfc7c72`
+**Sumber:** kode aktual (E1). Keputusan: `ADR-0001` (konfigurasi), `ADR-0003` D15, `ADR-0004` (worker + registry), `ADR-0005` (publikasi mock), `ADR-0006` (dispatch jadwal).
 
 ## Peta Berkas
 
@@ -19,14 +19,16 @@
 ```text
 loadConfig → createLogger → openDatabase → runMigrations → runStartupRecovery
 → loadAiCredentials (opsional) → buildPublisher (opt-in mock) → buildHandlerRegistry
-→ Dispatcher(worker_<pid>) → Worker → buildApp → listen → worker.start() (bila WORKER_ENABLED)
+→ Dispatcher(worker_<pid>) → Worker → Scheduler + ScheduleDispatchLoop → buildApp → listen
+→ worker.start() (bila WORKER_ENABLED) → dispatchLoop.start() (bila syarat S8 terpenuhi)
 ```
 
 - `buildHandlerRegistry`: `GENERATE_VIDEO` selalu terdaftar (default `MockVideoGenerator` dengan `outputRoot = MEDIA_ROOT`); `PLAN_CONTENT` **hanya** bila `DEEPSEEK_API_KEY` ada (`createPlanner` + `createDeepSeekClient`); `PUBLISH` **hanya** bila `publisher` disuntikkan (dari `YOUTUBE_ADAPTER=mock`).
 - Tanpa key: log peringatan tanpa nilai key, job `PLAN_CONTENT` akan berakhir `NEEDS_ATTENTION` + `NO_HANDLER`.
 - Tanpa adapter: `YOUTUBE_ADAPTER=off` (default) → log peringatan, job `PUBLISH` berakhir `NEEDS_ATTENTION` + `NO_HANDLER`.
 - `YOUTUBE_ADAPTER=mock` → `MockYouTubeAdapter` + log peringatan bahwa publikasi **PALSU** (ADR-0005 Y9).
-- Shutdown (`SIGINT`/`SIGTERM`): `worker.stop()` → `app.close()` → `db.close()`.
+- `ScheduleDispatchLoop` memakai `createPublicationEnqueuer({ db, platforms: [publisher.platform] })`; loop hanya dijalankan bila `SCHEDULER_ENABLED=true`, adapter publikasi ada, dan worker aktif (ADR-0006 S6/S8). Tanpa adapter: log `adapter publikasi belum aktif; dispatch jadwal tidak dijalankan`.
+- Shutdown (`SIGINT`/`SIGTERM`): `dispatchLoop.stop()` → `worker.stop()` → `app.close()` → `db.close()` (dispatch lebih dulu agar tidak ada job baru).
 - `workerId = worker_<pid>`; satu worker per proses, satu job per siklus (ADR-0004 W8).
 
 ## Route Terdaftar (15)
@@ -49,6 +51,8 @@ loadConfig → createLogger → openDatabase → runMigrations → runStartupRec
 | `MEDIA_ROOT` | `./data/media` | `outputRoot` generator **dan** validasi media (satu nilai, tidak boleh berbeda) |
 | `WORKER_ENABLED` | `true` | `false` = API baca-saja, job tidak diproses |
 | `WORKER_INTERVAL_MS` | `1000` | Rentang 50–60 000 |
+| `SCHEDULER_ENABLED` | `true` | Loop dispatch jadwal → job `PUBLISH` |
+| `SCHEDULER_INTERVAL_MS` | `5000` | Rentang 1 000–300 000 |
 | `YOUTUBE_ADAPTER` | `off` | `mock` = adapter palsu (tanpa unggahan nyata); tidak ada opsi live sampai OD-2/OD-5 |
 | `DEEPSEEK_API_KEY` | — | Hanya lewat env; tidak pernah dilog/dipersistensi |
 
@@ -64,5 +68,5 @@ curl http://127.0.0.1:4317/health
 ## Belum Ada
 
 - Auth lokal pada API (saat ini loopback-only sebagai batas keamanan).
-- Route untuk media/aset, approval UI, dan kontrol worker (start/stop/status per proses).
-- Scheduler periodik dan pembuatan job `PUBLISH` otomatis: tidak ada yang meng-enqueue publikasi setelah approval/jadwal.
+- Route untuk media/aset, approval UI, dan kontrol worker/scheduler (start/stop/status per proses).
+- Pembuatan konten otomatis: tidak ada pembuat job `PLAN_CONTENT` maupun route konten, sehingga dispatch jadwal hanya memproses konten yang sudah ada.

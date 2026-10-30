@@ -1,7 +1,7 @@
-# Modul — Scheduler (P4)
+# Modul — Scheduler (P4 engine + P4b dispatch)
 
-**Status:** COMPLETED (engine + API) 2026-10-30 · commit `4b513ab`
-**Sumber:** kode aktual (E1). Keputusan: `ADR-0003` D10–D14. Kontrak: LLD §8.1–8.3.
+**Status:** COMPLETED (engine + API + dispatch periodik) 2026-10-30 · commit `4b513ab`, `bfc7c72`
+**Sumber:** kode aktual (E1). Keputusan: `ADR-0003` D10–D14, `ADR-0006` S1–S9. Kontrak: LLD §8.1–8.3.
 
 ## Peta Paket
 
@@ -11,6 +11,8 @@
 | `packages/scheduler/src/schedule.ts` | `withinWindow` (mendukung wrap), `pickDelayMinutes` (inklusif), `shiftIntoAllowedSlot` (maks. 6 iterasi), `computeNextRun` |
 | `packages/scheduler/src/quota.ts` | `createDbQuotaGate`: hitung `publish_attempts` per `account + platform` dalam tanggal lokal schedule |
 | `packages/scheduler/src/scheduler.ts` | `Scheduler.runOnce(enqueue)`, `pause`/`resume` via tabel `settings` |
+| `packages/scheduler/src/dispatch.ts` | `enqueueDuePublicationJobs` + `createPublicationEnqueuer`: membuat job `PUBLISH` untuk konten siap (ADR-0006) |
+| `packages/scheduler/src/dispatch-loop.ts` | `ScheduleDispatchLoop`: tick periodik pemanggil `runOnce` (timer `unref`, tick tidak tumpang tindih) |
 
 Dependensi: `@saa/database`, `@saa/domain`. Tidak mengimpor `workflow`.
 
@@ -26,6 +28,30 @@ Dependensi: `@saa/database`, `@saa/domain`. Tidak mengimpor `workflow`.
 
 Ringkasan hasil: `{paused, due, seeded, shifted, quotaSkipped, enqueued, failed[]}`.
 
+## Dispatch Publikasi (P4b)
+
+`createPublicationEnqueuer({ db, platforms })` mengembalikan `EnqueueFn`. Untuk setiap jadwal due:
+
+1. `platforms` kosong → tidak ada job (tanpa adapter, job hanya akan `NO_HANDLER`).
+2. Campaign harus ada dan `status === 'active'`.
+3. Ambil **konten terbaru** campaign (`listContentByCampaign`, urut versi turun); `rejected` → berhenti.
+4. Butuh aset media `valid` terakhir; tanpa itu → berhenti.
+5. Akun kandidat = akun `connected` pada platform campaign yang adapter-nya terdaftar.
+6. Per akun: caption platform wajib ada (`resolveCaption`); mode `required` wajib `approvalStatus === 'approved'` **dan** `getLatestApproval` + `checkApprovalBinding` cocok (caption hash dihitung dari peta caption yang sama).
+7. Key idempoten `publish:<contentId>:v<version>:<accountId>:<platform>`; job yang sudah ada dilewati.
+8. Job dibuat `QUEUED`, payload `{contentId, campaignId, accountId, platform}` — kontrak handler `PUBLISH`.
+
+Konsekuensi yang disadari: hanya konten terbaru, satu batch per slot, slot tetap maju walau tidak ada job (ADR-0006 S3/S7).
+
+## Loop Dispatch
+
+`ScheduleDispatchLoop` (`dispatch-loop.ts`):
+
+- `start()` → tick segera + interval `intervalMs` (default 5 000), `unref`.
+- Tick dilewati bila tick sebelumnya masih berjalan (satu dispatch per proses).
+- `stop()` → clear timer lalu menunggu tick berjalan selesai (dipanggil sebelum `worker.stop()`).
+- Log: `scheduler: job publikasi dibuat` (info, bila `enqueued > 0`), `scheduler: dispatch gagal` (warn), `scheduler: siklus gagal` (error dengan kelas error).
+
 ## Semantik Waktu
 
 - Window: ujung awal inklusif, ujung akhir inklusif; rentang yang melewati tengah malam didukung (`22:00–02:00`).
@@ -35,7 +61,8 @@ Ringkasan hasil: `{paused, due, seeded, shifted, quotaSkipped, enqueued, failed[
 ## Kuota
 
 - Dihitung per `account_id + platform` untuk campaign pada tanggal lokal schedule.
-- Semua status `publish_attempts` dihitung (termasuk `failed`/`unknown`); pengecualian status belum ditetapkan — P5 mock belum mengubah aturan ini (ADR-0005 open item).
+- Semua status `publish_attempts` dihitung (termasuk `failed`/`unknown`); pengecualian status belum ditetapkan (ADR-0005 open item).
+- Kuota tidak menghitung job yang baru diantrekan; jeda antar-slot dan worker aktif diandalkan agar attempt tercipta sebelum slot berikutnya.
 
 ## API Terkait (apps/local-api)
 
@@ -50,11 +77,12 @@ Ringkasan hasil: `{paused, due, seeded, shifted, quotaSkipped, enqueued, failed[
 
 ```bash
 corepack pnpm --filter @saa/scheduler typecheck
-corepack pnpm vitest run packages/scheduler    # time, schedule, quota, scheduler
+corepack pnpm vitest run packages/scheduler    # time, schedule, quota, scheduler, dispatch, loop
 ```
 
 ## Belum Ada
 
-- Loop periodik yang memanggil `runOnce` (belum ada; worker loop `6ad9547` hanya mengambil job, belum memicu jadwal).
-- `enqueue` nyata: job publikasi baru ada di P5; saat ini callback disediakan pemanggil.
+- Pembuatan konten otomatis (`PLAN_CONTENT` periodik / route konten); dispatch hanya bekerja pada konten yang sudah ada.
 - UI jadwal.
+- Job `VERIFY_PUBLICATION`/`RECONCILE_PUBLICATION` terpisah.
+- Peninjauan ulang semantik "slot hangus" bila konten belum siap (ADR-0006 S7).

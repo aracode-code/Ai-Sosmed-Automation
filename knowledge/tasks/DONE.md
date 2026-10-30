@@ -1,5 +1,15 @@
 # DONE
 
+## 2026-10-30 — SESSION-2026-10-30-4
+
+- **P4b — Dispatch jadwal periodik → job `PUBLISH` otomatis** (commit `bfc7c72`).
+  - `packages/scheduler/src/dispatch.ts`: `enqueueDuePublicationJobs` + `createPublicationEnqueuer` — hanya konten terbaru campaign aktif, aset `valid`, akun `connected` pada platform yang punya adapter, caption platform tersedia, approval terikat valid (mode `required`); key idempoten `publish:<contentId>:v<version>:<accountId>:<platform>`.
+  - `packages/scheduler/src/dispatch-loop.ts`: `ScheduleDispatchLoop` — tick `unref`, tidak tumpang tindih, `stop()` menunggu tick; memanggil `Scheduler.runOnce(enqueue)`.
+  - `resolveCaption` dipindah ke `@saa/domain` dan dipakai handler `PUBLISH` + enqueuer (satu tafsir caption untuk hash approval).
+  - Composition root: loop hanya aktif bila `SCHEDULER_ENABLED=true`, worker aktif, dan adapter publikasi terdaftar; shutdown berurutan dispatch → worker → API → DB.
+  - Bukti: typecheck 9 paket PASS · **228 test passed** (32 file) · smoke boot mock (port 4393) dispatch `enqueued:1` → `PUBLISHED`; smoke adapter off (port 4394) dispatch tidak dijalankan.
+  - Keputusan: `decisions/ADR-0006-schedule-publish-dispatch.md`; modul: `modules/scheduler.md`, `modules/{local-api,workflow}.md`.
+
 ## 2026-10-30 — SESSION-2026-10-30-3
 
 - **P5 YouTube (mock dulu)** (commit `7d13431`).
