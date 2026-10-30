@@ -35,7 +35,7 @@ Ringkasan hasil: `{paused, due, seeded, shifted, quotaSkipped, enqueued, failed[
 ## Kuota
 
 - Dihitung per `account_id + platform` untuk campaign pada tanggal lokal schedule.
-- Semua status `publish_attempts` dihitung sampai P5 mendefinisikan status yang boleh dikecualikan — batas tidak boleh terlampaui karena attempt gagal.
+- Semua status `publish_attempts` dihitung (termasuk `failed`/`unknown`); pengecualian status belum ditetapkan — P5 mock belum mengubah aturan ini (ADR-0005 open item).
 
 ## API Terkait (apps/local-api)
 

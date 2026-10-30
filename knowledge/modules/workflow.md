@@ -1,7 +1,7 @@
 # Modul — Workflow (Dispatcher + Handler Langkah)
 
-**Status:** COMPLETED untuk P1/P2, PLAN_CONTENT, GENERATE_VIDEO, dan worker loop (2026-10-30) · commit `70c7cec`, `826a732`, `013531a`, `6ad9547`
-**Sumber:** kode aktual (E1). Keputusan: `ADR-0003` (D1–D6, D22–D23), `ADR-0004` (W1–W4, W8). Kontrak: LLD §4.1, §9.
+**Status:** COMPLETED untuk P1/P2, PLAN_CONTENT, GENERATE_VIDEO, PUBLISH (mock), dan worker loop (2026-10-30) · commit `70c7cec`, `826a732`, `013531a`, `6ad9547`, `7d13431`
+**Sumber:** kode aktual (E1). Keputusan: `ADR-0003` (D1–D6, D22–D23), `ADR-0004` (W1–W4, W8), `ADR-0005` (Y1–Y10). Kontrak: LLD §4.1, §9, §11.
 
 ## Peta Paket
 
@@ -13,6 +13,7 @@
 | `packages/workflow/src/recovery.ts` | Lease kedaluwarsa saat startup: reversibel → `QUEUED`, `PUBLISHING`/`VERIFYING` → `NEEDS_ATTENTION` |
 | `packages/workflow/src/handlers/plan-content.ts` | Langkah PLAN_CONTENT: planner → konten + job `GENERATE_VIDEO` |
 | `packages/workflow/src/handlers/generate-video.ts` | Langkah GENERATE_VIDEO: generator → validasi media → aset |
+| `packages/workflow/src/handlers/publish.ts` | Langkah PUBLISH: approval binding → attempt → adapter → reconcile `getStatus` (rinci: `modules/youtube.md`) |
 | `packages/workflow/src/index.ts` | Re-export publik |
 
 Arah dependensi: `@saa/workflow` → `@saa/agent-core`, `@saa/browser-engine`, `@saa/database`, `@saa/domain`, `zod`.
@@ -34,6 +35,15 @@ Arah dependensi: `@saa/workflow` → `@saa/agent-core`, `@saa/browser-engine`, `
 - Aset disimpan `upsertMediaAsset` dengan id `med_<contentId>` dan `validation_status = 'valid'`; direktori relatif `content/<contentId>` di bawah `outputRoot`.
 - Replay handler: generate ulang deterministik + upsert id yang sama → tetap satu baris aset.
 
+## PUBLISH
+
+- Payload `{ contentId, campaignId, accountId, platform }`; adapter harus platform yang sama.
+- Prasyarat: campaign + konten (versi terbaru) + akun terhubung + aset `valid` + caption platform; mode `required` wajib approval yang masih mengikat.
+- `PUBLISH_STARTED` diterima dari `SCHEDULED` dan `QUEUED` (promosi retry mengembalikan job ke `QUEUED` — ADR-0005 Y4).
+- Attempt dicatat sebelum aksi eksternal (`publish:<jobId>` unik); status akhir hanya dari `adapter.getStatus` (Y2–Y3).
+- Retry lewat `PUBLISH_SUBMITTED → VERIFICATION_FAILED` karena `PUBLISHING` tidak dapat langsung ke `RETRY_WAIT` (Y5).
+- Matriks kegagalan lengkap: `modules/youtube.md`.
+
 ## Perilaku Dispatcher (ringkas)
 
 - Tanpa handler terdaftar → `NEEDS_ATTENTION` + `NO_HANDLER`.
@@ -52,11 +62,11 @@ Arah dependensi: `@saa/workflow` → `@saa/agent-core`, `@saa/browser-engine`, `
 ```bash
 corepack pnpm --filter @saa/workflow typecheck
 corepack pnpm vitest run packages/workflow      # dispatcher, worker, retry, recovery, handler
-corepack pnpm test                              # 193 test seluruh workspace
+corepack pnpm test                              # 212 test seluruh workspace
 ```
 
 ## Belum Ada
 
-- Handler `DOWNLOAD_VIDEO`, `VALIDATE_MEDIA`, `CREATE_METADATA`, `REQUEST_APPROVAL`, `PUBLISH`, `VERIFY_PUBLICATION`, `RECONCILE_PUBLICATION`.
+- Handler `DOWNLOAD_VIDEO`, `VALIDATE_MEDIA`, `CREATE_METADATA`, `REQUEST_APPROVAL`, `VERIFY_PUBLICATION`, `RECONCILE_PUBLICATION`.
 - Pemilihan generator per campaign/akun (saat ini satu `VideoGenerator` disuntikkan).
 - Pemicu dispatch jadwal periodik (worker hanya mengambil job; lihat `modules/scheduler.md`).

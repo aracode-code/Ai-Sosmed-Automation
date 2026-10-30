@@ -1,5 +1,15 @@
 # DONE
 
+## 2026-10-30 — SESSION-2026-10-30-3
+
+- **P5 YouTube (mock dulu)** (commit `7d13431`).
+  - Kontrak `SocialAdapter` + `PublishRequest/Result/Capabilities` di `@saa/domain`; entitas `PublishAttempt`; repo `publish-attempts` (get-or-create per key, update status/evidence).
+  - Paket `@saa/youtube`: `MockYouTubeAdapter` (post id `mock_yt_*` deterministik, idempoten per key, capability jujur + limitations, simulasi processing/unknown/failed).
+  - Handler `PUBLISH`: approval binding sebelum aksi eksternal, attempt sebelum upload, `PUBLISH_STARTED` dari `SCHEDULED`/`QUEUED`, verify/reconcile via `getStatus`, retry lewat `VERIFYING`, audit `content.publish`.
+  - Wiring opt-in `YOUTUBE_ADAPTER=mock` (default `off`); tanpa opt-in `PUBLISH` tidak terdaftar.
+  - Bukti: typecheck 9 paket PASS · **212 test passed** (29 file) · smoke boot mock & default off.
+  - Keputusan: `decisions/ADR-0005-youtube-mock-publish.md`; modul: `modules/youtube.md`, `modules/{workflow,local-api,foundation}.md`.
+
 ## 2026-10-30 — SESSION-2026-10-30-2
 
 - **Worker loop + registrasi handler** (commit `6ad9547`).

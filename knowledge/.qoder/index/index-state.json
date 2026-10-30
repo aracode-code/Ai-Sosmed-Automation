@@ -3,8 +3,8 @@
   "mode": "LIGHTWEIGHT_GREP",
   "status": "DEGRADED",
   "reason": "Tidak ada tool SQLite index di runtime ini (`sqlite_query_tool` missing). Pencarian memakai ripgrep terhadap source aktual; tidak ada code.db.",
-  "indexed_commit": "6ad95472dcd4c548e09b6a77a4d01424a049a9d1",
-  "indexed_at": "2026-10-30T08:20:00+07:00",
+  "indexed_commit": "7d1343180211752cf4bde667074f6bcab80de3da",
+  "indexed_at": "2026-10-30T08:35:00+07:00",
   "scope": [
     "apps/local-api/src/**",
     "packages/agent-core/src/**",
@@ -14,21 +14,22 @@
     "packages/observability/src/**",
     "packages/scheduler/src/**",
     "packages/workflow/src/**",
+    "packages/youtube/src/**",
     "tests/integration/**"
   ],
   "counts": {
-    "files": 92,
-    "test_files": 27,
+    "files": 99,
+    "test_files": 29,
     "symbols": null,
     "imports": null,
     "apis": 15,
     "db_objects": 12,
-    "tests": 193
+    "tests": 212
   },
   "validation": {
-    "last_validated_at": "2026-10-30T08:20:00+07:00",
+    "last_validated_at": "2026-10-30T08:35:00+07:00",
     "result": "partial",
-    "note": "Scope = daftar `git ls-files '*.ts'` pada commit 6ad9547 (92 file, 27 test). Metadata simbol/import tidak dapat dihitung tanpa index SQLite — nilai null, bukan 0. Endpoint dihitung dari route terdaftar di apps/local-api/src/routes/*.ts (15)."
+    "note": "Scope = daftar `git ls-files '*.ts'` pada commit 7d1343 (99 file, 29 test). Metadata simbol/import tidak dapat dihitung tanpa index SQLite — nilai null, bukan 0. Endpoint dihitung dari route terdaftar di apps/local-api/src/routes/*.ts (15)."
   },
   "fallback": {
     "engine": "LIGHTWEIGHT_GREP",

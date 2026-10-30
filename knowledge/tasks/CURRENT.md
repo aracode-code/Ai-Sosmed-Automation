@@ -1,19 +1,19 @@
 # CURRENT — Task Aktif
 
-**Session:** SESSION-2026-10-30-2
-**Updated:** 2026-10-30T08:20:00+07:00
-**Change class:** MEDIUM (worker loop + composition root; tanpa perubahan schema DB atau route)
+**Session:** SESSION-2026-10-30-3
+**Updated:** 2026-10-30T08:35:00+07:00
+**Change class:** LARGE (paket baru `@saa/youtube`, kontrak domain, handler PUBLISH, wiring runtime; tanpa migrasi DB atau route baru)
 
 ## Active Task
 
-_Tidak ada task aktif._ **Worker loop + registrasi handler selesai** (2026-10-30, commit `6ad9547`).
+_Tidak ada task aktif._ **P5 YouTube (mock dulu) selesai** (2026-10-30, commit `7d13431`).
 
 | Field | Nilai |
 |---|---|
-| Task terakhir | **Worker loop + registrasi handler** |
-| Status | **COMPLETED** untuk lingkup ini; **P4 PARTIAL** (UI approval + dispatch jadwal periodik), **P3 PARTIAL** (Flow nyata) |
+| Task terakhir | **P5 YouTube (mock dulu)** — adapter mock + PUBLISH handler + verify/reconcile |
+| Status | **COMPLETED** untuk lingkup mock; **P5 PARTIAL** (upload nyata UNVERIFIED, job publikasi belum dibuat otomatis); **P4 PARTIAL** (UI approval + dispatch jadwal periodik); **P3 PARTIAL** (Flow nyata) |
 | Mode eksekusi | SINGLE-WRITER sequential (`SINGLE-WRITER JUSTIFIED`, §10.14) |
-| DoD tercapai | ✅ loop tanpa tumpang tindih · ✅ registry terdaftar · ✅ key AI di luar `AppConfig` · ✅ health worker nyata · ✅ shutdown berurutan · ✅ typecheck + 193 test + smoke boot |
+| DoD tercapai | ✅ kontrak `SocialAdapter` · ✅ adapter mock jujur · ✅ attempt sebelum aksi eksternal · ✅ approval binding ditegakkan · ✅ verify/reconcile via `getStatus` · ✅ retry + reconciliation test · ✅ opt-in runtime · ✅ typecheck + 212 test + dua smoke boot |
 
 ## Riwayat Commit
 
@@ -23,33 +23,37 @@ _Tidak ada task aktif._ **Worker loop + registrasi handler selesai** (2026-10-30
 | B | `4b513ab` | Approval binding + API, `approvals.reason`, migrasi `0002`, paket `@saa/scheduler`, API campaigns/schedules/accounts |
 | C | `013531a`, `b8c85e0` | Paket `@saa/browser-engine` (mock Flow, validasi media, probe, lock profil), handler `GENERATE_VIDEO` |
 | D | `6ad9547` | `Worker` di `@saa/workflow`, `buildHandlerRegistry`, config worker/media/credentials, `/health` worker nyata, shutdown berurutan |
+| E | `7d13431` | Paket `@saa/youtube` (mock), kontrak publikasi domain + `PublishAttempt`, repo `publish-attempts`, handler `PUBLISH`, `YOUTUBE_ADAPTER=mock` |
 
 ## Bukti (aktual 2026-10-30)
 
 | Bukti | Hasil |
 |---|---|
-| Typecheck | `corepack pnpm typecheck` → 7 paket + `tests/tsconfig.json`, PASS |
-| Test suite | `corepack pnpm test` → 27 file, **193 passed / 0 failed** |
-| Test baru | `packages/workflow/src/worker.test.ts` (4) · `apps/local-api/src/worker.test.ts` (4) · config +4 · health +1 |
-| Smoke boot | DB sementara + `WORKER_INTERVAL_MS=200`: `/health` 200 `{workers:{active:1}}`; log `handlers:["GENERATE_VIDEO"]`, `worker dimulai`; proses dihentikan, port 4388 bebas |
-| Migrasi lokal | Tidak ada migrasi baru sesi ini (tetap 3 berkas) |
-| Jaringan | Tidak ada panggilan DeepSeek/Flow nyata; `DEEPSEEK_API_KEY` tidak diset saat smoke |
+| Typecheck | `corepack pnpm typecheck` → 9 paket (`domain`, `database`, `workflow`, `youtube`, `agent-core`, `browser-engine`, `observability`, `scheduler`, `local-api`) + `tests/tsconfig.json`, PASS |
+| Test suite | `corepack pnpm test` → 29 file, **212 passed / 0 failed** |
+| Test baru | `packages/youtube/src/mock-adapter.test.ts` (6) · `packages/workflow/src/handlers/publish.test.ts` (10) · state-machine +1 · registry/composition root +2 · config +1 |
+| Smoke boot (mock) | port 4391 `YOUTUBE_ADAPTER=mock` → `/health` 200 `{workers:{active:1}}`; log `handlers:["GENERATE_VIDEO","PUBLISH"]` + peringatan "publikasi PALSU"; proses dihentikan |
+| Smoke boot (default) | port 4392 tanpa `YOUTUBE_ADAPTER` → log `handlers:["GENERATE_VIDEO"]` + peringatan `off`; proses dihentikan; kedua port diverifikasi bebas |
+| Migrasi lokal | Tidak ada migrasi baru (`publish_attempts` sudah ada di `0000_init`) |
+| Jaringan | Tidak ada panggilan YouTube/DeepSeek nyata; tidak ada kredensial diset saat smoke |
 
 ## Impact Map (aktual)
 
-- **Kode:** `packages/workflow/src/worker.ts` (+ test, export); `apps/local-api/src/{handlers.ts,worker.test.ts}` baru; `apps/local-api/src/{config,app,server}.ts`, `routes/health.ts` (+ test); `apps/local-api/package.json` (+ `@saa/agent-core`, `@saa/browser-engine`); `pnpm-lock.yaml`.
-- **DB:** tidak berubah (12 tabel).
-- **API:** 15 route; hanya payload `/health` bertambah `workers.active` dari kondisi nyata.
-- **Konfigurasi baru:** `WORKER_ENABLED`, `WORKER_INTERVAL_MS`, `MEDIA_ROOT`, `DEEPSEEK_API_KEY` (hanya env, di luar `AppConfig`).
-- **Dokumentasi:** `decisions/ADR-0004-worker-loop-registry.md`, `modules/local-api.md` (baru), `modules/{workflow,foundation}.md`, `00_INDEX`, `01_PROJECT`, state/index/context/memory, tasks, log.
-- **Security:** key AI tidak masuk config object/log/state; media root tunggal untuk generator+validasi; API tetap loopback-only.
+- **Kode baru:** `packages/domain/src/publishing.ts`; `packages/database/src/repositories/publish-attempts.ts`; `packages/youtube/**` (paket baru); `packages/workflow/src/handlers/publish.ts` (+ test).
+- **Kode diubah:** `packages/domain/src/{entities,index,state-machine}.ts` (+ test state machine); `packages/database/src/index.ts`; `packages/workflow/src/index.ts` + `package.json` (devDep `@saa/youtube`); `apps/local-api/src/{config,handlers,server}.ts` (+ test), `apps/local-api/package.json`; `pnpm-lock.yaml`.
+- **DB:** tidak berubah (12 tabel); repository baru memakai tabel `publish_attempts` yang sudah ada.
+- **API:** 15 route tidak berubah.
+- **Konfigurasi baru:** `YOUTUBE_ADAPTER=off|mock` (default `off`).
+- **Dokumentasi:** `decisions/ADR-0005-youtube-mock-publish.md`, `modules/youtube.md` (baru), `modules/{workflow,local-api,foundation}.md`, `00_INDEX`, `01_PROJECT`, state/index/context/memory/project, tasks, log.
+- **Security:** approval binding dicek sebelum aksi eksternal; tidak ada kredensial baru; adapter nyata tetap terkunci sampai OD-2/OD-5.
 
 ## Drift Tercatat
 
-- Scheduler belum dipicu periodik: jadwal tidak otomatis menghasilkan job publikasi (menunggu P5).
-- `PLAN_CONTENT` tidak terdaftar tanpa `DEEPSEEK_API_KEY` — by design, muncul sebagai `NEEDS_ATTENTION` + `NO_HANDLER`.
+- Upload YouTube nyata UNVERIFIED: tidak ada OAuth, kuota, izin, atau batas media yang diuji.
+- Job `PUBLISH` belum dibuat otomatis — approval/scheduler belum meng-enqueue; `VERIFY_PUBLICATION`/`RECONCILE_PUBLICATION` belum job terpisah.
+- Kuota scheduler masih menghitung semua status `publish_attempts` (pengecualian belum ditetapkan).
 - Status job 15 (`COMPLETED` untuk job langkah); HLD §7.1 (13) dan LLD §4.2 (14) belum diperbarui (ADR-0003).
-- `RESOURCE_BUSY` di luar tabel error LLD §15; kuota menghitung semua status attempt; durasi generator dipakai saat probe absen.
+- `RESOURCE_BUSY` di luar tabel error LLD §15; durasi generator dipakai saat probe absen.
 - `AGENTS.md` untracked — menunggu keputusan owner.
 
 ## Team Scope
@@ -60,10 +64,10 @@ _Tidak ada gelombang aktif._ `state.open_wave = null`.
 
 1. Boot urut §11.14; jangan pindai ulang HLD/LLD.
 2. **Menunggu keputusan owner**:
-   - (a) **P5 YouTube** — publish/verify/reconcile dengan adapter nyata;
+   - (a) **dispatch jadwal periodik + pembuatan job `PUBLISH` otomatis** (menyatukan P4 + P5);
    - (b) approval UI (React) di atas API yang sudah ada;
-   - (c) pemicu dispatch jadwal periodik dari `Scheduler` ke job publikasi;
+   - (c) jawab **OD-2/OD-5** agar adapter YouTube nyata bisa dibangun;
    - (d) jawab **OD-1** agar adapter Flow nyata bisa dibangun.
-3. Jangan menyatakan P3/P4 COMPLETED sebelum Flow nyata / UI + dispatch jadwal selesai.
-4. Keputusan owner yang masih terbuka: sumber API key DeepSeek, `AGENTS.md`, lint/build tool.
-5. Untuk menjalankan pipeline nyata: set `DEEPSEEK_API_KEY` di environment; tanpa itu hanya `GENERATE_VIDEO` yang terdaftar.
+3. Jangan menyatakan P3/P4/P5 COMPLETED sebelum Flow nyata / UI + dispatch jadwal / upload nyata selesai.
+4. Keputusan owner yang masih terbuka: sumber API key DeepSeek, `AGENTS.md`, lint/build tool, status attempt untuk kuota.
+5. Menjalankan publikasi mock: `YOUTUBE_ADAPTER=mock` lalu enqueue job `PUBLISH` dengan payload `{contentId, campaignId, accountId, platform}`; tanpa opt-in job akan `NEEDS_ATTENTION` + `NO_HANDLER`.
