@@ -62,13 +62,22 @@ Implementasi dan test bisa berjalan dengan HTTP palsu tanpa ini; **uji live** me
 
 ## Rencana Implementasi (slice, belum dikerjakan)
 
-| Slice | Isi |
-|---|---|
-| A1 | Config `YOUTUBE_ADAPTER=api` + nama env auth; credential store DPAPI (helper), tanpa dependensi baru |
-| A2 | OAuth client: pairing loopback + PKCE, refresh token, `reauth_required` |
-| A3 | `YouTubeApiAdapter`: `validate`, `publish` (resumable upload), `getStatus` (`videos.list`), pemetaan error D6 |
-| A4 | Wiring composition root + onboarding akun + log status app (Testing/Production) saat boot |
-| A5 | Test dengan HTTP palsu (tanpa kredensial) + smoke manual oleh owner pada channel sah |
+| Slice | Isi | Status |
+|---|---|---|
+| A1 | Config `YOUTUBE_ADAPTER=api` + nama env auth; credential store DPAPI (helper), tanpa dependensi baru | **DONE** (2026-10-30, `442d3be`) |
+| A2 | OAuth client: pairing loopback + PKCE, refresh token, `reauth_required` | belum |
+| A3 | `YouTubeApiAdapter`: `validate`, `publish` (resumable upload), `getStatus` (`videos.list`), pemetaan error D6 | belum |
+| A4 | Wiring composition root + onboarding akun + log status app (Testing/Production) saat boot | belum |
+| A5 | Test dengan HTTP palsu (tanpa kredensial) + smoke manual oleh owner pada channel sah | belum |
+
+### A1 — yang sudah ada (E1)
+
+- `packages/youtube/src/credential-store.ts`: `DpapiCredentialStore` (`save`/`load`/`remove`), `CredentialStoreError` (`INVALID_NAME`, `NOT_SUPPORTED`, `PROTECT_FAILED`, `UNPROTECT_FAILED`, `CORRUPT`), penulisan atomik `.tmp` → rename, nama divalidasi (`^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`, tanpa `..`).
+- Path: `%LOCALAPPDATA%\saa\credentials\<nama>.bin` (dapat dioverride untuk test); ciphertext DPAPI `CurrentUser`; rahasia dikirim ke PowerShell statis lewat **stdin**, bukan argumen; timeout 10 s.
+- Payload JSON (masa berlaku token ikut di dalam blob); DB hanya `secret_ref` + `connection_status` — tidak ada migrasi.
+- `apps/local-api/src/config.ts`: `YOUTUBE_ADAPTER=off|mock|api`, `loadYouTubeCredentials` (`GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET` opsional) — tidak masuk `AppConfig`.
+- `apps/local-api/src/server.ts`: `api` → peringatan `belum diimplementasikan (slice A2–A4)`; `PUBLISH` tidak terdaftar (job → `NEEDS_ATTENTION` + `NO_HANDLER`).
+- Bukti: typecheck 9 paket PASS; 35 file test, **248 passed / 0 failed**; smoke boot `YOUTUBE_ADAPTER=api` port 4396 → `/health` ok + peringatan eksplisit, port bebas setelah stop.
 
 ## Open Items
 

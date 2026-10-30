@@ -38,7 +38,7 @@ Sumber fase + DoD: `LLD.md` §18. Urutan ini mengikat kecuali user menyatakan la
 - **Kebijakan produksi saat `approvalMode=required`** — konten menunggu approval tidak punya job `PUBLISH`, sehingga slot produksi berikutnya tertahan (ADR-0007 C2). Perlu keputusan owner: lanjutkan produksi atau tunggu approval.
 - **Approval UI** (React) di atas `POST /api/v1/content/:id/approve|reject`.
 - **Tetapkan status `publish_attempts` yang dihitung kuota harian** (saat ini semua status dihitung, termasuk `failed`/`unknown`).
-- **Adapter YouTube nyata** — keputusan OD-2/OD-5 sudah dijawab (`ADR-0008`); slice A1–A5 belum dikerjakan. Implementasi + test bisa jalan tanpa kredensial; **uji live** menunggu input faktual owner (project OAuth, jenis akun, channel).
+- **Adapter YouTube nyata** — keputusan OD-2/OD-5 dijawab (`ADR-0008`); **A1 credential store DPAPI DONE** (`442d3be`); sisa A2–A5 (OAuth, adapter API, wiring, test/uji live). Test bisa jalan tanpa kredensial; **uji live** menunggu input faktual owner (project OAuth, jenis akun, channel).
 - **Job `VERIFY_PUBLICATION`/`RECONCILE_PUBLICATION` terpisah** belum ada; rekonsiliasi masih inline di handler `PUBLISH`.
 - **Adapter Flow nyata** membutuhkan OD-1 (akses/kebijakan) dan sesi browser pada akun sah.
 - Sumber API key DeepSeek (env vs Credential Manager): kode saat ini membaca `DEEPSEEK_API_KEY` dari env; Credential Manager/DPAPI belum dipilih + uji live pertama adapter (status UNVERIFIED).

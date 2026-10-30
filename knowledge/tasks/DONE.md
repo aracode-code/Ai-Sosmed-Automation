@@ -1,5 +1,15 @@
 # DONE
 
+## 2026-10-30 — SESSION-2026-10-30-7
+
+- **Slice A1 — credential store DPAPI untuk token YouTube** (commit `442d3be`).
+  - `packages/youtube/src/credential-store.ts`: antarmuka `CredentialStore` + `DpapiCredentialStore` — `save`/`load`/`remove`, nama divalidasi `^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`, ciphertext DPAPI `CurrentUser` di `%LOCALAPPDATA%\saa\credentials\<name>.bin`, tulis atomik (`.tmp` 0600 → rename), error `INVALID_NAME`/`NOT_SUPPORTED`/`PROTECT_FAILED`/`UNPROTECT_FAILED`/`CORRUPT`.
+  - DPAPI dipanggil via PowerShell statis `-EncodedCommand`; plaintext dikirim lewat **stdin** (tidak pernah argv), ada batas waktu.
+  - `apps/local-api/src/config.ts`: `YOUTUBE_ADAPTER` menerima `off|mock|api`; `loadYouTubeCredentials()` membaca `GOOGLE_OAUTH_CLIENT_ID`/`GOOGLE_OAUTH_CLIENT_SECRET` di luar `AppConfig`.
+  - `apps/local-api/src/server.ts`: `api` → job `PUBLISH` **tidak** didaftarkan + peringatan eksplisit (tidak ada klaim palsu adapter nyata).
+  - Bukti: typecheck 9 paket PASS · **248 test passed** (35 file; naik dari 235) · smoke boot `YOUTUBE_ADAPTER=api` port 4396 → peringatan benar, `/health` ok, port dibebaskan. Tanpa dependensi baru.
+  - Keputusan: `decisions/ADR-0008-youtube-real-adapter-od2-od5.md` bagian A1; modul: `modules/youtube.md`.
+
 ## 2026-10-30 — SESSION-2026-10-30-6
 
 - **OD-2 & OD-5 YouTube dijawab** (`decisions/ADR-0008-youtube-real-adapter-od2-od5.md`).

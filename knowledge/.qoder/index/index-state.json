@@ -3,8 +3,8 @@
   "mode": "LIGHTWEIGHT_GREP",
   "status": "DEGRADED",
   "reason": "Tidak ada tool SQLite index di runtime ini (`sqlite_query_tool` missing). Pencarian memakai ripgrep terhadap source aktual; tidak ada code.db.",
-  "indexed_commit": "77fbb9c156066ce687ef75dacff05a9489ebf5d9",
-  "indexed_at": "2026-10-30T09:05:00+07:00",
+  "indexed_commit": "442d3bedb3a1f28305166af87626791dacce9b8c",
+  "indexed_at": "2026-10-30T09:45:00+07:00",
   "scope": [
     "apps/local-api/src/**",
     "packages/agent-core/src/**",
@@ -18,18 +18,18 @@
     "tests/integration/**"
   ],
   "counts": {
-    "files": 107,
-    "test_files": 34,
+    "files": 109,
+    "test_files": 35,
     "symbols": null,
     "imports": null,
     "apis": 15,
     "db_objects": 12,
-    "tests": 235
+    "tests": 248
   },
   "validation": {
-    "last_validated_at": "2026-10-30T09:15:00+07:00",
+    "last_validated_at": "2026-10-30T09:45:00+07:00",
     "result": "partial",
-    "note": "Scope = daftar `git ls-files '*.ts'` pada commit 77fbb9 (107 file, 34 test). Metadata simbol/import tidak dapat dihitung tanpa index SQLite — nilai null, bukan 0. Endpoint dihitung dari route terdaftar di apps/local-api/src/routes/*.ts (15). File baru P4c: packages/scheduler/src/production.ts + test, apps/local-api/src/content-production.test.ts. Sesi SESSION-2026-10-30-6 hanya dokumentasi (ADR-0008) — tidak ada file TS berubah sejak 77fbb9c, index tetap sah."
+    "note": "Scope = daftar `git ls-files '*.ts'` pada commit 442d3be (109 file, 35 test). Metadata simbol/import tidak dapat dihitung tanpa index SQLite — nilai null, bukan 0. Endpoint dihitung dari route terdaftar di apps/local-api/src/routes/*.ts (15). File baru A1: packages/youtube/src/credential-store.ts + credential-store.test.ts; index/counts diperbarui manual dari `git ls-files` dan hasil vitest aktual (248 test)."
   },
   "fallback": {
     "engine": "LIGHTWEIGHT_GREP",

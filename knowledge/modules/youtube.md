@@ -1,6 +1,6 @@
 # Modul — YouTube (Adapter Publikasi Mock + PUBLISH Handler)
 
-**Status:** PARTIAL — adapter **mock** + handler PUBLISH + verify/reconcile COMPLETED (2026-10-30); keputusan adapter nyata **selesai** (ADR-0008), implementasi belum; upload nyata **UNVERIFIED**
+**Status:** PARTIAL — adapter **mock** + handler PUBLISH + verify/reconcile COMPLETED; keputusan adapter nyata selesai (ADR-0008) dan **slice A1 (credential store DPAPI) DONE** (`442d3be`); A2–A5 belum; upload nyata **UNVERIFIED**
 **Sumber:** kode aktual (E1). Keputusan: `ADR-0005` (Y1–Y10), `ADR-0008` (OD-2/OD-5). Kontrak: LLD §11.1–§11.4.
 
 ## Peta Paket
@@ -11,6 +11,7 @@
 | `packages/domain/src/entities.ts` | Entitas `PublishAttempt` (status `pending/published/processing/failed/unknown`) |
 | `packages/database/src/repositories/publish-attempts.ts` | `insertPublishAttempt` (id `pub_<uuid>`), `getPublishAttempt`, `getPublishAttemptByKey`, `updatePublishAttempt` |
 | `packages/youtube/src/mock-adapter.ts` | `MockYouTubeAdapter` — hasil deterministik, idempoten per key, capability jujur |
+| `packages/youtube/src/credential-store.ts` | `DpapiCredentialStore` — payload token terenkripsi DPAPI per akun (A1) |
 | `packages/workflow/src/handlers/publish.ts` | Handler langkah `PUBLISH`: validasi → approval binding → attempt → publish → reconcile |
 
 Arah dependensi: `@saa/youtube` → `@saa/domain`; `@saa/workflow` → `@saa/domain` + `@saa/database` (adapter disuntikkan, bukan diimpor).
@@ -36,6 +37,20 @@ SocialAdapter {
 - `publish()` idempoten per key (hasil `published` di-cache); `getStatus('key tak dikenal')` → `{ status:'unknown', retryable:true, errorCode:'MOCK_UNKNOWN_KEY' }`.
 - `capabilities()`: `adapterVersion 'mock-1'`, `videoSupported true`, `textSupported false`, `directPublishSupported true`, `draftSupported/schedulingSupported false`, tanpa `maxUploadBytes`/`supportedAspectRatios`, `limitations` menyebut "tidak ada unggahan nyata" + "kuota/izin/batas media belum diverifikasi (OD-2/OD-5)".
 - `validate()`: menolak `accountId`/`assetId`/`caption` kosong dan caption > 5000 karakter.
+
+## Credential Store (A1, aktual)
+
+| Aspek | Nilai |
+|---|---|
+| Kelas | `DpapiCredentialStore` — `save(name, payload)`, `load<T>(name)`, `remove(name)`, `pathFor(name)` |
+| Lokasi | `%LOCALAPPDATA%\saa\credentials\<nama>.bin` (root dapat dioverride untuk test) |
+| Enkripsi | DPAPI `CurrentUser` via helper PowerShell statis; rahasia lewat **stdin** (bukan argumen), timeout 10 s |
+| Nama | `^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`, tanpa `..` — mencegah keluar dari root |
+| Isi | JSON payload (mis. refresh token + masa berlaku); DB hanya menyimpan `secret_ref` + `connection_status` |
+| Penulisan | `.tmp` → rename (atomik); kegagalan menulis membersihkan berkas sementara |
+| Error | `INVALID_NAME` · `NOT_SUPPORTED` (non-Windows) · `PROTECT_FAILED` · `UNPROTECT_FAILED` · `CORRUPT` |
+
+Catatan: `%LOCALAPPDATA%` sudah dibatasi per user, dan ciphertext DPAPI tetap terikat ke akun Windows meski berkas disalin.
 
 ## Handler PUBLISH (urutan aktual)
 
@@ -66,9 +81,9 @@ SocialAdapter {
 ## Wiring Runtime
 
 - `apps/local-api/src/handlers.ts`: `publisher?: SocialAdapter` → `registry.PUBLISH = createPublishHandler(...)`; tanpa adapter `PUBLISH` **tidak** terdaftar.
-- `apps/local-api/src/config.ts`: `YOUTUBE_ADAPTER=off|mock` (default `off`); nilai `api` belum ada di kode.
-- `apps/local-api/src/server.ts`: `YOUTUBE_ADAPTER=mock` → `new MockYouTubeAdapter()` + log peringatan "publikasi PALSU"; `off` → log `job PUBLISH tidak terdaftar`.
-- Tanpa opt-in: job `PUBLISH` → `NEEDS_ATTENTION` + `NO_HANDLER` (terlihat, bukan disembunyikan).
+- `apps/local-api/src/config.ts`: `YOUTUBE_ADAPTER=off|mock|api` (default `off`); `loadYouTubeCredentials` membaca `GOOGLE_OAUTH_CLIENT_ID` + `GOOGLE_OAUTH_CLIENT_SECRET` (opsional) dari env dan **tidak** memasukkannya ke `AppConfig`.
+- `apps/local-api/src/server.ts`: `mock` → `new MockYouTubeAdapter()` + log "publikasi PALSU"; `api` → log `belum diimplementasikan (slice A2–A4)`; `off` → log `job PUBLISH tidak terdaftar`.
+- Tanpa adapter aktif: job `PUBLISH` → `NEEDS_ATTENTION` + `NO_HANDLER` (terlihat, bukan disembunyikan).
 
 ## Adapter Nyata — Keputusan (ADR-0008, belum diimplementasikan)
 
@@ -91,12 +106,12 @@ Catatan konflik: referensi resmi `videos.insert` (2026-10-30) menyatakan project
 ```bash
 corepack pnpm --filter @saa/youtube typecheck
 corepack pnpm vitest run packages/youtube packages/workflow/src/handlers/publish.test.ts
-corepack pnpm test                              # 235 test seluruh workspace
+corepack pnpm test                              # 248 test seluruh workspace
 YOUTUBE_ADAPTER=mock corepack pnpm start        # boot dengan adapter mock
 ```
 
 ## Belum Ada
 
-- Adapter YouTube nyata: slice A1–A5 (credential store, OAuth, adapter, wiring, test/uji live) — keputusan selesai di ADR-0008, kode belum.
+- Adapter YouTube nyata: slice A2–A5 (OAuth, adapter API, wiring, test/uji live) — A1 selesai (`442d3be`).
 - Handler `VERIFY_PUBLICATION` / `RECONCILE_PUBLICATION` sebagai job terpisah.
 - Klasifikasi `publish_attempts` untuk kuota harian (semua status masih dihitung).

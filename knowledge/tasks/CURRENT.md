@@ -1,55 +1,57 @@
 # CURRENT — Task Aktif
 
-**Session:** SESSION-2026-10-30-6
-**Updated:** 2026-10-30T09:15:00+07:00
-**Change class:** SMALL (keputusan + dokumentasi; tanpa perubahan kode, schema, route, dependensi)
+**Session:** SESSION-2026-10-30-7
+**Updated:** 2026-10-30T09:45:00+07:00
+**Change class:** MEDIUM (kode baru di paket publikasi + config; tanpa migrasi DB, route, atau dependensi eksternal)
 
 ## Active Task
 
-_Tidak ada task aktif._ **OD-2 & OD-5 (YouTube) dijawab** lewat `decisions/ADR-0008-youtube-real-adapter-od2-od5.md` (2026-10-30).
+_Tidak ada task aktif._ **Slice A1 (ADR-0008) selesai**: credential store DPAPI + konfigurasi `YOUTUBE_ADAPTER=api` (commit `442d3be`).
 
 | Field | Nilai |
 |---|---|
-| Task terakhir | **OD-2/OD-5 YouTube** — keputusan D1–D7 (izin/kuota/privasi) dan O1–O7 (OAuth/token) |
-| Status | **P5 PARTIAL** — keputusan selesai, adapter nyata (A1–A5) belum; **P4c/P4b COMPLETED**; P4 PARTIAL (UI); P3 PARTIAL (Flow) |
+| Task terakhir | **A1 — credential store DPAPI untuk token YouTube** |
+| Status | **P5 PARTIAL** — A1 DONE, A2–A5 belum; upload nyata UNVERIFIED · **P4c/P4b COMPLETED** · P4 PARTIAL (UI) · P3 PARTIAL (Flow) |
 | Mode eksekusi | SINGLE-WRITER sequential |
-| DoD tercapai | ✅ OD-2 dijawab · ✅ OD-5 dijawab · ✅ fakta resmi berlabel evidence · ✅ prasyarat owner eksplisit · ✅ rencana slice A1–A5 |
+| DoD tercapai | ✅ store simpan/muat/hapus + ciphertext DPAPI · ✅ nama divalidasi · ✅ tulis atomik · ✅ test fake + DPAPI nyata · ✅ config `api` + loader env · ✅ typecheck + 248 test hijau · ✅ smoke boot |
 
-## Keputusan Ringkas (ADR-0008)
-
-| Area | Isi |
-|---|---|
-| API & scope | YouTube Data API v3; `youtube.upload` + `youtube.readonly` |
-| Kuota | 10.000 unit/hari + **100 `videos.insert`/hari per project** (bukan per channel) |
-| Privasi | Default **`private`**; diverifikasi via `videos.list`; mismatch → `NEEDS_ATTENTION` |
-| Metadata | title ≤100, description ≤5000, `categoryId` default `27`, `selfDeclaredMadeForKids=false` |
-| Error | `quotaExceeded`/`uploadLimitExceeded` → `NEEDS_ATTENTION` tanpa retry; `invalid_grant` → `reauth_required` |
-| OAuth | Desktop client + PKCE loopback, `access_type=offline` + `prompt=consent` |
-| Status app | Internal (Workspace) atau In production (gmail); **bukan** Testing (token 7 hari) |
-| Token | DPAPI `%LOCALAPPDATA%\saa\credentials\youtube-<accountId>.bin`; DB hanya `secret_ref` |
-| Dependensi | Tanpa SDK `googleapis` (fetch) |
-
-## Bukti (aktual 2026-10-30)
+## Bukti Slice A1 (aktual 2026-10-30)
 
 | Bukti | Hasil |
 |---|---|
-| Perubahan kode | **Tidak ada** — sesi ini hanya keputusan + dokumentasi |
-| Test | Tidak dijalankan ulang (tidak ada kode berubah); hasil terakhir **34 file, 235 passed / 0 failed** pada commit `77fbb9c` |
-| JSON state | `state.json` valid (dibaca ulang setelah ditulis) |
-| Sumber keputusan | Dokumentasi resmi Google: Quota Calculator, `videos.insert`, OAuth 2.0, sensitive scope verification, issue tracker 572863050 |
-| Jaringan | Hanya pembacaan dokumentasi publik; tidak ada kredensial diset atau dikirim |
+| Commit | `442d3be` — `feat(p5-a1): credential store DPAPI untuk token YouTube` (6 file, +419/−5) |
+| Berkas baru | `packages/youtube/src/credential-store.ts`, `packages/youtube/src/credential-store.test.ts` |
+| Berkas diubah | `packages/youtube/src/index.ts`, `apps/local-api/src/{config,config.test,server}.ts` |
+| Typecheck | PASS — 9 paket + `tests/tsconfig.json` |
+| Test | `corepack pnpm test` → **35 file, 248 passed / 0 failed** (naik dari 235) |
+| Smoke boot | `YOUTUBE_ADAPTER=api` port 4396 → log `YOUTUBE_ADAPTER=api belum diimplementasikan (slice A2–A4, ADR-0008); job PUBLISH tidak terdaftar`; `/health` `status ok`, `db ok`; port dibebaskan |
+| Dependensi | **Tidak ada penambahan** (DPAPI via PowerShell `-EncodedCommand`, secret lewat stdin) |
+
+## Kontrak A1 (yang harus dipakai A2)
+
+| Hal | Nilai |
+|---|---|
+| API | `save(name, payload)` · `load<T>(name)` · `remove(name)` · `pathFor(name)` |
+| Lokasi | `%LOCALAPPDATA%\saa\credentials\<name>.bin` (fallback `~/.local/share/...` di non-Windows; operasi → `NOT_SUPPORTED`) |
+| Enkripsi | DPAPI `CurrentUser` (ciphertext terikat akun Windows) |
+| Pola nama | `^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$` |
+| Payload | JSON apa pun; A2 memakai `{ refreshToken, scope, tokenType, obtainedAt, clientId }` |
+| Tulis | `mkdir -p` → `.tmp` (mode 0600) → `rename`; gagal → `.tmp` dihapus |
+| Error | `INVALID_NAME` · `NOT_SUPPORTED` · `PROTECT_FAILED` · `UNPROTECT_FAILED` · `CORRUPT` |
+| Config | `YOUTUBE_ADAPTER=off|mock|api`; `loadYouTubeCredentials()` membaca `GOOGLE_OAUTH_CLIENT_ID`/`GOOGLE_OAUTH_CLIENT_SECRET` (tidak masuk `AppConfig`) |
 
 ## Impact Map
 
-- **Dokumen baru:** `decisions/ADR-0008-youtube-real-adapter-od2-od5.md`.
-- **Dokumen diubah:** `modules/youtube.md`, `01_PROJECT.md`, `00_INDEX.md`, `tasks/BACKLOG.md`, `tasks/CURRENT.md`, `tasks/DONE.md`, `.qoder/{context.md,memory.md,state.json}`, log harian.
-- **DB/API/Konfigurasi runtime:** tidak berubah pada sesi ini; `YOUTUBE_ADAPTER=api` baru akan ditambahkan pada slice A1.
+- **Modul:** `youtube` (paket bertambah 1 modul + test), `local-api` (config + cabang `api` di `buildPublisher`).
+- **DB/route/migrasi:** tidak berubah (12 tabel, 15 route, 3 migrasi tetap).
+- **Rahasia:** tidak ada token di kode, log, state, atau test; test DPAPI nyata menulis ke `%LOCALAPPDATA%` lalu menghapus berkasnya.
 
 ## Drift Tercatat
 
-- F2 CONFLICT: dokumen resmi `videos.insert` vs issue tracker 572863050 (project unverified: private atau tidak) — hanya bisa dipastikan pada uji nyata.
-- Klasifikasi resmi scope `youtube.upload` dan batas unggahan per channel masih UNKNOWN.
-- Sisa drift lama: upload nyata UNVERIFIED, kuota scheduler menghitung semua status attempt, `VERIFY_PUBLICATION`/`RECONCILE_PUBLICATION` belum job terpisah, `AGENTS.md` untracked.
+- A2–A5 belum ada: belum ada OAuth client, `YouTubeApiAdapter`, wiring nyata, maupun test HTTP palsu → **P5 tetap PARTIAL**.
+- Upload nyata UNVERIFIED; F2 CONFLICT (project unverified: `private` atau tidak) hanya bisa dipastikan pada uji live.
+- Klasifikasi scope `youtube.upload` UNKNOWN; batas unggahan per channel UNKNOWN.
+- Drift lama: kuota scheduler menghitung semua status attempt; `VERIFY_PUBLICATION`/`RECONCILE_PUBLICATION` belum job terpisah; `AGENTS.md` untracked.
 
 ## Team Scope
 
@@ -58,12 +60,12 @@ _Tidak ada gelombang aktif._ `state.open_wave = null`.
 ## Next Session Handoff
 
 1. Boot urut §11.14; jangan pindai ulang HLD/LLD.
-2. Implementasi adapter nyata dengan urutan slice:
-   - **A1** config `YOUTUBE_ADAPTER=api` + credential store DPAPI (tanpa dependensi baru);
-   - **A2** OAuth client (pairing loopback + PKCE, refresh, `reauth_required`);
-   - **A3** `YouTubeApiAdapter` (`validate`/`publish` resumable/`getStatus` + pemetaan error);
-   - **A4** wiring composition root + onboarding akun + log status app saat boot;
-   - **A5** test HTTP palsu + smoke manual oleh owner.
-3. **Prasyarat faktual owner** untuk uji live: project Google Cloud + billing, jenis akun Google (Workspace/gmail), channel target, izin membuat OAuth client Desktop, konfirmasi privasi awal (`private` dianjurkan).
-4. Jangan menyatakan P5 COMPLETED sebelum ada unggahan nyata yang terverifikasi (bukti `videos.list`).
-5. Pilihan lain yang masih terbuka: approval UI desktop, OD-1 (Flow nyata), kebijakan saat publikasi macet.
+2. **A2 — OAuth client** (`packages/youtube/src/oauth-client.ts`):
+   - authorization code + PKCE (S256) pada loopback `127.0.0.1` porta acak, `state` acak dibandingkan konstan-waktu;
+   - token exchange/refresh lewat `fetch` (tanpa SDK), timeout + batas ukuran respons;
+   - simpan payload via `DpapiCredentialStore` dengan nama `youtube-<accountId>`;
+   - `invalid_grant` → `reauth_required` (bukan retry); akses token **tidak** disimpan ke DB.
+3. **A3** `YouTubeApiAdapter` (`validate`/`publish` resumable/`getStatus`) · **A4** wiring composition root + onboarding akun · **A5** test HTTP palsu + smoke manual owner.
+4. **Prasyarat faktual owner** untuk uji live: project Google Cloud + billing, jenis akun Google (Workspace/gmail), channel target, izin membuat OAuth client Desktop, konfirmasi privasi awal (`private` dianjurkan).
+5. Jangan menyatakan P5 COMPLETED sebelum ada unggahan nyata yang terverifikasi (bukti `videos.list`).
+6. Pilihan lain yang masih terbuka: approval UI desktop, OD-1 (Flow nyata), kebijakan saat publikasi macet.
