@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { ConfigError, loadAiCredentials, loadConfig } from './config';
+import {
+  ConfigError,
+  loadAiCredentials,
+  loadConfig,
+  loadYouTubeCredentials
+} from './config';
 
 describe('loadConfig', () => {
   it('menerapkan default loopback dan timezone Jakarta', () => {
@@ -19,9 +24,16 @@ describe('loadConfig', () => {
     expect(config.youtubeAdapter).toBe('off');
   });
 
-  it('menerima adapter YouTube mock hanya dengan opt-in eksplisit', () => {
+  it('menerima adapter YouTube mock/api hanya dengan opt-in eksplisit', () => {
     expect(loadConfig({ YOUTUBE_ADAPTER: 'mock' }).youtubeAdapter).toBe('mock');
+    expect(loadConfig({ YOUTUBE_ADAPTER: 'api' }).youtubeAdapter).toBe('api');
     expect(() => loadConfig({ YOUTUBE_ADAPTER: 'live' })).toThrow(ConfigError);
+  });
+
+  it('tidak menaruh kredensial OAuth di AppConfig', () => {
+    const config = loadConfig({ GOOGLE_OAUTH_CLIENT_ID: 'client-uji' });
+    expect(Object.keys(config)).not.toContain('googleOauthClientId');
+    expect(JSON.stringify(config)).not.toContain('client-uji');
   });
 
   it('menolak host non-loopback tanpa APP_ALLOW_NETWORK', () => {
@@ -103,5 +115,34 @@ describe('loadAiCredentials', () => {
 
   it('memangkas spasi pada key', () => {
     expect(loadAiCredentials({ DEEPSEEK_API_KEY: '  sk-uji  ' })).toEqual({ apiKey: 'sk-uji' });
+  });
+});
+
+describe('loadYouTubeCredentials', () => {
+  it('mengembalikan null bila client id tidak ada', () => {
+    expect(loadYouTubeCredentials({})).toBeNull();
+    expect(loadYouTubeCredentials({ GOOGLE_OAUTH_CLIENT_ID: '  ' })).toBeNull();
+  });
+
+  it('memangkas client id dan memperlakukan secret kosong sebagai null', () => {
+    expect(loadYouTubeCredentials({ GOOGLE_OAUTH_CLIENT_ID: '  id-uji  ' })).toEqual({
+      clientId: 'id-uji',
+      clientSecret: null
+    });
+    expect(
+      loadYouTubeCredentials({
+        GOOGLE_OAUTH_CLIENT_ID: 'id-uji',
+        GOOGLE_OAUTH_CLIENT_SECRET: '   '
+      })
+    ).toEqual({ clientId: 'id-uji', clientSecret: null });
+  });
+
+  it('meneruskan client secret bila diisi', () => {
+    expect(
+      loadYouTubeCredentials({
+        GOOGLE_OAUTH_CLIENT_ID: 'id-uji',
+        GOOGLE_OAUTH_CLIENT_SECRET: '  rahasia-uji  '
+      })
+    ).toEqual({ clientId: 'id-uji', clientSecret: 'rahasia-uji' });
   });
 });

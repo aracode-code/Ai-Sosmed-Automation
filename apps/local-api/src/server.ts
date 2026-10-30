@@ -30,6 +30,12 @@ function buildPublisher(
   config: AppConfig,
   logger: ReturnType<typeof createLogger>
 ): SocialAdapter | undefined {
+  if (config.youtubeAdapter === 'api') {
+    logger.warn(
+      'YOUTUBE_ADAPTER=api belum diimplementasikan (slice A2–A4, ADR-0008); job PUBLISH tidak terdaftar'
+    );
+    return undefined;
+  }
   if (config.youtubeAdapter !== 'mock') {
     logger.warn(
       'YOUTUBE_ADAPTER=off; job PUBLISH tidak terdaftar dan akan jatuh ke NEEDS_ATTENTION'

@@ -17,8 +17,8 @@ const envSchema = z
     /** Dispatch jadwal → job PUBLISH; hanya berjalan bila adapter publikasi aktif. */
     SCHEDULER_ENABLED: z.enum(['true', 'false']).default('true'),
     SCHEDULER_INTERVAL_MS: z.coerce.number().int().min(1_000).max(300_000).default(5_000),
-    /** `mock` hanya untuk uji alur; tidak pernah mengunggah ke YouTube sungguhan (OD-2/OD-5). */
-    YOUTUBE_ADAPTER: z.enum(['off', 'mock']).default('off'),
+    /** `mock` hanya untuk uji alur; `api` disiapkan untuk adapter nyata (ADR-0008), belum diimplementasikan. */
+    YOUTUBE_ADAPTER: z.enum(['off', 'mock', 'api']).default('off'),
     APP_ALLOW_NETWORK: z.enum(['true', 'false']).default('false')
   })
   .superRefine((env, ctx) => {
@@ -44,7 +44,7 @@ export interface AppConfig {
   mediaRoot: string;
   schedulerEnabled: boolean;
   schedulerIntervalMs: number;
-  youtubeAdapter: 'off' | 'mock';
+  youtubeAdapter: 'off' | 'mock' | 'api';
 }
 
 export class ConfigError extends Error {
@@ -93,4 +93,26 @@ export function loadAiCredentials(
 ): AiCredentials | null {
   const apiKey = source.DEEPSEEK_API_KEY?.trim();
   return apiKey === undefined || apiKey === '' ? null : { apiKey };
+}
+
+export interface YouTubeCredentials {
+  clientId: string;
+  clientSecret: string | null;
+}
+
+/**
+ * Kredensial OAuth YouTube hanya dari environment dan tidak masuk `AppConfig`.
+ * Refresh token tidak dibaca dari sini — disimpan di credential store DPAPI.
+ */
+export function loadYouTubeCredentials(
+  source: NodeJS.ProcessEnv = process.env
+): YouTubeCredentials | null {
+  const clientId = source.GOOGLE_OAUTH_CLIENT_ID?.trim();
+  if (clientId === undefined || clientId === '') return null;
+
+  const clientSecret = source.GOOGLE_OAUTH_CLIENT_SECRET?.trim();
+  return {
+    clientId,
+    clientSecret: clientSecret === undefined || clientSecret === '' ? null : clientSecret
+  };
 }
