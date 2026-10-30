@@ -97,7 +97,7 @@ function dispatcherWith(
   generator: VideoGenerator,
   outputRoot: string
 ) {
-  const handler = createGenerateVideoHandler({ db, generator, outputRoot, now });
+  const handler = createGenerateVideoHandler({ db, generator, outputRoot });
   return new Dispatcher({
     db,
     workerId: 'w1',
@@ -223,8 +223,7 @@ describe('GENERATE_VIDEO handler', () => {
     const handler = createGenerateVideoHandler({
       db,
       generator: new MockVideoGenerator({ outputRoot: root }),
-      outputRoot: root,
-      now
+      outputRoot: root
     });
 
     const stubContext: HandlerContext = {

@@ -29,7 +29,6 @@ export interface GenerateVideoDeps {
   /** Akar penyimpanan media; berkas di luar akar ditolak. */
   outputRoot: string;
   probe?: MediaProbe;
-  now?: () => Date;
 }
 
 /**
