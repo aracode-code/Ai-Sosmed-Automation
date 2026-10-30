@@ -1,4 +1,10 @@
-import { getMediaAsset, updateAccountConnection, type DatabaseHandle } from '@saa/database';
+import {
+  getMediaAsset,
+  getPublishAttemptByKey,
+  listSocialAccounts,
+  updateAccountConnection,
+  type DatabaseHandle
+} from '@saa/database';
 import type { SocialAdapter } from '@saa/domain';
 import { DpapiCredentialStore, YouTubeApiAdapter, type CredentialStore } from '@saa/youtube';
 import type { AppConfig, YouTubeCredentials } from './config';
@@ -24,12 +30,18 @@ export interface YouTubeApiPublisherOptions {
  */
 export function createYouTubeApiPublisher(options: YouTubeApiPublisherOptions): SocialAdapter {
   const store = options.store ?? new DpapiCredentialStore();
+  // `capabilities()` tidak membawa accountId; pakai akun YouTube satu-satunya bila tidak ambigu.
+  const youtubeAccounts = listSocialAccounts(options.db.raw).filter(
+    (account) => account.platform === 'youtube'
+  );
+  const soleAccountId = youtubeAccounts.length === 1 ? youtubeAccounts[0]!.id : undefined;
   return new YouTubeApiAdapter({
     store,
     clientId: options.credentials.clientId,
     ...(options.credentials.clientSecret === null
       ? {}
       : { clientSecret: options.credentials.clientSecret }),
+    ...(soleAccountId === undefined ? {} : { accountId: soleAccountId }),
     privacy: options.config.youtubeUploadPrivacy,
     ...(options.fetchImpl === undefined ? {} : { fetchImpl: options.fetchImpl }),
     resolveAsset: (assetId) => {
@@ -39,6 +51,19 @@ export function createYouTubeApiPublisher(options: YouTubeApiPublisherOptions): 
     },
     onReauthRequired: (accountId) => {
       updateAccountConnection(options.db.raw, accountId, { connectionStatus: 'reauth_required' });
+    },
+    // Rekonsiliasi lintas restart: attempt yang sudah menyimpan videoId dipakai ulang
+    // sehingga handler tidak mengunggah video kedua untuk job yang sama.
+    resolveUpload: (idempotencyKey) => {
+      const attempt = getPublishAttemptByKey(options.db.raw, idempotencyKey);
+      if (attempt === null || attempt.platform !== 'youtube') return null;
+      const videoId = attempt.externalPostId?.trim() ?? '';
+      if (videoId === '') return null;
+      return {
+        accountId: attempt.accountId,
+        videoId,
+        privacy: options.config.youtubeUploadPrivacy
+      };
     }
   });
 }

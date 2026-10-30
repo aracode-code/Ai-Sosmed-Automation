@@ -5,10 +5,13 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   getSocialAccount,
   insertCampaign,
+  insertJob,
   insertMediaAsset,
+  insertPublishAttempt,
   insertSocialAccount,
   openDatabase,
   runMigrations,
+  updatePublishAttempt,
   upsertContentItem,
   type DatabaseHandle
 } from '@saa/database';
@@ -22,6 +25,7 @@ const ASSET_BYTES = Buffer.from('payload-mp4-uji-a4', 'utf8');
 let workDir: string;
 let mediaRoot: string;
 let db: DatabaseHandle;
+let campaignId: string;
 
 class MemoryCredentialStore implements CredentialStore {
   readonly entries = new Map<string, unknown>();
@@ -99,6 +103,7 @@ beforeEach(() => {
     approvalMode: 'automatic',
     platforms: ['youtube']
   });
+  campaignId = campaign.id;
   upsertContentItem(db.raw, {
     id: 'cnt_a4',
     campaignId: campaign.id,
@@ -222,5 +227,85 @@ describe('createYouTubeApiPublisher', () => {
     };
     expect(initBody.status).toEqual({ privacyStatus: 'unlisted', selfDeclaredMadeForKids: false });
     expect(initBody.snippet.categoryId).toBe('27');
+  });
+
+  it('memakai videoId tersimpan agar tidak mengunggah ulang setelah restart', async () => {
+    const path = mediaFixture();
+    insertMediaAsset(db.raw, {
+      id: 'med_a4',
+      contentId: 'cnt_a4',
+      path,
+      sha256: 'd'.repeat(64),
+      mimeType: 'video/mp4',
+      sizeBytes: ASSET_BYTES.length,
+      validationStatus: 'valid'
+    });
+    insertSocialAccount(db.raw, { id: 'acc_a4', platform: 'youtube', label: 'kanal uji' });
+
+    const job = insertJob(db.raw, {
+      jobType: 'PUBLISH',
+      idempotencyKey: 'publish-job-a4',
+      campaignId,
+      contentId: 'cnt_a4',
+      payload: {}
+    });
+    const attempt = insertPublishAttempt(db.raw, {
+      jobId: job.id,
+      accountId: 'acc_a4',
+      platform: 'youtube',
+      idempotencyKey: 'publish:job_a4'
+    });
+    updatePublishAttempt(db.raw, {
+      id: attempt.id,
+      status: 'processing',
+      externalPostId: 'yt_tersimpan'
+    });
+
+    const store = new MemoryCredentialStore();
+    await store.save('youtube-acc_a4', tokenRecord());
+    const { impl, urls } = fakeFetch(() => new Response('{}'));
+
+    const publisher = createYouTubeApiPublisher({
+      db,
+      config: loadConfig({ GOOGLE_OAUTH_CLIENT_ID: 'client-uji' }),
+      credentials: { clientId: 'client-uji', clientSecret: null },
+      store,
+      fetchImpl: impl
+    });
+
+    await expect(publisher.publish(publishRequest())).resolves.toEqual({
+      status: 'processing',
+      externalPostId: 'yt_tersimpan',
+      retryable: false,
+      errorCode: 'YT_UPLOAD_IN_PROGRESS'
+    });
+    expect(urls).toHaveLength(0);
+  });
+
+  it('melaporkan authStatus connected hanya bila akun YouTube tunggal punya token', async () => {
+    insertSocialAccount(db.raw, { id: 'acc_a4', platform: 'youtube', label: 'kanal uji' });
+    const store = new MemoryCredentialStore();
+    await store.save('youtube-acc_a4', tokenRecord());
+
+    const publisher = createYouTubeApiPublisher({
+      db,
+      config: loadConfig({ GOOGLE_OAUTH_CLIENT_ID: 'client-uji' }),
+      credentials: { clientId: 'client-uji', clientSecret: null },
+      store,
+      fetchImpl: fakeFetch(() => new Response('{}')).impl
+    });
+
+    await expect(publisher.capabilities()).resolves.toMatchObject({ authStatus: 'connected' });
+
+    insertSocialAccount(db.raw, { id: 'acc_kedua', platform: 'youtube', label: 'kanal kedua' });
+    const ambiguous = createYouTubeApiPublisher({
+      db,
+      config: loadConfig({ GOOGLE_OAUTH_CLIENT_ID: 'client-uji' }),
+      credentials: { clientId: 'client-uji', clientSecret: null },
+      store,
+      fetchImpl: fakeFetch(() => new Response('{}')).impl
+    });
+
+    await expect(ambiguous.capabilities()).resolves.toMatchObject({ authStatus: 'disconnected' });
   });
 });
