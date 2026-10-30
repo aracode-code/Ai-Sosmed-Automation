@@ -28,6 +28,8 @@ const MAX_DESCRIPTION_LENGTH = 5_000;
 const MAX_ERROR_BODY_CHARS = 8_192;
 const DEFAULT_UPLOAD_TIMEOUT_MS = 300_000;
 const DEFAULT_REQUEST_TIMEOUT_MS = 20_000;
+/** Batas lanjutan per unggahan; sesudah ini hasil dianggap `unknown` (tidak diulang dari awal). */
+const MAX_RESUME_ATTEMPTS = 3;
 
 export type YouTubePrivacyStatus = 'private' | 'unlisted' | 'public';
 
@@ -83,6 +85,25 @@ function stringField(source: JsonRecord | null, key: string): string | null {
 
 function isPrivacyStatus(value: string): value is YouTubePrivacyStatus {
   return value === 'private' || value === 'unlisted' || value === 'public';
+}
+
+/**
+ * Byte yang sudah diterima server menurut header `Range` pada respons 308.
+ * Format yang diterima: `bytes=0-N` (offset terakhir) atau bentuk total-saja
+ * `bytes=` + bintang + `/total` (berarti 0 byte diterima).
+ * `null` = server tidak memberi progres, jadi unggahan tidak boleh dilanjutkan.
+ */
+function receivedBytesOf(response: Response, totalBytes: number): number | null {
+  const header = response.headers.get('range');
+  if (header === null) return null;
+  const value = header.trim();
+  const partial = /^bytes=0-(\d+)$/i.exec(value);
+  if (partial !== null) {
+    const last = Number(partial[1]);
+    if (!Number.isInteger(last) || last < 0 || last + 1 > totalBytes) return null;
+    return last + 1;
+  }
+  return /^bytes=\*\/\d+$/i.test(value) ? 0 : null;
 }
 
 function retryAfterMsOf(response: Response): number | undefined {
@@ -238,7 +259,7 @@ export class YouTubeApiAdapter implements SocialAdapter {
         'kuota 10.000 unit/hari per project + 100 videos.insert/hari belum diverifikasi (ADR-0008 D3/F1)',
         'privasi public belum terverifikasi; default private (D4, OD-5)',
         'belum ada uji unggah nyata ke server Google (slice A5)',
-        'unggahan dibaca penuh ke memori; resume bertahap (HTTP 308) belum diimplementasikan',
+        `unggahan dibaca penuh ke memori; resume 308 dibatasi ${MAX_RESUME_ATTEMPTS} lanjutan per unggahan`,
         'pemetaan idempotencyKey → videoId hanya di memori; setelah restart hasil menjadi unknown'
       ]
     };
@@ -363,22 +384,43 @@ export class YouTubeApiAdapter implements SocialAdapter {
 
     // Fase 2 — unggah byte. `videos.insert` tidak idempoten: kegagalan di sini bisa
     // berarti video sudah dibuat, jadi tidak boleh dilempar sebagai kelas retry.
-    let uploadResponse: Response;
-    try {
-      uploadResponse = await requestOnce(
+    const putBytes = (start: number): Promise<Response> =>
+      requestOnce(
         this.doFetch,
         sessionUri,
-        {
-          method: 'PUT',
-          headers: {
-            'content-type': asset.mimeType,
-            'content-length': String(bytes.length)
-          },
-          body: bytes
-        },
+        start === 0
+          ? {
+              method: 'PUT',
+              headers: {
+                'content-type': asset.mimeType,
+                'content-length': String(bytes.length)
+              },
+              body: bytes
+            }
+          : {
+              method: 'PUT',
+              headers: {
+                'content-type': asset.mimeType,
+                'content-length': String(bytes.length - start),
+                'content-range': `bytes ${start}-${bytes.length - 1}/${bytes.length}`
+              },
+              body: bytes.subarray(start)
+            },
         this.uploadTimeoutMs,
         'unggahan YouTube'
       );
+
+    let uploadResponse: Response;
+    try {
+      uploadResponse = await putBytes(0);
+      // 308 = server baru menerima sebagian byte; lanjutkan dari offset yang dilaporkan
+      // alih-alih mengulang seluruh unggahan.
+      for (let resumed = 0; resumed < MAX_RESUME_ATTEMPTS && uploadResponse.status === 308; ) {
+        const received = receivedBytesOf(uploadResponse, bytes.length);
+        if (received === null || received >= bytes.length) break;
+        resumed += 1;
+        uploadResponse = await putBytes(received);
+      }
     } catch {
       return { status: 'unknown', retryable: false, errorCode: 'YT_UPLOAD_UNCERTAIN' };
     }

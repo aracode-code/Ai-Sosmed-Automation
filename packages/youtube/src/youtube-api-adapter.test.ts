@@ -474,6 +474,60 @@ describe('YouTubeApiAdapter — pemetaan error (D6)', () => {
     });
   });
 
+  it('melanjutkan unggahan 308 dari offset yang dilaporkan header Range', async () => {
+    let putCount = 0;
+    const { adapter, calls, asset } = await harness((url) => {
+      if (url.startsWith('https://upload.example/upload')) {
+        return new Response(null, {
+          status: 200,
+          headers: { location: 'https://upload.example/session-resume' }
+        });
+      }
+      putCount += 1;
+      if (putCount === 1) {
+        return new Response(null, { status: 308, headers: { range: 'bytes=0-9' } });
+      }
+      return jsonResponse(200, { id: 'yt_video_resume' });
+    });
+
+    await expect(adapter.publish(request())).resolves.toEqual({
+      status: 'processing',
+      retryable: false
+    });
+
+    expect(calls).toHaveLength(3);
+    const resume = calls[2];
+    expect(resume.url).toBe('https://upload.example/session-resume');
+    expect(resume.init.method).toBe('PUT');
+    expect((resume.init.headers as Record<string, string>)['content-range']).toBe(
+      `bytes 10-${asset.sizeBytes - 1}/${asset.sizeBytes}`
+    );
+    expect((resume.init.headers as Record<string, string>)['content-length']).toBe(
+      String(asset.sizeBytes - 10)
+    );
+    expect(Buffer.from(resume.init.body as Uint8Array)).toEqual(ASSET_BYTES.subarray(10));
+  });
+
+  it('berhenti melanjutkan setelah 3 percobaan 308 lalu menjadi unknown', async () => {
+    const { adapter, calls } = await harness((url) => {
+      if (url.startsWith('https://upload.example/upload')) {
+        return new Response(null, {
+          status: 200,
+          headers: { location: 'https://upload.example/session-stuck' }
+        });
+      }
+      return new Response(null, { status: 308, headers: { range: 'bytes=0-9' } });
+    });
+
+    await expect(adapter.publish(request())).resolves.toEqual({
+      status: 'unknown',
+      retryable: false,
+      errorCode: 'YT_UPLOAD_INCOMPLETE'
+    });
+    // POST inisialisasi + PUT awal + 3 lanjutan.
+    expect(calls).toHaveLength(5);
+  });
+
   it('penolakan 400 setelah unggahan → failed tanpa retry', async () => {
     const { adapter } = await harness((url) => {
       if (url.startsWith('https://upload.example/upload')) {
