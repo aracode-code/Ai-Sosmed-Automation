@@ -18,6 +18,7 @@
     "@saa/domain": "workspace:*",
     "@saa/local-api": "workspace:*",
     "@saa/observability": "workspace:*",
+    "@saa/scheduler": "workspace:*",
     "@saa/workflow": "workspace:*",
     "@types/node": "^22.10.0",
     "drizzle-kit": "^0.30.0",

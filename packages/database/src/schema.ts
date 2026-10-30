@@ -99,39 +99,55 @@ export const jobDependencies = sqliteTable(
   (t) => [primaryKey({ columns: [t.jobId, t.dependsOnJobId] })]
 );
 
-export const schedules = sqliteTable('schedules', {
-  id: text('id').primaryKey(),
-  campaignId: text('campaign_id')
-    .notNull()
-    .references(() => campaigns.id),
-  mode: text('mode').notNull(),
-  minMinutes: integer('min_minutes'),
-  maxMinutes: integer('max_minutes'),
-  windowStart: text('window_start'),
-  windowEnd: text('window_end'),
-  timezone: text('timezone').notNull().default('Asia/Jakarta'),
-  dailyLimit: integer('daily_limit')
-    .notNull()
-    .default(1),
-  enabled: integer('enabled').notNull().default(1)
-});
+export const schedules = sqliteTable(
+  'schedules',
+  {
+    id: text('id').primaryKey(),
+    campaignId: text('campaign_id')
+      .notNull()
+      .references(() => campaigns.id),
+    mode: text('mode').notNull(),
+    minMinutes: integer('min_minutes'),
+    maxMinutes: integer('max_minutes'),
+    windowStart: text('window_start'),
+    windowEnd: text('window_end'),
+    timezone: text('timezone')
+      .notNull()
+      .default('Asia/Jakarta'),
+    dailyLimit: integer('daily_limit')
+      .notNull()
+      .default(1),
+    enabled: integer('enabled')
+      .notNull()
+      .default(1),
+    nextRunAt: text('next_run_at'),
+    quietStart: text('quiet_start'),
+    quietEnd: text('quiet_end')
+  },
+  (t) => [index('idx_schedules_due').on(t.enabled, t.nextRunAt)]
+);
 
-export const approvals = sqliteTable('approvals', {
-  id: text('id').primaryKey(),
-  contentId: text('content_id')
-    .notNull()
-    .references(() => contentItems.id),
-  contentVersion: integer('content_version').notNull(),
-  assetSha256: text('asset_sha256').notNull(),
-  captionHash: text('caption_hash').notNull(),
-  accountId: text('account_id')
-    .notNull()
-    .references(() => socialAccounts.id),
-  platform: text('platform').notNull(),
-  decision: text('decision').notNull(),
-  decidedAt: text('decided_at').notNull(),
-  decidedBy: text('decided_by').notNull()
-});
+export const approvals = sqliteTable(
+  'approvals',
+  {
+    id: text('id').primaryKey(),
+    contentId: text('content_id')
+      .notNull()
+      .references(() => contentItems.id),
+    contentVersion: integer('content_version').notNull(),
+    assetSha256: text('asset_sha256').notNull(),
+    captionHash: text('caption_hash').notNull(),
+    accountId: text('account_id')
+      .notNull()
+      .references(() => socialAccounts.id),
+    platform: text('platform').notNull(),
+    decision: text('decision').notNull(),
+    decidedAt: text('decided_at').notNull(),
+    decidedBy: text('decided_by').notNull(),
+    reason: text('reason')
+  },
+  (t) => [index('idx_approvals_content').on(t.contentId, t.contentVersion)]
+);
 
 export const publishAttempts = sqliteTable(
   'publish_attempts',

@@ -20,6 +20,9 @@ importers:
       '@saa/observability':
         specifier: workspace:*
         version: link:packages/observability
+      '@saa/scheduler':
+        specifier: workspace:*
+        version: link:packages/scheduler
       '@saa/workflow':
         specifier: workspace:*
         version: link:packages/workflow
@@ -50,6 +53,9 @@ importers:
       '@saa/observability':
         specifier: workspace:*
         version: link:../../packages/observability
+      '@saa/scheduler':
+        specifier: workspace:*
+        version: link:../../packages/scheduler
       '@saa/workflow':
         specifier: workspace:*
         version: link:../../packages/workflow
@@ -147,6 +153,25 @@ importers:
       pino-pretty:
         specifier: ^13.0.0
         version: 13.2.0
+      typescript:
+        specifier: ^5.7.0
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.0
+        version: 2.1.9(@types/node@22.20.5)
+
+  packages/scheduler:
+    dependencies:
+      '@saa/database':
+        specifier: workspace:*
+        version: link:../database
+      '@saa/domain':
+        specifier: workspace:*
+        version: link:../domain
+    devDependencies:
+      '@types/node':
+        specifier: ^22.10.0
+        version: 22.20.5
       typescript:
         specifier: ^5.7.0
         version: 5.9.3

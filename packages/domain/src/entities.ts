@@ -1,5 +1,7 @@
+import type { ApprovalBinding, ApprovalDecision } from './approval';
 import type { JobStatus, JobType } from './job';
 import type { PlatformId } from './platform';
+import type { ScheduleConfig } from './schedule';
 
 export interface Campaign {
   id: string;
@@ -40,6 +42,20 @@ export interface SocialAccount {
   connectionStatus: 'connected' | 'reauth_required' | 'disconnected';
   secretRef: string | null;
   profileKey: string | null;
+}
+
+export interface Approval extends ApprovalBinding {
+  id: string;
+  decision: ApprovalDecision;
+  decidedAt: string;
+  decidedBy: string;
+  reason: string | null;
+}
+
+export interface Schedule extends ScheduleConfig {
+  id: string;
+  campaignId: string;
+  nextRunAt: string | null;
 }
 
 export interface Job {

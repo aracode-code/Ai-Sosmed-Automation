@@ -1,8 +1,13 @@
 export * from './client';
 export * from './migrate';
 export * from './paths';
+export * from './repositories/accounts';
+export * from './repositories/approvals';
 export * from './repositories/audit';
 export * from './repositories/campaigns';
 export * from './repositories/content';
 export * from './repositories/jobs';
+export * from './repositories/media';
+export * from './repositories/schedules';
+export * from './repositories/settings';
 export * as schema from './schema';

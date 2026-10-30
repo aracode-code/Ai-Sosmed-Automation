@@ -8,27 +8,24 @@ import type { Logger } from '@saa/observability';
 import type { DatabaseHandle } from '@saa/database';
 import { ZodError } from 'zod';
 import type { AppConfig } from './config';
+import { errorEnvelope } from './errors';
+import { accountRoutes } from './routes/accounts';
+import { approvalRoutes } from './routes/approvals';
+import { campaignRoutes } from './routes/campaigns';
 import { healthRoutes } from './routes/health';
 import { jobRoutes } from './routes/jobs';
+import { scheduleRoutes } from './routes/schedules';
 
 export interface BuildAppOptions {
   db: DatabaseHandle;
   config: AppConfig;
   logger?: Logger;
   version?: string;
-}
-
-function errorEnvelope(
-  code: string,
-  message: string,
-  requestId: string,
-  details: unknown[] = []
-) {
-  return { error: { code, message, requestId, details } };
+  now?: () => Date;
 }
 
 export function buildApp(options: BuildAppOptions): FastifyInstance {
-  const { db, logger, version = '0.1.0' } = options;
+  const { db, logger, version = '0.1.0', now = () => new Date() } = options;
 
   const fastifyOptions: FastifyServerOptions =
     logger === undefined ? { logger: false } : { loggerInstance: logger };
@@ -41,7 +38,7 @@ export function buildApp(options: BuildAppOptions): FastifyInstance {
         errorEnvelope(
           'NOT_FOUND',
           `route ${request.method} ${request.url} tidak ditemukan`,
-          request.id
+          String(request.id)
         )
       );
   });
@@ -85,6 +82,10 @@ export function buildApp(options: BuildAppOptions): FastifyInstance {
 
   void app.register(healthRoutes, { db, version });
   void app.register(jobRoutes, { db });
+  void app.register(campaignRoutes, { db });
+  void app.register(approvalRoutes, { db });
+  void app.register(scheduleRoutes, { db, now });
+  void app.register(accountRoutes, { db });
 
   return app;
 }

@@ -23,7 +23,11 @@ afterEach(() => {
 describe('migrasi', () => {
   it('menerapkan migrasi awal sekali dan membuat 12 tabel', () => {
     const db = tempDb();
-    expect(runMigrations(db.raw)).toEqual(['0000_init.sql', '0001_campaign_platforms.sql']);
+    expect(runMigrations(db.raw)).toEqual([
+      '0000_init.sql',
+      '0001_campaign_platforms.sql',
+      '0002_scheduler_and_approval.sql'
+    ]);
 
     const tables = (db.raw
       .prepare("SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name")
@@ -51,7 +55,8 @@ describe('migrasi', () => {
     expect(runMigrations(db.raw)).toEqual([]);
     expect(appliedMigrations(db.raw)).toEqual([
       '0000_init.sql',
-      '0001_campaign_platforms.sql'
+      '0001_campaign_platforms.sql',
+      '0002_scheduler_and_approval.sql'
     ]);
   });
 
