@@ -67,7 +67,7 @@ Implementasi dan test bisa berjalan dengan HTTP palsu tanpa ini; **uji live** me
 | A1 | Config `YOUTUBE_ADAPTER=api` + nama env auth; credential store DPAPI (helper), tanpa dependensi baru | **DONE** (2026-10-30, `442d3be`) |
 | A2 | OAuth client: pairing loopback + PKCE, refresh token, `reauth_required` | **DONE** (2026-10-30, `5cbe70b`) |
 | A3 | `YouTubeApiAdapter`: `validate`, `publish` (resumable upload), `getStatus` (`videos.list`), pemetaan error D6 | **DONE** (2026-10-30, `26e557a`) |
-| A4 | Wiring composition root + onboarding akun + log status app (Testing/Production) saat boot | belum |
+| A4 | Wiring composition root + onboarding akun + log status app (Testing/Production) saat boot | **DONE** (2026-10-30, `0b4194f`) |
 | A5 | Test dengan HTTP palsu (tanpa kredensial) + smoke manual oleh owner pada channel sah | belum |
 
 ### A1 — yang sudah ada (E1)
@@ -106,6 +106,25 @@ Implementasi dan test bisa berjalan dengan HTTP palsu tanpa ini; **uji live** me
 - `apps/local-api/src/server.ts`: pesan `api` menjadi `belum terhubung ke handler (slice A4)`; `PUBLISH` tetap tidak terdaftar.
 - Bukti: typecheck 9 paket + `tests/tsconfig.json` PASS; **37 file test, 292 passed / 0 failed** (23 test adapter baru); smoke boot `YOUTUBE_ADAPTER=api` port 4397 → `/health` ok, peringatan `slice A4`, port bebas setelah stop.
 - Belum: composition root `api` (A4), penulisan `connection_status`, pairing dari CLI/UI, resume bertahap HTTP 308, rekonsiliasi lintas restart, uji live.
+
+### A4 — yang sudah ada (E1)
+
+- `apps/local-api/src/publisher.ts` — `createYouTubeApiPublisher({ db, config, credentials, store?, fetchImpl? })`:
+  - `resolveAsset` dibaca dari `media_assets` (`getMediaAsset` → `path`/`mimeType`/`sizeBytes`), sehingga paket `@saa/youtube` tetap tanpa ketergantungan database.
+  - `privacy` dari `AppConfig.youtubeUploadPrivacy`, `clientId`/`clientSecret` dari `loadYouTubeCredentials()` (tetap di luar `AppConfig`), store default `DpapiCredentialStore`.
+  - `onReauthRequired` → `updateAccountConnection(db, accountId, { connectionStatus: 'reauth_required' })`.
+  - `youtubeSecretRef(accountId)` = `dpapi:youtube:<accountId>` — satu-satunya nilai `secret_ref` untuk YouTube.
+- `packages/youtube/src/youtube-api-adapter.ts` — opsi baru `onReauthRequired(accountId)`; dipanggil saat `ensureFreshAccessToken` mengembalikan `null` atau melempar `reauth_required` (dari `publish` maupun `getStatus`). Kegagalan callback diabaikan agar galat auth asli tidak tertutupi.
+- `packages/database/src/repositories/accounts.ts` — `updateAccountConnection(raw, id, { connectionStatus, secretRef? })`: `secretRef: undefined` mempertahankan nilai lama, `null` mengosongkan; akun tak dikenal → `null`; label/platform tidak diubah.
+- `apps/local-api/src/pair-youtube.ts` + script `pair:youtube`:
+  - Argumen `--account <id>` (wajib ada, platform harus `youtube`) atau `--label "<label>"` (idempoten: label sama dipakai ulang, kalau tidak dibuat `disconnected`), `--port` opsional.
+  - `GOOGLE_OAUTH_CLIENT_ID` wajib; tanpa itu berhenti sebelum membuka browser.
+  - Browser dibuka lewat `rundll32 url.dll,FileProtocolHandler <url>` — URL **tidak** melewati shell (query memuat `&`).
+  - Sukses → `connection_status='connected'` + `secret_ref`; output hanya id akun, nama kredensial, `pairedAt`, kedaluwarsa token (tanpa token). Gagal → akun tetap `disconnected`; exit 2 untuk pemakaian/konfigurasi, exit 1 untuk galat runtime.
+- `apps/local-api/src/config.ts` — env baru `YOUTUBE_UPLOAD_PRIVACY=private|unlisted|public` (default `private`) dan `YOUTUBE_APP_STATUS=testing|production|unknown` (default `unknown`); keduanya masuk `AppConfig` (bukan rahasia).
+- `apps/local-api/src/server.ts` — cabang `api`: tanpa client id → peringatan + `PUBLISH` tidak terdaftar; `YOUTUBE_APP_STATUS=testing` → log level `error` (ADR melarang operasi), `unknown` → peringatan; adapter aktif → log `privacy` + `handlers: ["GENERATE_VIDEO","PUBLISH"]`.
+- Bukti: typecheck 9 paket + `tests/tsconfig.json` PASS; **39 file test, 301 passed / 0 failed** (9 test baru: 3 repository, 3 publisher, 2 hook adapter, 1 config); smoke boot `YOUTUBE_ADAPTER=api` + `YOUTUBE_APP_STATUS=testing` port 4411 → log `error` Testing, `handlers` memuat `PUBLISH`, `/health` ok, port bebas; CLI `pair:youtube` tanpa argumen/akun hilang/port invalid → exit 2 dengan pesan benar, `--label` berulang tidak menggandakan akun (1 baris `disconnected`).
+- Belum: uji lintas handler `PUBLISH` + adapter nyata dan smoke live (A5); resume 308; rekonsiliasi lintas restart.
 
 ## Open Items
 

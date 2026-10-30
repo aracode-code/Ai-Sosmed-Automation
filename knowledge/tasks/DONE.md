@@ -1,5 +1,16 @@
 # DONE
 
+## 2026-10-30 — SESSION-2026-10-30-10
+
+- **Slice A4 — wiring composition root + onboarding akun YouTube** (commit `0b4194f`).
+  - `apps/local-api/src/publisher.ts`: `createYouTubeApiPublisher` merangkai `YouTubeApiAdapter` dengan `resolveAsset` dari `media_assets`, kredensial dari `loadYouTubeCredentials`, privasi dari `YOUTUBE_UPLOAD_PRIVACY`, dan `onReauthRequired` → `connection_status='reauth_required'`; `youtubeSecretRef` = `dpapi:youtube:<id>`.
+  - `packages/youtube/src/youtube-api-adapter.ts`: opsi `onReauthRequired` dipanggil saat token tidak ada atau refresh ditolak; kegagalan callback tidak menutupi galat auth.
+  - `packages/database/src/repositories/accounts.ts`: `updateAccountConnection` (status + `secret_ref` opsional, label/platform utuh).
+  - `apps/local-api/src/pair-youtube.ts` + script `pair:youtube`: pairing PKCE lewat `rundll32` (URL tidak melewati shell), idempoten per `--label`, menulis `connected` + `secret_ref`; output tanpa token; exit 2 untuk pemakaian/konfigurasi.
+  - `apps/local-api/src/config.ts`: `YOUTUBE_UPLOAD_PRIVACY` (default `private`) + `YOUTUBE_APP_STATUS` (default `unknown`); `server.ts` menolak boot adapter tanpa client id dan mencatat `error` bila status app Testing.
+  - Bukti: typecheck 9 paket + `tests/tsconfig.json` PASS · **301 test passed** (39 file; 9 test baru) · smoke boot port 4411 (`handlers` memuat `PUBLISH`) · smoke CLI 4 jalur gagal + idempotensi `--label`. Tanpa dependensi baru.
+  - Keputusan: `decisions/ADR-0008-youtube-real-adapter-od2-od5.md` bagian A4; modul: `modules/youtube.md`.
+
 ## 2026-10-30 — SESSION-2026-10-30-9
 
 - **Slice A3 — `YouTubeApiAdapter` (videos.insert resumable + verifikasi privasi)** (commit `26e557a`).

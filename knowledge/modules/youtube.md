@@ -1,6 +1,6 @@
 # Modul — YouTube (Adapter Publikasi Mock + PUBLISH Handler)
 
-**Status:** PARTIAL — adapter **mock** + handler PUBLISH + verify/reconcile COMPLETED; keputusan adapter nyata selesai (ADR-0008) dengan **A1 credential store** (`442d3be`), **A2 OAuth client** (`5cbe70b`), dan **A3 adapter API** (`26e557a`) DONE; A4–A5 belum; upload nyata **UNVERIFIED**
+**Status:** PARTIAL — adapter **mock** + handler PUBLISH + verify/reconcile COMPLETED; keputusan adapter nyata selesai (ADR-0008) dengan **A1 credential store** (`442d3be`), **A2 OAuth client** (`5cbe70b`), **A3 adapter API** (`26e557a`), dan **A4 wiring + onboarding** (`0b4194f`) DONE; A5 (uji lintas handler + smoke live) belum; upload nyata **UNVERIFIED**
 **Sumber:** kode aktual (E1). Keputusan: `ADR-0005` (Y1–Y10), `ADR-0008` (OD-2/OD-5). Kontrak: LLD §11.1–§11.4.
 
 ## Peta Paket
@@ -13,7 +13,9 @@
 | `packages/youtube/src/mock-adapter.ts` | `MockYouTubeAdapter` — hasil deterministik, idempoten per key, capability jujur |
 | `packages/youtube/src/credential-store.ts` | `DpapiCredentialStore` — payload token terenkripsi DPAPI per akun (A1) |
 | `packages/youtube/src/oauth-client.ts` | `pairYouTubeAccount`, `ensureFreshAccessToken`, `startLoopbackReceiver` — pairing PKCE + refresh token (A2) |
-| `packages/youtube/src/youtube-api-adapter.ts` | `YouTubeApiAdapter` — `videos.insert` resumable + `videos.list` + verifikasi `privacyStatus` (A3) |
+| `packages/youtube/src/youtube-api-adapter.ts` | `YouTubeApiAdapter` — `videos.insert` resumable + `videos.list` + verifikasi `privacyStatus` (A3) + hook `onReauthRequired` (A4) |
+| `apps/local-api/src/publisher.ts` | `createYouTubeApiPublisher` — komposisi adapter `api`: aset dari `media_assets`, token DPAPI, sinkron `reauth_required` (A4) |
+| `apps/local-api/src/pair-youtube.ts` | CLI `pair:youtube` — onboarding akun: pairing PKCE lalu `secret_ref` + `connection_status` (A4) |
 | `packages/workflow/src/handlers/publish.ts` | Handler langkah `PUBLISH`: validasi → approval binding → attempt → publish → reconcile |
 
 Arah dependensi: `@saa/youtube` → `@saa/domain`; `@saa/workflow` → `@saa/domain` + `@saa/database` (adapter disuntikkan, bukan diimpor).
@@ -68,7 +70,7 @@ Catatan: `%LOCALAPPDATA%` sudah dibatasi per user, dan ciphertext DPAPI tetap te
 | Error | `reauth_required` (invalid_grant / tanpa refresh token, kelas `AUTH`) · `authorization_denied` (`AUTH`) · `state_mismatch` (`SECURITY_CHALLENGE`) · `timeout` (`TRANSIENT_NETWORK`) · `cancelled` (`CANCELLED`) · `provider_error` (kelas mengikuti HTTP: `RATE_LIMIT`, `EXTERNAL_5XX`, `VALIDATION`, `AUTH`) · `invalid_response` (`EXTERNAL_5XX`) · `invalid_client_config` (`AUTH`) |
 | Keamanan | Browser **tidak** dibuka oleh modul (callback `openUrl` disuntikkan); halaman callback statis tanpa echo parameter; tidak ada token di log/pesan error |
 
-Catatan: `ensureFreshAccessToken` mengembalikan `null` bila akun belum dipasangkan, `{ record, refreshed }` bila token siap dipakai, dan melempar `reauth_required` bila refresh tidak mungkin — A4 yang memutuskan penandaan `connection_status`.
+Catatan: `ensureFreshAccessToken` mengembalikan `null` bila akun belum dipasangkan, `{ record, refreshed }` bila token siap dipakai, dan melempar `reauth_required` bila refresh tidak mungkin — sejak A4 wiring menandai `connection_status = 'reauth_required'` lewat hook adapter.
 
 ## Adapter API (A3, aktual)
 
@@ -137,14 +139,26 @@ Alasan dua baris terakhir: `videos.insert` tidak idempoten — retry otomatis bi
 | `validate` menolak / approval tidak valid / akun tidak terhubung | `FAILED` atau `NEEDS_ATTENTION` (AUTH) | tidak ada attempt (validasi) / tidak ada (AUTH sebelum attempt) | Binding dicek sebelum aksi eksternal |
 | `processing` / `unknown` | `NEEDS_ATTENTION` | status asli | Rekonsiliasi manual / job berikutnya |
 
-## Wiring Runtime
+## Wiring Runtime (A4, aktual)
 
 - `apps/local-api/src/handlers.ts`: `publisher?: SocialAdapter` → `registry.PUBLISH = createPublishHandler(...)`; tanpa adapter `PUBLISH` **tidak** terdaftar.
-- `apps/local-api/src/config.ts`: `YOUTUBE_ADAPTER=off|mock|api` (default `off`); `loadYouTubeCredentials` membaca `GOOGLE_OAUTH_CLIENT_ID` + `GOOGLE_OAUTH_CLIENT_SECRET` (opsional) dari env dan **tidak** memasukkannya ke `AppConfig`.
-- `apps/local-api/src/server.ts`: `mock` → `new MockYouTubeAdapter()` + log "publikasi PALSU"; `api` → log `belum terhubung ke handler (slice A4)` (adapter A3 ada, komposisi belum); `off` → log `job PUBLISH tidak terdaftar`.
+- `apps/local-api/src/publisher.ts`: `createYouTubeApiPublisher({ db, config, credentials, store?, fetchImpl? })` → `YouTubeApiAdapter` dengan `resolveAsset` dari `media_assets` (`getMediaAsset` → `path`/`mimeType`/`sizeBytes`), privasi dari `config.youtubeUploadPrivacy`, dan `onReauthRequired` yang menulis `social_accounts.connection_status = 'reauth_required'`. `youtubeSecretRef(id)` = `dpapi:youtube:<accountId>`.
+- `apps/local-api/src/config.ts`: `YOUTUBE_ADAPTER=off|mock|api` (default `off`), `YOUTUBE_UPLOAD_PRIVACY=private|unlisted|public` (default `private`), `YOUTUBE_APP_STATUS=testing|production|unknown` (default `unknown`); `loadYouTubeCredentials` membaca `GOOGLE_OAUTH_CLIENT_ID` + `GOOGLE_OAUTH_CLIENT_SECRET` (opsional) dari env dan **tidak** memasukkannya ke `AppConfig`.
+- `apps/local-api/src/server.ts`: `mock` → `new MockYouTubeAdapter()` + log "publikasi PALSU"; `api` → tanpa `GOOGLE_OAUTH_CLIENT_ID` adapter **tidak** dibuat (log eksplisit), `YOUTUBE_APP_STATUS=testing` → log level `error` (refresh token 7 hari), `unknown` → peringatan; `off` → log `job PUBLISH tidak terdaftar`.
 - Tanpa adapter aktif: job `PUBLISH` → `NEEDS_ATTENTION` + `NO_HANDLER` (terlihat, bukan disembunyikan).
 
-## Adapter Nyata — Keputusan (ADR-0008; A1–A3 selesai, wiring/uji live belum)
+## Onboarding Akun (A4, aktual)
+
+| Aspek | Nilai |
+|---|---|
+| Perintah | `corepack pnpm --filter @saa/local-api pair:youtube -- --account <id>` atau `--label "<label>"` (+ `--port` opsional) |
+| Alur | DB dimigrasi → akun dicari/dibuat (`--label` idempoten) → `GOOGLE_OAUTH_CLIENT_ID` wajib ada → `pairYouTubeAccount` (browser via `rundll32 url.dll,FileProtocolHandler`, URL **tidak** lewat shell) → token DPAPI → `updateAccountConnection(connected, secretRef)` |
+| Output | id akun, nama kredensial, `pairedAt`, waktu kedaluwarsa token; **tidak pernah** access/refresh token |
+| Gagal | Akun dibuat tetap `disconnected`; exit 2 untuk kesalahan pemakaian/konfigurasi, exit 1 untuk galat runtime |
+| Penanda reauth | `YouTubeAuthError` `reauth_required` (dari `publish` maupun `getStatus`) → hook adapter menulis `connection_status = 'reauth_required'`; kegagalan menulis tidak menutupi galat auth |
+| Repository | `updateAccountConnection(raw, id, { connectionStatus, secretRef? })` — `secretRef: undefined` mempertahankan nilai lama; label/platform tidak disentuh |
+
+## Adapter Nyata — Keputusan (ADR-0008; A1–A4 selesai, uji live belum)
 
 | Aspek | Keputusan |
 |---|---|
@@ -165,14 +179,15 @@ Catatan konflik: referensi resmi `videos.insert` (2026-10-30) menyatakan project
 ```bash
 corepack pnpm --filter @saa/youtube typecheck
 corepack pnpm vitest run packages/youtube packages/workflow/src/handlers/publish.test.ts
-corepack pnpm test                              # 292 test seluruh workspace
+corepack pnpm test                              # 301 test seluruh workspace
 YOUTUBE_ADAPTER=mock corepack pnpm start        # boot dengan adapter mock
+YOUTUBE_ADAPTER=api GOOGLE_OAUTH_CLIENT_ID=<id> YOUTUBE_APP_STATUS=production corepack pnpm start
+corepack pnpm --filter @saa/local-api pair:youtube -- --label "kanal utama"
 ```
 
 ## Belum Ada
 
-- Wiring adapter `api` ke composition root + onboarding akun (`connection_status`, `secret_ref`) — slice A4; lalu uji live A5.
+- Uji lintas handler `PUBLISH` + adapter nyata (retry/eskalasi) dan smoke manual owner pada channel sah — slice A5.
 - Resume bertahap HTTP 308 (`Content-Range`) dan rekonsiliasi lintas restart belum ada.
-- Handler `VERIFY_PUBLICATION` / `RECONCILE_PUBLICATION` sebagai job terpisah.
 - Handler `VERIFY_PUBLICATION` / `RECONCILE_PUBLICATION` sebagai job terpisah.
 - Klasifikasi `publish_attempts` untuk kuota harian (semua status masih dihitung).

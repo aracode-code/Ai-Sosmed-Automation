@@ -3,8 +3,8 @@
   "mode": "LIGHTWEIGHT_GREP",
   "status": "DEGRADED",
   "reason": "Tidak ada tool SQLite index di runtime ini (`sqlite_query_tool` missing). Pencarian memakai ripgrep terhadap source aktual; tidak ada code.db.",
-  "indexed_commit": "26e557aab0297444c1bd21ab746fcd3c6fa655ab",
-  "indexed_at": "2026-10-30T10:30:00+07:00",
+  "indexed_commit": "0b4194f17c1d947f100b56cf2520b07331ac37db",
+  "indexed_at": "2026-10-30T11:45:00+07:00",
   "scope": [
     "apps/local-api/src/**",
     "packages/agent-core/src/**",
@@ -18,18 +18,18 @@
     "tests/integration/**"
   ],
   "counts": {
-    "files": 113,
-    "test_files": 37,
+    "files": 117,
+    "test_files": 39,
     "symbols": null,
     "imports": null,
     "apis": 15,
     "db_objects": 12,
-    "tests": 292
+    "tests": 301
   },
   "validation": {
-    "last_validated_at": "2026-10-30T10:30:00+07:00",
+    "last_validated_at": "2026-10-30T11:45:00+07:00",
     "result": "partial",
-    "note": "Scope = daftar `git ls-files '*.ts'` pada commit 26e557a (113 file, 37 test). Metadata simbol/import tidak dapat dihitung tanpa index SQLite — nilai null, bukan 0. Endpoint dihitung dari route terdaftar di apps/local-api/src/routes/*.ts (15). File baru A3: packages/youtube/src/youtube-api-adapter.ts + youtube-api-adapter.test.ts; index/counts diperbarui manual dari `git ls-files` dan hasil vitest aktual (292 test)."
+    "note": "Scope = daftar `git ls-files '*.ts'` pada commit 0b4194f (117 file, 39 test). Metadata simbol/import tidak dapat dihitung tanpa index SQLite — nilai null, bukan 0. Endpoint dihitung dari route terdaftar di apps/local-api/src/routes/*.ts (15). File baru A4: apps/local-api/src/{publisher.ts,publisher.test.ts,pair-youtube.ts} dan packages/database/src/repositories/accounts.test.ts; index/counts diperbarui manual dari `git ls-files` dan hasil vitest aktual (301 test)."
   },
   "fallback": {
     "engine": "LIGHTWEIGHT_GREP",

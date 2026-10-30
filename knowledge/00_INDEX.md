@@ -2,7 +2,7 @@
 
 **Project:** AI Social Media Automation Agent
 **Dibuat:** 2026-10-29 (SESSION-2026-10-29-1)
-**Status:** P1 + P2 COMPLETED, P3 mock + P4 backend + P5 mock PARTIAL, worker loop + handler registration + P4b dispatch + P4c produksi konten COMPLETED (2026-10-30); OD-2/OD-5 untuk YouTube sudah dijawab (ADR-0008) dengan slice **A1 credential store** (`442d3be`), **A2 OAuth client** (`5cbe70b`), dan **A3 adapter API** (`26e557a`) DONE, A4–A5 belum — kode aktual ada di `apps/` + `packages/`.
+**Status:** P1 + P2 COMPLETED, P3 mock + P4 backend + P5 mock PARTIAL, worker loop + handler registration + P4b dispatch + P4c produksi konten COMPLETED (2026-10-30); OD-2/OD-5 untuk YouTube sudah dijawab (ADR-0008) dengan slice **A1 credential store** (`442d3be`), **A2 OAuth client** (`5cbe70b`), **A3 adapter API** (`26e557a`), dan **A4 wiring + onboarding** (`0b4194f`) DONE, A5 belum — kode aktual ada di `apps/` + `packages/`.
 
 ---
 
