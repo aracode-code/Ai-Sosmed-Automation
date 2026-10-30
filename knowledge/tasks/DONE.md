@@ -1,5 +1,16 @@
 # DONE
 
+## 2026-10-30 — SESSION-2026-10-30-13
+
+- **S1–S5 — lima backlog non-owner diselesaikan** (`c310d1f` … `bb1ba57`).
+  - **Resume 308** (`c310d1f`): `receivedBytesOf()` membaca `Range` (`bytes=0-N` inklusif, `bytes=*/total` → 0); sisa byte dikirim dengan `content-range`; maks. 3 lanjutan; `Range` invalid/habis → `unknown` + `YT_UPLOAD_INCOMPLETE`. Hasil `processing` membawa `externalPostId`.
+  - **Kuota pra-unggah** (`5af62ca`): attempt `PUBLISH_VALIDATION`/`VALIDATION`/`DISK` tidak dihitung; kode lain tetap dihitung.
+  - **Route konten manual** (`1f27cd5`): `POST /api/v1/content`, key `plan:manual:<campaignId>:<requestId|uuid>`, 202 queued/duplicate, 404, 409 (4 kode). Dicek sebelum guard pipeline.
+  - **Rekonsiliasi lintas restart** (`a6dde05`): handler menyimpan `externalPostId` setelah `PUBLISH_SUBMITTED`; adapter menerima `resolveUpload`.
+  - **Wiring resolver + authStatus** (`bb1ba57`): `resolveUpload` dari `publish_attempts.external_post_id`; `accountId` hanya bila satu akun YouTube.
+  - Bukti: typecheck exit 0 · **41 file, 321 passed / 0 failed** · JSON state valid · tanpa migrasi/dependensi baru; hanya `AGENTS.md` untracked.
+  - Tidak dikerjakan (keputusan owner): job `VERIFY_PUBLICATION`/`RECONCILE_PUBLICATION` terjadwal — usulan default +15 menit, maks. 2 polling, hanya attempt `unknown` ber-`externalPostId`.
+
 ## 2026-10-30 — SESSION-2026-10-30-12
 
 - **Review + perbaikan uji lintas lapisan A5** (commit `8b8a698`).

@@ -1,6 +1,6 @@
 # Modul — Scheduler (P4 engine + P4b dispatch + P4c produksi)
 
-**Status:** COMPLETED (engine + API + dispatch + produksi konten) 2026-10-30 · commit `4b513ab`, `bfc7c72`, `77fbb9c`
+**Status:** COMPLETED (engine + API + dispatch + produksi konten) 2026-10-30 · commit `4b513ab`, `bfc7c72`, `77fbb9c`, `5af62ca`
 **Sumber:** kode aktual (E1). Keputusan: `ADR-0003` D10–D14, `ADR-0006` S1–S9, `ADR-0007` C1–C7. Kontrak: LLD §8.1–8.3.
 
 ## Peta Paket
@@ -9,7 +9,7 @@
 |---|---|
 | `packages/scheduler/src/time.ts` | Konversi zona waktu tanpa dependensi: `localParts`, `formatLocalDate/Time`, `tzOffsetMs`, `localDateTimeToUtc` (iteratif), `addLocalDays` |
 | `packages/scheduler/src/schedule.ts` | `withinWindow` (mendukung wrap), `pickDelayMinutes` (inklusif), `shiftIntoAllowedSlot` (maks. 6 iterasi), `computeNextRun` |
-| `packages/scheduler/src/quota.ts` | `createDbQuotaGate`: hitung `publish_attempts` per `account + platform` dalam tanggal lokal schedule |
+| `packages/scheduler/src/quota.ts` | `createDbQuotaGate`: hitung `publish_attempts` per `account + platform` dalam tanggal lokal schedule, mengecualikan attempt pra-unggah |
 | `packages/scheduler/src/scheduler.ts` | `Scheduler.runOnce(enqueue)`, `pause`/`resume` via tabel `settings` |
 | `packages/scheduler/src/dispatch.ts` | `enqueueDuePublicationJobs` + `createPublicationEnqueuer`: membuat job `PUBLISH` untuk konten siap (ADR-0006) |
 | `packages/scheduler/src/production.ts` | `enqueueDueContentPlan` + `createContentProductionEnqueuer`: membuat job `PLAN_CONTENT` per slot dengan pipeline kedalaman satu (ADR-0007) |
@@ -77,7 +77,7 @@ Hasil berantai: slot 1 merencanakan konten → worker membuat konten + `GENERATE
 ## Kuota
 
 - Dihitung per `account_id + platform` untuk campaign pada tanggal lokal schedule.
-- Semua status `publish_attempts` dihitung (termasuk `failed`/`unknown`); pengecualian status belum ditetapkan (ADR-0005 open item).
+- Attempt dengan `error_code` `PUBLISH_VALIDATION`, `VALIDATION`, atau `DISK` **tidak** dihitung: ketiganya membuktikan tidak ada byte yang dikirim ke YouTube. Semua kode lain (AUTH, kuota, 5xx, `unknown`, sukses) tetap dihitung karena unggahan mungkin sudah terjadi — lebih aman melebihkan hitungan daripada melanggar batas harian YouTube.
 - Kuota tidak menghitung job yang baru diantrekan; jeda antar-slot dan worker aktif diandalkan agar attempt tercipta sebelum slot berikutnya.
 
 ## API Terkait (apps/local-api)

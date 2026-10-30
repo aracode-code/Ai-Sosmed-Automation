@@ -1,6 +1,6 @@
 # Modul — Local API (App, Route, Composition Root)
 
-**Status:** P1–P5 backend (mock publish) + worker loop + dispatch jadwal + produksi konten COMPLETED (2026-10-30) · commit `debdaaf`, `4b513ab`, `6ad9547`, `7d13431`, `bfc7c72`, `77fbb9c`
+**Status:** P1–P5 backend (mock publish) + worker loop + dispatch jadwal + produksi konten + pemicu konten manual COMPLETED (2026-10-30) · commit `debdaaf`, `4b513ab`, `6ad9547`, `7d13431`, `bfc7c72`, `77fbb9c`, `1f27cd5`, `bb1ba57`
 **Sumber:** kode aktual (E1). Keputusan: `ADR-0001` (konfigurasi), `ADR-0003` D15, `ADR-0004` (worker + registry), `ADR-0005` (publikasi mock), `ADR-0006` (dispatch jadwal), `ADR-0007` (produksi konten per slot).
 
 ## Peta Berkas
@@ -11,7 +11,7 @@
 | `apps/local-api/src/app.ts` | `buildApp`: Fastify, error envelope, registrasi route, `workerActive` untuk health |
 | `apps/local-api/src/handlers.ts` | `buildHandlerRegistry`: satu-satunya titik pendaftaran handler |
 | `apps/local-api/src/server.ts` | Composition root: migrasi → recovery → registry → dispatcher/worker → listen → start; shutdown berurutan |
-| `apps/local-api/src/routes/*.ts` | Route HTTP per area (health, jobs, campaigns, approvals, schedules, accounts) |
+| `apps/local-api/src/routes/*.ts` | Route HTTP per area (health, jobs, campaigns, approvals, schedules, accounts, content) |
 | `apps/local-api/src/errors.ts` | `errorEnvelope` bersama (`{ error: { code, message, requestId, details? } }`) |
 
 ## Composition Root (urutan boot)
@@ -23,16 +23,17 @@ loadConfig → createLogger → openDatabase → runMigrations → runStartupRec
 → worker.start() (bila WORKER_ENABLED) → dispatchLoop.start() (bila syarat S8 terpenuhi)
 ```
 
-- `buildHandlerRegistry`: `GENERATE_VIDEO` selalu terdaftar (default `MockVideoGenerator` dengan `outputRoot = MEDIA_ROOT`); `PLAN_CONTENT` **hanya** bila `DEEPSEEK_API_KEY` ada (`createPlanner` + `createDeepSeekClient`); `PUBLISH` **hanya** bila `publisher` disuntikkan (dari `YOUTUBE_ADAPTER=mock`).
+- `buildHandlerRegistry`: `GENERATE_VIDEO` selalu terdaftar (default `MockVideoGenerator` dengan `outputRoot = MEDIA_ROOT`); `PLAN_CONTENT` **hanya** bila `DEEPSEEK_API_KEY` ada (`createPlanner` + `createDeepSeekClient`); `PUBLISH` **hanya** bila `publisher` disuntikkan (dari `YOUTUBE_ADAPTER=mock|api`).
 - Tanpa key: log peringatan tanpa nilai key, job `PLAN_CONTENT` akan berakhir `NEEDS_ATTENTION` + `NO_HANDLER`.
 - Tanpa adapter: `YOUTUBE_ADAPTER=off` (default) → log peringatan, job `PUBLISH` berakhir `NEEDS_ATTENTION` + `NO_HANDLER`.
 - `YOUTUBE_ADAPTER=mock` → `MockYouTubeAdapter` + log peringatan bahwa publikasi **PALSU** (ADR-0005 Y9).
+- `YOUTUBE_ADAPTER=api` → `createYouTubeApiPublisher` (ADR-0008 A4–A7): aset dari `media_assets`, token DPAPI, `resolveUpload` dari `publish_attempts.external_post_id`, dan `accountId` = satu-satunya akun YouTube (agar `capabilities().authStatus` jujur; lebih dari satu akun → `disconnected`).
 - `ScheduleDispatchLoop` memakai enqueuer komposit: `createPublicationEnqueuer({ db, platforms: [publisher.platform] })` **lalu** `createContentProductionEnqueuer({ db })` (produksi hanya bila planner ada). Loop hanya dijalankan bila `SCHEDULER_ENABLED=true`, adapter publikasi ada, dan worker aktif (ADR-0006 S6/S8). Tanpa adapter: log `adapter publikasi belum aktif; dispatch jadwal tidak dijalankan`. Tanpa planner: log `planner tidak aktif; produksi konten otomatis tidak dijalankan (hanya publikasi konten yang sudah ada)`.
 - Urutan publikasi → produksi dalam satu tick disengaja: konten yang siap pada slot ini tidak boleh tertahan oleh perencanaan konten berikutnya (ADR-0007 C4).
 - Shutdown (`SIGINT`/`SIGTERM`): `dispatchLoop.stop()` → `worker.stop()` → `app.close()` → `db.close()` (dispatch lebih dulu agar tidak ada job baru).
 - `workerId = worker_<pid>`; satu worker per proses, satu job per siklus (ADR-0004 W8).
 
-## Route Terdaftar (15)
+## Route Terdaftar (16)
 
 | Area | Route |
 |---|---|
@@ -42,6 +43,7 @@ loadConfig → createLogger → openDatabase → runMigrations → runStartupRec
 | Approvals | `POST /api/v1/content/:id/approve`, `POST /api/v1/content/:id/reject` |
 | Schedules | `POST /api/v1/schedules`, `GET /api/v1/schedules`, `PATCH /api/v1/schedules/:id`, `POST /api/v1/scheduler/pause`, `POST /api/v1/scheduler/resume` |
 | Accounts | `GET /api/v1/accounts` (tanpa `secretRef`/`profileKey`) |
+| Content | `POST /api/v1/content` — 202 `{jobId, status:'queued'|'duplicate'}`; key `plan:manual:<campaignId>:<requestId|uuid>`; 404 campaign, 409 `CAMPAIGN_INACTIVE`/`CAMPAIGN_NO_PLATFORM`/`PLAN_IN_PROGRESS`/`PIPELINE_BUSY` |
 
 ## Konfigurasi Penting
 
@@ -54,7 +56,7 @@ loadConfig → createLogger → openDatabase → runMigrations → runStartupRec
 | `WORKER_INTERVAL_MS` | `1000` | Rentang 50–60 000 |
 | `SCHEDULER_ENABLED` | `true` | Loop dispatch jadwal → job `PUBLISH` |
 | `SCHEDULER_INTERVAL_MS` | `5000` | Rentang 1 000–300 000 |
-| `YOUTUBE_ADAPTER` | `off` | `mock` = adapter palsu (tanpa unggahan nyata); `api` **direncanakan** (ADR-0008, slice A1) — belum ada di kode |
+| `YOUTUBE_ADAPTER` | `off` | `mock` = adapter palsu (tanpa unggahan nyata); `api` = adapter YouTube Data API v3 (ADR-0008), hanya aktif bila `GOOGLE_OAUTH_CLIENT_ID` ada |
 | `DEEPSEEK_API_KEY` | — | Hanya lewat env; tidak pernah dilog/dipersistensi |
 
 ## Perintah
@@ -70,5 +72,5 @@ curl http://127.0.0.1:4317/health
 
 - Auth lokal pada API (saat ini loopback-only sebagai batas keamanan).
 - Route untuk media/aset, approval UI, dan kontrol worker/scheduler (start/stop/status per proses).
-- Pembuatan konten otomatis kini lewat scheduler (ADR-0007); tetap tidak ada route untuk memicu `PLAN_CONTENT` manual.
+- Pemicu `PLAN_CONTENT` manual ada di `POST /api/v1/content` (idempoten via `requestId`); belum ada route untuk membatalkan job atau membaca attempt publikasi.
 - Produksi konten ikut berhenti bila adapter publikasi tidak terdaftar, karena loop dispatch digerbangi adapter (ADR-0006 S8).

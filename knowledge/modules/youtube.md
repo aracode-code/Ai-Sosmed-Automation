@@ -1,6 +1,6 @@
 # Modul — YouTube (Adapter Publikasi Mock + PUBLISH Handler)
 
-**Status:** PARTIAL — adapter **mock** + handler PUBLISH + verify/reconcile COMPLETED; keputusan adapter nyata selesai (ADR-0008) dengan **A1 credential store** (`442d3be`), **A2 OAuth client** (`5cbe70b`), **A3 adapter API** (`26e557a`), **A4 wiring + onboarding** (`0b4194f`), dan **A5 uji lintas lapisan** (`df9a2b7`) DONE; smoke live (pairing + unggah nyata) belum; upload nyata **UNVERIFIED**
+**Status:** PARTIAL — adapter **mock** + handler PUBLISH + verify/reconcile COMPLETED; keputusan adapter nyata selesai (ADR-0008) dengan **A1 credential store** (`442d3be`), **A2 OAuth client** (`5cbe70b`), **A3 adapter API** (`26e557a`), **A4 wiring + onboarding** (`0b4194f`), **A5 uji lintas lapisan** (`df9a2b7`, diperkuat `8b8a698`), **A6 resume 308** (`c310d1f`), dan **A7 rekonsiliasi lintas restart** (`a6dde05`, wiring `bb1ba57`) DONE; smoke live (pairing + unggah nyata) belum; upload nyata **UNVERIFIED**
 **Sumber:** kode aktual (E1). Keputusan: `ADR-0005` (Y1–Y10), `ADR-0008` (OD-2/OD-5). Kontrak: LLD §11.1–§11.4.
 
 ## Peta Paket
@@ -13,8 +13,8 @@
 | `packages/youtube/src/mock-adapter.ts` | `MockYouTubeAdapter` — hasil deterministik, idempoten per key, capability jujur |
 | `packages/youtube/src/credential-store.ts` | `DpapiCredentialStore` — payload token terenkripsi DPAPI per akun (A1) |
 | `packages/youtube/src/oauth-client.ts` | `pairYouTubeAccount`, `ensureFreshAccessToken`, `startLoopbackReceiver` — pairing PKCE + refresh token (A2) |
-| `packages/youtube/src/youtube-api-adapter.ts` | `YouTubeApiAdapter` — `videos.insert` resumable + `videos.list` + verifikasi `privacyStatus` (A3) + hook `onReauthRequired` (A4) |
-| `apps/local-api/src/publisher.ts` | `createYouTubeApiPublisher` — komposisi adapter `api`: aset dari `media_assets`, token DPAPI, sinkron `reauth_required` (A4) |
+| `packages/youtube/src/youtube-api-adapter.ts` | `YouTubeApiAdapter` — `videos.insert` resumable + `videos.list` + verifikasi `privacyStatus` (A3), hook `onReauthRequired` (A4), resume HTTP 308 (A6), `resolveUpload` lintas restart (A7) |
+| `apps/local-api/src/publisher.ts` | `createYouTubeApiPublisher` — komposisi adapter `api`: aset dari `media_assets`, token DPAPI, sinkron `reauth_required` (A4), `resolveUpload` dari `publish_attempts`, `accountId` akun tunggal (A7) |
 | `apps/local-api/src/pair-youtube.ts` | CLI `pair:youtube` — onboarding akun: pairing PKCE lalu `secret_ref` + `connection_status` (A4) |
 | `packages/workflow/src/handlers/publish.ts` | Handler langkah `PUBLISH`: validasi → approval binding → attempt → publish → reconcile |
 | `tests/integration/p5-publish-youtube-api.test.ts` | Rantai nyata handler → composition root → adapter API dengan `fetch` palsu (A5) |
@@ -80,12 +80,12 @@ Catatan: `ensureFreshAccessToken` mengembalikan `null` bila akun belum dipasangk
 | Konstruksi | `new YouTubeApiAdapter({ store, clientId, clientSecret?, resolveAsset, privacy?, categoryId?, accountId?, fetchImpl?, uploadEndpoint?, videosEndpoint?, tokenEndpoint?, uploadTimeoutMs?, requestTimeoutMs? })` |
 | Aset | `resolveAsset(assetId) → { path, mimeType, sizeBytes } \| null` disuntikkan; paket tidak mengimpor `@saa/database` |
 | Token | `ensureFreshAccessToken` (A2) → header `Authorization: Bearer …`; akun belum dipasangkan → `reauth_required` |
-| `publish` | `POST …/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status` → `PUT` seluruh byte ke session URI (tanpa streaming); sukses → `{ status:'processing' }` |
+| `publish` | `POST …/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status` → `PUT` seluruh byte ke session URI (tanpa streaming); HTTP 308 → lanjut `PUT` sisa byte dengan `content-range` (maks. 3 lanjutan); sukses → `{ status:'processing', externalPostId }` |
 | Metadata | judul eksplisit atau fallback caption ≤100 (spasi dinormalkan); deskripsi = caption ≤5000; `<`/`>` ditolak; `categoryId` default `27`; `selfDeclaredMadeForKids=false` |
 | Privasi | `request.visibility` (bila valid) → `options.privacy` → `private` (D4) |
 | `getStatus` | `GET …/youtube/v3/videos?part=status&id=…`; `published` hanya bila `privacyStatus` sama dengan permintaan |
-| Pemetaan key | `idempotencyKey → { videoId, privacy, accountId }` **hanya di memori**; publish ulang dengan key sama tidak mengunggah lagi |
-| Capability | `adapterVersion 'api-1'`; `authStatus` dihitung hanya bila `accountId` diisi; `limitations` menyebut kuota, privasi public, uji live, resume 308, dan pemetaan memori |
+| Pemetaan key | `idempotencyKey → { videoId, privacy, accountId }` di memori, dengan fallback `resolveUpload(idempotencyKey)` (A7) sehingga restart tidak mengunggah ulang; publish ulang dengan key sama → `processing` |
+| Capability | `adapterVersion 'api-1'`; `authStatus` dihitung bila `accountId` diisi (composition root mengisi id akun YouTube tunggal); `limitations` menyebut kuota, privasi public, uji live, batas lanjutan resume, dan ketergantungan `resolveUpload` |
 
 Hasil `getStatus` yang bukan `published`:
 
@@ -108,11 +108,18 @@ Pemetaan error D6:
 | HTTP 5xx saat **inisialisasi** sesi | `EXTERNAL_5XX` (aman retry — belum ada byte terkirim) |
 | Jaringan / timeout saat inisialisasi | `TRANSIENT_NETWORK` |
 | HTTP 400 saat inisialisasi | `VALIDATION` |
-| Jaringan / 5xx / HTTP 308 sesudah `PUT` dikirim | **tidak dilempar** → `unknown` (`YT_UPLOAD_UNCERTAIN`/`YT_UPLOAD_INCOMPLETE`) |
+| Jaringan / 5xx sesudah `PUT` dikirim | **tidak dilempar** → `unknown` (`YT_UPLOAD_UNCERTAIN`) |
+| HTTP 308 tanpa `Range` valid atau 3 lanjutan habis | **tidak dilempar** → `unknown` (`YT_UPLOAD_INCOMPLETE`) |
 | HTTP 4xx lain sesudah `PUT` dikirim | `failed` + `YT_UPLOAD_REJECTED` |
 | Respons sukses tanpa `id` | `unknown` + `YT_RESPONSE_INVALID` |
 
 Alasan dua baris terakhir: `videos.insert` tidak idempoten — retry otomatis bisa menghasilkan video ganda, sehingga hasil tak pasti dieskalasi ke pemilik.
+
+## Resume & Rekonsiliasi (A6–A7, aktual)
+
+- **Resume 308 (A6, `c310d1f`):** balasan `308` dibaca dari header `Range` (`bytes=0-N`, N inklusif → lanjut dari `N+1`; `bytes=*/total` → mulai dari 0). Sisa byte dikirim dengan `content-range: bytes <start>-<end>/<total>`, maksimal 3 lanjutan per unggahan. Header hilang/tidak valid atau lanjutan habis → `unknown` + `YT_UPLOAD_INCOMPLETE`, bukan retry.
+- **Rekonsiliasi lintas restart (A7, `a6dde05` + `bb1ba57`):** adapter menerima `resolveUpload(idempotencyKey)`; composition root membacanya dari `publish_attempts.external_post_id`, sehingga proses yang hidup kembali dapat memverifikasi video yang sudah terunggah tanpa mengunggah ulang. Handler menyimpan `externalPostId` begitu adapter mengembalikannya pada fase `processing`.
+- **Batasan:** tanpa `externalPostId` tersimpan, restart tetap menghasilkan `unknown`; sesi resumable yang terputus tidak dilanjutkan lintas proses.
 
 ## Handler PUBLISH (urutan aktual)
 
@@ -123,7 +130,7 @@ Alasan dua baris terakhir: `videos.insert` tidak idempoten — retry otomatis bi
 5. `PUBLISH_STARTED` (dari `SCHEDULED` atau `QUEUED`) → `PUBLISHING`.
 6. Attempt get-or-create dengan `idempotency_key = publish:<jobId>` (dicatat sebelum aksi eksternal).
 7. `adapter.validate` gagal → attempt `failed` + `PUBLISH_VALIDATION` + error `VALIDATION` (→ `FAILED`).
-8. `adapter.publish` → `PUBLISH_SUBMITTED` → `VERIFYING`.
+8. `adapter.publish` → `PUBLISH_SUBMITTED` → `VERIFYING`. Bila hasil `processing` membawa `externalPostId`, id itu langsung disimpan di attempt — rekonsiliasi setelah restart tetap punya bukti.
 9. `adapter.getStatus` sebagai sumber kebenaran:
    - `published` + (`externalPostId` atau `permalink`) + `verifiedAt` → `VERIFICATION_SUCCEEDED` → `PUBLISHED`; attempt `published`; audit `content.publish/published`.
    - `published` tanpa identitas → `AMBIGUOUS_RESULT` → `NEEDS_ATTENTION` + `PUBLISH_EVIDENCE_INCOMPLETE`.
@@ -198,7 +205,7 @@ Catatan: `getStatus` adapter API tidak pernah mengembalikan `processing`; jalur 
 corepack pnpm --filter @saa/youtube typecheck
 corepack pnpm vitest run packages/youtube packages/workflow/src/handlers/publish.test.ts
 corepack pnpm vitest run tests/integration/p5-publish-youtube-api.test.ts
-corepack pnpm test                              # 309 test seluruh workspace
+corepack pnpm test                              # 321 test seluruh workspace
 YOUTUBE_ADAPTER=mock corepack pnpm start        # boot dengan adapter mock
 YOUTUBE_ADAPTER=api GOOGLE_OAUTH_CLIENT_ID=<id> YOUTUBE_APP_STATUS=production corepack pnpm start
 corepack pnpm --filter @saa/local-api pair:youtube -- --label "kanal utama"
@@ -207,6 +214,6 @@ corepack pnpm --filter @saa/local-api pair:youtube -- --label "kanal utama"
 ## Belum Ada
 
 - Smoke live: pairing nyata + satu unggahan `private` dengan bukti `videos.list` (sisa slice A5; butuh prasyarat owner).
-- Resume bertahap HTTP 308 (`Content-Range`) dan rekonsiliasi lintas restart belum ada.
-- Handler `VERIFY_PUBLICATION` / `RECONCILE_PUBLICATION` sebagai job terpisah.
-- Klasifikasi `publish_attempts` untuk kuota harian (semua status masih dihitung).
+- Job `VERIFY_PUBLICATION`/`RECONCILE_PUBLICATION` terpisah: rekonsiliasi saat ini hanya terjadi bila job `PUBLISH` dijalankan ulang; kadensi polling dan biaya kuota `videos.list` menunggu keputusan owner.
+- Resume 308 tidak menyimpan state sesi di disk: proses yang mati di tengah unggahan memulai sesi baru (video yatim harus dihapus manual di YouTube Studio).
+- `resolveUpload` hanya mengenali attempt yang sudah punya `externalPostId`; attempt `unknown` tanpa id tidak dapat direkonsiliasi otomatis.

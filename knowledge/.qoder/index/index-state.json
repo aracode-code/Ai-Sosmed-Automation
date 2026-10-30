@@ -3,8 +3,8 @@
   "mode": "LIGHTWEIGHT_GREP",
   "status": "DEGRADED",
   "reason": "Tidak ada tool SQLite index di runtime ini (`sqlite_query_tool` missing). Pencarian memakai ripgrep terhadap source aktual; tidak ada code.db.",
-  "indexed_commit": "8b8a6985e08a4a53b6631d49a792befab2f84c1b",
-  "indexed_at": "2026-10-30T13:05:00+07:00",
+  "indexed_commit": "bb1ba57521561dec20707e29a1704d5ca0436c59",
+  "indexed_at": "2026-10-30T13:20:00+07:00",
   "scope": [
     "apps/local-api/src/**",
     "packages/agent-core/src/**",
@@ -18,18 +18,18 @@
     "tests/integration/**"
   ],
   "counts": {
-    "files": 118,
-    "test_files": 40,
+    "files": 120,
+    "test_files": 41,
     "symbols": null,
     "imports": null,
-    "apis": 15,
+    "apis": 16,
     "db_objects": 12,
-    "tests": 309
+    "tests": 321
   },
   "validation": {
-    "last_validated_at": "2026-10-30T13:05:00+07:00",
+    "last_validated_at": "2026-10-30T13:20:00+07:00",
     "result": "partial",
-    "note": "Scope = daftar `git ls-files '*.ts'` pada commit 8b8a698 (118 file, 40 test). Metadata simbol/import tidak dapat dihitung tanpa index SQLite — nilai null, bukan 0. Endpoint dihitung dari route terdaftar di apps/local-api/src/routes/*.ts (15). Perubahan A5 lanjutan: tests/integration/p5-publish-youtube-api.test.ts (8 skenario) dan packages/workflow/src/handlers/publish.ts (audit eskalasi); index/counts diperbarui manual dari `git ls-files` dan hasil vitest aktual (309 test, 40 file)."
+    "note": "Scope = daftar `git ls-files '*.ts'` pada commit bb1ba57 (120 file, 41 test). Metadata simbol/import tidak dapat dihitung tanpa index SQLite — nilai null, bukan 0. Endpoint dihitung dari route terdaftar di apps/local-api/src/routes/*.ts (16, termasuk POST /api/v1/content). Perubahan sesi: youtube-api-adapter (resume 308 + resolveUpload), publish handler (externalPostId), quota (pengecualian pra-unggah), routes/content, publisher (resolver + authStatus); counts diperbarui manual dari `git ls-files` dan hasil vitest aktual (321 test, 41 file)."
   },
   "fallback": {
     "engine": "LIGHTWEIGHT_GREP",

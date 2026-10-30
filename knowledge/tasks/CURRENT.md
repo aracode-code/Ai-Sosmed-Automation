@@ -1,57 +1,56 @@
 # CURRENT — Task Aktif
 
-**Session:** SESSION-2026-10-30-12
-**Updated:** 2026-10-30T13:05:00+07:00
-**Change class:** SMALL (penguatan test lintas lapisan + satu perbaikan audit di handler `PUBLISH`; tanpa migrasi, route, dependensi, atau perubahan kontrak adapter)
+**Session:** SESSION-2026-10-30-13
+**Updated:** 2026-10-30T13:20:00+07:00
+**Change class:** MEDIUM (lima slice pada adapter YouTube, kuota scheduler, dan API lokal — satu route baru, query kuota berubah; tanpa migrasi, dependensi, atau perubahan kontrak `SocialAdapter`)
 
 ## Active Task
 
-_Tidak ada task aktif._ **Review uji lintas lapisan A5 selesai dan seluruh temuannya ditindaklanjuti** (commit `8b8a698`). Sisa A5: smoke live owner.
+_Tidak ada task aktif._ Perintah owner **"lakukan semuanya"** ditindaklanjuti: lima backlog yang tidak memerlukan keputusan owner dikerjakan, diverifikasi, dan dikomit (`c310d1f` … `bb1ba57`). Sisa: smoke live owner.
 
 | Field | Nilai |
 |---|---|
-| Task terakhir | **A5 — review + perbaikan uji lintas lapisan (`tests/integration/p5-publish-youtube-api.test.ts`)** |
-| Status | **P5 PARTIAL** — A1–A5 (uji lintas) DONE; smoke live + upload nyata UNVERIFIED · **P4c/P4b COMPLETED** · P4 PARTIAL (UI) · P3 PARTIAL (Flow) |
+| Task terakhir | **S1–S5** — resume 308, kuota pra-unggah, route konten manual, rekonsiliasi lintas restart, `authStatus` |
+| Status | **P5 PARTIAL** — A1–A7 DONE; smoke live + upload nyata UNVERIFIED · **P4c/P4b COMPLETED** · P4 PARTIAL (UI) · P3 PARTIAL (Flow) |
 | Mode eksekusi | SINGLE-WRITER sequential |
-| DoD tercapai | ✅ 8 skenario lintas lapisan · ✅ typecheck + 309 test · ✅ audit eskalasi adapter · ✅ 0 panggilan eksternal untuk `reauth_required` dan validasi gagal |
+| DoD tercapai | ✅ 5 slice terverifikasi · ✅ typecheck + 321 test · ✅ JSON state valid · ✅ tanpa dependensi/migrasi baru |
 
 ## Bukti Sesi Ini (aktual 2026-10-30)
 
 | Bukti | Hasil |
 |---|---|
-| Commit | `8b8a698` — `fix(p5-a5): catat audit eskalasi adapter dan perkuat uji lintas lapisan youtube` (2 file: `publish.ts`, test integrasi) |
+| Commit | `c310d1f` resume 308 · `5af62ca` kuota pra-unggah · `1f27cd5` route konten manual · `a6dde05` rekonsiliasi handler/adapter · `bb1ba57` wiring resolver + authStatus |
 | Typecheck | PASS — 9 paket + `tests/tsconfig.json` (exit 0) |
-| Test | `corepack pnpm test` → **40 file, 309 passed / 0 failed** (naik dari 306); berkas A5 sendiri 8/8 |
-| T1 header | `Authorization: Bearer <token>` ditegakkan pada inisialisasi & verifikasi; PUT sesi **tanpa** Bearer |
-| T2 refresh | token kedaluwarsa → `POST` token endpoint `grant_type=refresh_token` → token baru dipakai, record tersimpan ulang, job `PUBLISHED` |
-| T2 reauth | `400 invalid_grant` → hanya 1 panggilan (token endpoint), akun `reauth_required`, tanpa unggahan |
-| T3 asersi | mismatch & rejected kini juga menegaskan `runAt === null` |
-| T4 audit | eskalasi adapter menulis audit `needs_attention`; skenario kuota menegaskan baris audit tersebut |
-| T5–T7 | komentar jam dinding pada record token; `youtubeSecretRef()` dipakai; `Record<string, unknown>`-setara; jalur aset hilang → `PUBLISH_VALIDATION`, 0 panggilan |
+| Test | `corepack pnpm test` → **41 file, 321 passed / 0 failed** (naik dari 309) |
+| S1 resume | 3 panggilan (`PUT` 0, `PUT` lanjutan dengan `content-range`, sukses), `externalPostId` ada; 308 berulang 5 panggilan → `YT_UPLOAD_INCOMPLETE` |
+| S2 kuota | attempt `PUBLISH_VALIDATION`/`VALIDATION`/`DISK` tidak dihitung; `YT_UPLOAD_REJECTED` tetap dihitung |
+| S3 route | 5 test: queued + payload, `requestId` duplikat → 202 `duplicate`, 404, `PLAN_IN_PROGRESS`, `PIPELINE_BUSY` |
+| S4 rekonsiliasi | handler menyimpan `externalPostId` saat hasil `processing`; 0 panggilan jaringan setelah restart karena `resolveUpload` |
+| S5 authStatus | akun tunggal bertoken → `connected`; dua akun → `disconnected` |
 
 ## Temuan yang Mengikat
 
 | Temuan | Dampak |
 |---|---|
-| `handleAdapterError` tidak menulis audit pada eskalasi | Ditutup: baris `needs_attention` kini dicatat untuk kelas eskalasi (`AUTH`/kuota/`DISK`), konsisten dengan `escalateUnverified` |
-| `tokenRecord()` memakai `Date.now()` | Disengaja: adapter memakai jam nyata (tanpa suntikan `now`), memakai `T0` akan memicu refresh pada setiap test |
-| `getStatus` adapter API tidak pernah `processing` | Jalur belum-terverifikasi = `unknown`, tetap → `NEEDS_ATTENTION` |
-| Guard `connection_status` berada sebelum attempt & `validate` | `reauth_required` tidak pernah menghasilkan attempt baru atau panggilan jaringan |
+| `videos.insert` tidak idempoten | Resume 308 hanya untuk `Range` valid; kegagalan lain tetap `unknown`, tidak pernah retry otomatis |
+| In-memory map adapter mati saat restart | `externalPostId` disimpan ke DB dan dibaca kembali lewat `resolveUpload`; tanpa id, hasil tetap `unknown` |
+| Idempoten manual harus dicek sebelum guard | Kalau tidak, permintaan berulang berubah menjadi 409 alih-alih 202 `duplicate` |
+| Kuota tidak boleh under-count | Hanya kode pra-unggah yang dikecualikan; kode ambigu tetap dihitung |
 
 ## Impact Map
 
-- **Modul:** `tests/integration` (berkas yang sama), `packages/workflow/src/handlers/publish.ts` (audit eskalasi).
-- **DB/route/migrasi:** tidak berubah (12 tabel, 15 route, 3 migrasi).
-- **Rahasia:** token hanya di store memori; tidak ada kredensial nyata, tidak ada panggilan jaringan.
-- **Dependensi:** tidak berubah — `@saa/youtube` tetap bukan dependency root, test memakai bentuk struktural.
+- **Modul:** `@saa/youtube` (adapter + test), `@saa/workflow` (handler `PUBLISH` + test), `@saa/scheduler` (kuota + test), `apps/local-api` (route `content`, `publisher`, `app.ts`).
+- **DB/route/migrasi:** route **15 → 16**; 12 tabel dan 3 migrasi tidak berubah.
+- **Rahasia:** tidak ada kredensial nyata; semua test memakai `fetch` palsu/token store memori.
+- **Dependensi:** tidak berubah (`package.json`/lockfile tidak disentuh).
 
 ## Drift Tercatat
 
 - Smoke live belum → **P5 tetap PARTIAL**; upload nyata UNVERIFIED.
-- `capabilities().authStatus` adapter `api` masih `disconnected` karena composition root tidak mengisi `accountId`.
-- Pemetaan idempotency → videoId hilang saat restart; resume bertahap HTTP 308 belum ada.
+- Job `VERIFY_PUBLICATION`/`RECONCILE_PUBLICATION` terpisah belum ada — menunggu keputusan owner (usulan: +15 menit, maks. 2 polling, hanya attempt `unknown` ber-`externalPostId`).
+- Sesi resumable tidak dipersist ke disk; proses mati di tengah unggahan → sesi baru, video yatim dihapus manual.
 - F2 CONFLICT (privasi project unverified) dan klasifikasi scope `youtube.upload` hanya bisa dipastikan saat uji live.
-- Drift lama: kuota scheduler menghitung semua status attempt; `VERIFY_PUBLICATION`/`RECONCILE_PUBLICATION` belum job terpisah; `AGENTS.md` untracked.
+- `AGENTS.md` untracked.
 
 ## Team Scope
 
@@ -60,7 +59,7 @@ _Tidak ada gelombang aktif._ `state.open_wave = null`.
 ## Next Session Handoff
 
 1. Boot urut §11.14; jangan pindai ulang HLD/LLD.
-2. **Sisa A5 — smoke live (owner)**: pairing nyata `corepack pnpm --filter @saa/local-api pair:youtube -- --label "<channel>"` dengan `GOOGLE_OAUTH_CLIENT_ID` valid, lalu satu unggahan `private` dan bukti `videos.list` (`privacyStatus private`). Catat respons nyata untuk F2/F6/F7.
+2. **Smoke live (owner)**: pairing nyata `corepack pnpm --filter @saa/local-api pair:youtube -- --label "<channel>"` dengan `GOOGLE_OAUTH_CLIENT_ID` valid, lalu satu unggahan `private` dan bukti `videos.list` (`privacyStatus private`). Catat respons nyata untuk F2/F6/F7.
 3. **Prasyarat faktual owner**: project Google Cloud + billing, jenis akun Google (Workspace/gmail), channel target, izin membuat OAuth client Desktop, status app (Production/Internal), konfirmasi privasi awal.
 4. Jangan menyatakan P5 COMPLETED sebelum ada unggahan nyata yang terverifikasi (bukti `videos.list`).
-5. Pilihan lain yang masih terbuka: approval UI desktop, OD-1 (Flow nyata), kebijakan saat publikasi macet.
+5. Keputusan yang menunggu owner: job rekonsiliasi terjadwal, approval UI/D7 lint-build, OD-1 (Flow nyata), kebijakan saat publikasi macet, `AGENTS.md`.

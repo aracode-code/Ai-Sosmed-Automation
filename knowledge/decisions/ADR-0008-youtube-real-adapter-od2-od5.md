@@ -59,6 +59,7 @@ Implementasi dan test bisa berjalan dengan HTTP palsu tanpa ini; **uji live** me
 - Kapasitas maksimum bawaan: **100 upload/hari per project** (bukan per channel) — cukup untuk MVP, menjadi batas keras untuk multi-akun.
 - Mode `Testing` adalah jebakan operasional (token 7 hari); onboarding wajib mencatat status publikasi app dan tanggal pairing.
 - Tidak ada perubahan schema DB, route API, atau dependensi npm pada keputusan ini.
+- Kuota harian scheduler (`5af62ca`) mengecualikan attempt yang berhenti sebelum aksi eksternal (`PUBLISH_VALIDATION`, `VALIDATION`, `DISK`); semua kode lain tetap dihitung agar batas 100 `videos.insert`/hari/project tidak terlampaui.
 
 ## Rencana Implementasi (slice, status aktual)
 
@@ -69,6 +70,8 @@ Implementasi dan test bisa berjalan dengan HTTP palsu tanpa ini; **uji live** me
 | A3 | `YouTubeApiAdapter`: `validate`, `publish` (resumable upload), `getStatus` (`videos.list`), pemetaan error D6 | **DONE** (2026-10-30, `26e557a`) |
 | A4 | Wiring composition root + onboarding akun + log status app (Testing/Production) saat boot | **DONE** (2026-10-30, `0b4194f`) |
 | A5 | Test dengan HTTP palsu (tanpa kredensial) + smoke manual oleh owner pada channel sah | **SEBAGIAN** — uji lintas lapisan DONE (`df9a2b7`, diperkuat `8b8a698`); smoke live belum |
+| A6 | Resume unggahan dari offset pada respons HTTP 308 | **DONE** (2026-10-30, `c310d1f`) |
+| A7 | Rekonsiliasi lintas restart lewat `externalPostId` tersimpan + `resolveUpload` | **DONE** (2026-10-30, `a6dde05`, wiring `bb1ba57`) |
 
 ### A1 — yang sudah ada (E1)
 
@@ -146,7 +149,23 @@ Perbaikan hasil review: eskalasi error adapter (AUTH/kuota/DISK) kini menulis au
 Catatan penyimpangan dari rencana handoff: `YouTubeApiAdapter.getStatus` **tidak pernah** mengembalikan `processing` — ia memetakan ke `published` (privasi cocok), `failed` (ditolak/dihapus), atau `unknown` (privasi beda/tidak ditemukan). Karena itu skenario "processing → `NEEDS_ATTENTION`" diuji sebagai `unknown` → `NEEDS_ATTENTION`, yang merupakan jalur nyata adapter.
 
 - Bukti: typecheck 9 paket + `tests/tsconfig.json` PASS; **40 file test, 309 passed / 0 failed** (8 test integrasi).
-- Belum: smoke live (pairing + unggah `private` nyata dengan bukti `videos.list`) — butuh prasyarat owner.
+- Belum: smoke live (pairing + unggah `private` nyata dengan bukti `videos.list`) — butuh prasyarat owner. Resume 308 dan rekonsiliasi lintas restart ditutup di A6/A7.
+
+### A6 — resume bertahap HTTP 308 (E1)
+
+- `packages/youtube/src/youtube-api-adapter.ts`: `receivedBytesOf()` membaca header `Range` (`bytes=0-N` inklusif → `N+1`; `bytes=*/total` → `0`). Sisa byte dikirim dengan `PUT` `content-range: bytes <start>-<end>/<total>` dan `content-length` sisa.
+- Maksimal `MAX_RESUME_ATTEMPTS = 3` lanjutan per unggahan; header absen/tidak valid atau lanjutan habis → `unknown` + `YT_UPLOAD_INCOMPLETE` (tanpa retry otomatis).
+- Hasil sukses kini membawa `externalPostId` (videoId) agar handler dapat menyimpannya sebelum verifikasi.
+- Bukti: `packages/youtube/src/youtube-api-adapter.test.ts` — resume sukses (3 panggilan, `content-range` benar), lanjutan habis (5 panggilan → `INCOMPLETE`), dan pemetaan key tetap `processing`.
+
+### A7 — rekonsiliasi lintas restart (E1)
+
+- Adapter: opsi `resolveUpload(idempotencyKey) → { accountId, videoId, privacy } | null`; `knownUpload()` memeriksa memori lalu resolver. `publish()` dengan key yang sudah dikenal → `processing` + `externalPostId` tanpa panggilan jaringan; `getStatus()` memakai resolver yang sama.
+- Handler `PUBLISH`: setelah `PUBLISH_SUBMITTED`, `externalPostId` dari hasil yang tersedia langsung ditulis ke `publish_attempts`.
+- Composition root: `resolveUpload` membaca `getPublishAttemptByKey` dan hanya menerima baris platform `youtube` dengan `external_post_id` tidak kosong; privasi dari `config.youtubeUploadPrivacy`.
+- `capabilities().authStatus`: composition root mengisi `accountId` bila hanya ada **satu** akun YouTube; lebih dari satu → `disconnected` (tidak menebak).
+- Batasan yang tersisa: attempt tanpa `externalPostId` tidak dapat direkonsiliasi; sesi resumable yang terputus tidak dilanjutkan setelah proses mati (video yatim harus dihapus manual).
+- Bukti: 3 test adapter (resume/resolver) + 1 test handler (`ProcessingWithIdAdapter`, attempt `unknown` + `externalPostId`) + 2 test publisher (0 panggilan jaringan setelah restart, `authStatus` satu akun).
 
 ## Open Items
 
