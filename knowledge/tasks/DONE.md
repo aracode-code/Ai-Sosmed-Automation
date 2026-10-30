@@ -1,5 +1,14 @@
 # DONE
 
+## 2026-10-30 — SESSION-2026-10-30-2
+
+- **Worker loop + registrasi handler** (commit `6ad9547`).
+  - `Worker` di `@saa/workflow`: polling `Dispatcher.runOnce`, siklus tidak tumpang tindih, timer `unref`, error siklus ditelan + dicatat.
+  - `buildHandlerRegistry` di `apps/local-api`: `GENERATE_VIDEO` selalu (mock), `PLAN_CONTENT` hanya bila `DEEPSEEK_API_KEY` ada; tanpa key → `NEEDS_ATTENTION` + `NO_HANDLER`.
+  - Config `WORKER_ENABLED`/`WORKER_INTERVAL_MS`/`MEDIA_ROOT`; `/health` melaporkan worker nyata; shutdown: worker → API → DB.
+  - Bukti: typecheck PASS · **193 test passed** (27 file) · smoke boot `/health` `workers.active=1` dengan handler `["GENERATE_VIDEO"]`.
+  - Keputusan: `decisions/ADR-0004-worker-loop-registry.md`; modul: `modules/local-api.md` (baru), `modules/workflow.md`.
+
 ## 2026-10-30 — SESSION-2026-10-30-1
 
 - **Fase A — Wiring planner ke PLAN_CONTENT** (commit `826a732`).

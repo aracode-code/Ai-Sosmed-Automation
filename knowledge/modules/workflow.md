@@ -1,13 +1,14 @@
 # Modul — Workflow (Dispatcher + Handler Langkah)
 
-**Status:** COMPLETED untuk P1/P2, PLAN_CONTENT, dan GENERATE_VIDEO (2026-10-30) · commit `70c7cec`, `826a732`, `013531a`
-**Sumber:** kode aktual (E1). Keputusan: `ADR-0003` (D1–D6, D22–D23). Kontrak: LLD §4.1, §9.
+**Status:** COMPLETED untuk P1/P2, PLAN_CONTENT, GENERATE_VIDEO, dan worker loop (2026-10-30) · commit `70c7cec`, `826a732`, `013531a`, `6ad9547`
+**Sumber:** kode aktual (E1). Keputusan: `ADR-0003` (D1–D6, D22–D23), `ADR-0004` (W1–W4, W8). Kontrak: LLD §4.1, §9.
 
 ## Peta Paket
 
 | Berkas | Tanggung jawab |
 |---|---|
 | `packages/workflow/src/dispatcher.ts` | Siklus `runOnce`: promosikan retry due → klaim satu job → jalankan handler → lepas lease; `HandlerContext.transition` adalah satu-satunya jalur ubah status |
+| `packages/workflow/src/worker.ts` | Loop polling in-process: siklus berkala tanpa tumpang tindih, `unref`, error ditelan + dicatat |
 | `packages/workflow/src/retry.ts` | `classify` (retry/escalate/fail/cancel), backoff eksponensial + jitter, `retryAfterMs` |
 | `packages/workflow/src/recovery.ts` | Lease kedaluwarsa saat startup: reversibel → `QUEUED`, `PUBLISHING`/`VERIFYING` → `NEEDS_ATTENTION` |
 | `packages/workflow/src/handlers/plan-content.ts` | Langkah PLAN_CONTENT: planner → konten + job `GENERATE_VIDEO` |
@@ -39,16 +40,23 @@ Arah dependensi: `@saa/workflow` → `@saa/agent-core`, `@saa/browser-engine`, `
 - Handler melempar → `attempts + 1`; `classify`: `CANCELLED` → cancel, `AUTH`/`SECURITY_CHALLENGE`/`UI_CHANGED`/`AMBIGUOUS_RESULT`/`AI_OUTPUT_INVALID`/`DISK` → escalate, `VALIDATION` → fail, sisanya retry sampai `maxAttempts`.
 - Transisi kegagalan yang ditolak state machine → eskalasi `NEEDS_ATTENTION` dengan log peringatan.
 
+## Worker Loop
+
+- `Worker({ runner, intervalMs, logger })` — `runner` cukup `{ runOnce() }`, dipenuhi `Dispatcher` (ADR-0004 W1).
+- `start()` idempoten (timer ganda diabaikan), menjalankan satu siklus segera lalu tiap `intervalMs`; timer `.unref()`.
+- Tick dilewati bila siklus sebelumnya belum selesai; `stop()` membersihkan timer dan menunggu siklus berjalan (`isRunning` menjadi `false`).
+- Error `runOnce` ditelan dan dicatat (`errorClass`), loop tetap hidup; `runOnce()` publik mengembalikan job atau `null`.
+
 ## Perintah
 
 ```bash
 corepack pnpm --filter @saa/workflow typecheck
-corepack pnpm vitest run packages/workflow      # dispatcher, retry, recovery, handler
-corepack pnpm test                              # 179 test seluruh workspace
+corepack pnpm vitest run packages/workflow      # dispatcher, worker, retry, recovery, handler
+corepack pnpm test                              # 193 test seluruh workspace
 ```
 
 ## Belum Ada
 
-- Worker loop di proses nyata: `apps/local-api` belum menjalankan `Dispatcher.runOnce` periodik.
 - Handler `DOWNLOAD_VIDEO`, `VALIDATE_MEDIA`, `CREATE_METADATA`, `REQUEST_APPROVAL`, `PUBLISH`, `VERIFY_PUBLICATION`, `RECONCILE_PUBLICATION`.
 - Pemilihan generator per campaign/akun (saat ini satu `VideoGenerator` disuntikkan).
+- Pemicu dispatch jadwal periodik (worker hanya mengambil job; lihat `modules/scheduler.md`).

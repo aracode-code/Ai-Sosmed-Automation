@@ -55,6 +55,6 @@ corepack pnpm vitest run packages/scheduler    # time, schedule, quota, schedule
 
 ## Belum Ada
 
-- Loop periodik yang memanggil `runOnce` (belum ada di `server.ts`).
+- Loop periodik yang memanggil `runOnce` (belum ada; worker loop `6ad9547` hanya mengambil job, belum memicu jadwal).
 - `enqueue` nyata: job publikasi baru ada di P5; saat ini callback disediakan pemanggil.
 - UI jadwal.

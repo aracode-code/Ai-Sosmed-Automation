@@ -41,4 +41,7 @@
 - 2026-10-30 — (E1) Media: generator menulis di bawah `outputRoot` (relatif `content/<contentId>`); validasi containment + ukuran + magic `ftyp` + sha256 + probe opsional; probe absen tidak menggagalkan validasi; aset id `med_<contentId>`.
 - 2026-10-30 — (E1) Lock profil = `.worker-lock.json` (`wx`, TTL 10 menit, pengambilalihan atomik, release hanya pemilik token) → `ProfileBusyError` kelas `RESOURCE_BUSY` (retry).
 - 2026-10-30 — (E1) P3 saat ini **mock**: `MockVideoGenerator` menghasilkan artefak MP4-shaped deterministik, bukan video yang dapat diputar; Flow nyata menunggu OD-1.
-- 2026-10-30 — Detail keputusan: `knowledge/decisions/ADR-0001-p1-stack-baseline.md`, `knowledge/decisions/ADR-0002-p2-agent-core.md`, `knowledge/decisions/ADR-0003-workflow-p4-p3-mock.md`.
+- 2026-10-30 — (E1) Worker loop in-process di `@saa/workflow`: siklus tidak tumpang tindih, timer `unref`, error siklus ditelan + dicatat; satu worker per proses (`worker_<pid>`), satu job per siklus.
+- 2026-10-30 — (E1) `apps/local-api/src/handlers.ts` adalah satu-satunya titik registrasi handler: `GENERATE_VIDEO` selalu (mock generator), `PLAN_CONTENT` hanya bila `DEEPSEEK_API_KEY` ada; tanpa key job → `NEEDS_ATTENTION` + `NO_HANDLER` (tanpa fallback diam-diam).
+- 2026-10-30 — (E1) `DEEPSEEK_API_KEY` dibaca hanya lewat `loadAiCredentials` dari env dan sengaja **tidak** masuk `AppConfig`; `MEDIA_ROOT` tunggal dipakai sebagai `outputRoot` generator dan akar validasi; `/health` `workers.active` berasal dari `worker.isRunning`.
+- 2026-10-30 — Detail keputusan: `knowledge/decisions/ADR-0001-p1-stack-baseline.md`, `knowledge/decisions/ADR-0002-p2-agent-core.md`, `knowledge/decisions/ADR-0003-workflow-p4-p3-mock.md`, `knowledge/decisions/ADR-0004-worker-loop-registry.md`.
