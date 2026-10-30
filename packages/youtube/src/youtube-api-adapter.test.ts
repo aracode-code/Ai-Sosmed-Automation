@@ -208,6 +208,7 @@ describe('YouTubeApiAdapter — publish + getStatus', () => {
 
     await expect(adapter.publish(request())).resolves.toEqual({
       status: 'processing',
+      externalPostId: 'yt_video_1',
       retryable: false
     });
 
@@ -287,6 +288,7 @@ describe('YouTubeApiAdapter — publish + getStatus', () => {
     const afterFirst = calls.length;
     await expect(adapter.publish(request())).resolves.toEqual({
       status: 'processing',
+      externalPostId: 'yt_video_once',
       retryable: false,
       errorCode: 'YT_UPLOAD_IN_PROGRESS'
     });
@@ -492,6 +494,7 @@ describe('YouTubeApiAdapter — pemetaan error (D6)', () => {
 
     await expect(adapter.publish(request())).resolves.toEqual({
       status: 'processing',
+      externalPostId: 'yt_video_resume',
       retryable: false
     });
 
@@ -526,6 +529,41 @@ describe('YouTubeApiAdapter — pemetaan error (D6)', () => {
     });
     // POST inisialisasi + PUT awal + 3 lanjutan.
     expect(calls).toHaveLength(5);
+  });
+
+  it('memakai resolveUpload agar tidak mengunggah ulang setelah restart', async () => {
+    const { adapter, calls } = await harness(
+      (url) => {
+        if (url.startsWith('https://api.example/videos')) {
+          return jsonResponse(200, {
+            items: [{ status: { privacyStatus: 'private', uploadStatus: 'uploaded' } }]
+          });
+        }
+        return jsonResponse(500, {});
+      },
+      {
+        resolveUpload: (key) =>
+          key === 'publish:job_lama'
+            ? { accountId: 'acc_1', videoId: 'yt_lama', privacy: 'private' }
+            : null
+      }
+    );
+
+    await expect(
+      adapter.publish(request({ idempotencyKey: 'publish:job_lama' }))
+    ).resolves.toEqual({
+      status: 'processing',
+      externalPostId: 'yt_lama',
+      retryable: false,
+      errorCode: 'YT_UPLOAD_IN_PROGRESS'
+    });
+    expect(calls).toHaveLength(0);
+
+    await expect(adapter.getStatus('publish:job_lama')).resolves.toMatchObject({
+      status: 'published',
+      externalPostId: 'yt_lama'
+    });
+    expect(calls.map((call) => call.init.method)).toEqual(['GET']);
   });
 
   it('penolakan 400 setelah unggahan → failed tanpa retry', async () => {

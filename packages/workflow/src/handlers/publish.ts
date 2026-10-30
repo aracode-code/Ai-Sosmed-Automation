@@ -218,6 +218,18 @@ export function createPublishHandler(deps: PublishDeps): JobHandler {
     // Publikasi dikirim; status final hanya boleh dari rekonsiliasi.
     ctx.transition({ type: 'PUBLISH_SUBMITTED' });
 
+    // Identitas video dicatat begitu diketahui. Bila proses berhenti sebelum verifikasi,
+    // rekonsiliasi setelah restart tetap punya videoId sehingga tidak mengunggah ulang.
+    const submittedId = published.externalPostId?.trim() ?? '';
+    if (submittedId !== '') {
+      updatePublishAttempt(deps.db.raw, {
+        id: attempt.id,
+        status: published.status,
+        externalPostId: submittedId,
+        ...(published.permalink === undefined ? {} : { permalink: published.permalink })
+      });
+    }
+
     let status: PublishResult;
     try {
       status = await deps.adapter.getStatus(idempotencyKey);

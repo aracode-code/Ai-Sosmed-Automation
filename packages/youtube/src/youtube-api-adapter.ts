@@ -54,6 +54,12 @@ export interface YouTubeApiAdapterOptions {
    * memperbarui `social_accounts.connection_status`; adapter tetap bebas database.
    */
   onReauthRequired?: (accountId: string) => void | Promise<void>;
+  /**
+   * Sumber cadangan saat memori proses tidak memuat `idempotencyKey` (mis. sesudah
+   * restart). Composition root membacanya dari `publish_attempts`; tanpa ini adapter
+   * akan mengunggah ulang video yang sama.
+   */
+  resolveUpload?: (idempotencyKey: string) => YouTubeUploadRecord | null;
   now?: () => Date;
   fetchImpl?: typeof fetch;
   uploadEndpoint?: string;
@@ -63,7 +69,8 @@ export interface YouTubeApiAdapterOptions {
   requestTimeoutMs?: number;
 }
 
-interface UploadRecord {
+/** Unggahan yang sudah diterima YouTube untuk satu idempotency key. */
+export interface YouTubeUploadRecord {
   accountId: string;
   videoId: string;
   privacy: YouTubePrivacyStatus;
@@ -230,8 +237,8 @@ export class YouTubeApiAdapter implements SocialAdapter {
   private readonly videosEndpoint: string;
   private readonly uploadTimeoutMs: number;
   private readonly requestTimeoutMs: number;
-  /** Pemetaan sementara; hilang saat proses berakhir (restart → `unknown`, bukan tebakan). */
-  private readonly uploads = new Map<string, UploadRecord>();
+  /** Cache unggahan; `resolveUpload` menjadi sumber cadangan lintas restart bila ada. */
+  private readonly uploads = new Map<string, YouTubeUploadRecord>();
 
   constructor(options: YouTubeApiAdapterOptions) {
     this.options = options;
@@ -260,7 +267,7 @@ export class YouTubeApiAdapter implements SocialAdapter {
         'privasi public belum terverifikasi; default private (D4, OD-5)',
         'belum ada uji unggah nyata ke server Google (slice A5)',
         `unggahan dibaca penuh ke memori; resume 308 dibatasi ${MAX_RESUME_ATTEMPTS} lanjutan per unggahan`,
-        'pemetaan idempotencyKey → videoId hanya di memori; setelah restart hasil menjadi unknown'
+        'pemetaan idempotencyKey → videoId lintas restart hanya bila resolveUpload disuntikkan'
       ]
     };
   }
@@ -315,8 +322,16 @@ export class YouTubeApiAdapter implements SocialAdapter {
   }
 
   async publish(request: PublishRequest): Promise<PublishResult> {
-    if (this.uploads.has(request.idempotencyKey)) {
-      return { status: 'processing', retryable: false, errorCode: 'YT_UPLOAD_IN_PROGRESS' };
+    const known = this.knownUpload(request.idempotencyKey);
+    if (known !== null) {
+      // Unggahan untuk key ini sudah dikirim (sebelum atau sesudah restart): jangan ulangi,
+      // karena `videos.insert` tidak idempoten dan akan membuat video ganda.
+      return {
+        status: 'processing',
+        externalPostId: known.videoId,
+        retryable: false,
+        errorCode: 'YT_UPLOAD_IN_PROGRESS'
+      };
     }
 
     const asset = this.options.resolveAsset(request.assetId);
@@ -455,12 +470,14 @@ export class YouTubeApiAdapter implements SocialAdapter {
       videoId,
       privacy
     });
-    return { status: 'processing', retryable: false };
+    // videoId ikut dikembalikan agar handler dapat menyimpannya sebelum verifikasi;
+    // bila proses berhenti di antara keduanya, rekonsiliasi tetap punya identitas video.
+    return { status: 'processing', externalPostId: videoId, retryable: false };
   }
 
   async getStatus(idempotencyKey: string): Promise<PublishResult> {
-    const record = this.uploads.get(idempotencyKey);
-    if (record === undefined) {
+    const record = this.knownUpload(idempotencyKey);
+    if (record === null) {
       return { status: 'unknown', retryable: false, errorCode: 'YT_UNKNOWN_IDEMPOTENCY' };
     }
 
@@ -513,6 +530,14 @@ export class YouTubeApiAdapter implements SocialAdapter {
       permalink: `https://www.youtube.com/watch?v=${record.videoId}`,
       retryable: false
     };
+  }
+
+  private knownUpload(idempotencyKey: string): YouTubeUploadRecord | null {
+    const cached = this.uploads.get(idempotencyKey);
+    if (cached !== undefined) return cached;
+    const resolved = this.options.resolveUpload?.(idempotencyKey) ?? null;
+    if (resolved !== null) this.uploads.set(idempotencyKey, resolved);
+    return resolved;
   }
 
   private async authStatus(): Promise<PlatformCapabilities['authStatus']> {

@@ -177,6 +177,16 @@ class ScriptedStatusAdapter extends MockYouTubeAdapter {
   }
 }
 
+class ProcessingWithIdAdapter extends MockYouTubeAdapter {
+  override async publish(_request: PublishRequest): Promise<PublishResult> {
+    return { status: 'processing', externalPostId: 'yt_submitted_1', retryable: false };
+  }
+
+  override async getStatus(_idempotencyKey: string): Promise<PublishResult> {
+    return { status: 'unknown', retryable: false, errorCode: 'YT_UNKNOWN_IDEMPOTENCY' };
+  }
+}
+
 class AuthFailingAdapter extends MockYouTubeAdapter {
   override async publish(_request: PublishRequest): Promise<PublishResult> {
     throw new AppError('AUTH', 'token OAuth kedaluwarsa');
@@ -346,6 +356,24 @@ describe('PUBLISH handler', () => {
     expect(result?.status).toBe('NEEDS_ATTENTION');
     expect(result?.lastErrorCode).toBe('PUBLISH_UNVERIFIED');
     expect(getPublishAttemptByKey(db.raw, `publish:${job.id}`)?.status).toBe('processing');
+  });
+
+  it('menyimpan videoId begitu publish mengembalikan processing', async () => {
+    const db = tempDb();
+    const seeded = seed(db);
+    const job = enqueuePublish(db, {
+      campaignId: seeded.campaign.id,
+      contentId: seeded.content.id,
+      accountId: seeded.account.id
+    });
+
+    const result = await dispatcherWith(db, new ProcessingWithIdAdapter({ now })).runOnce();
+
+    expect(result?.status).toBe('NEEDS_ATTENTION');
+    expect(getPublishAttemptByKey(db.raw, `publish:${job.id}`)).toMatchObject({
+      status: 'unknown',
+      externalPostId: 'yt_submitted_1'
+    });
   });
 
   it('rekonsiliasi setelah unknown memakai attempt yang sama dan berakhir PUBLISHED', async () => {
