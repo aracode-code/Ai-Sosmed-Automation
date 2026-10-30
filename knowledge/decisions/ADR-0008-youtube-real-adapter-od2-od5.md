@@ -66,7 +66,7 @@ Implementasi dan test bisa berjalan dengan HTTP palsu tanpa ini; **uji live** me
 |---|---|---|
 | A1 | Config `YOUTUBE_ADAPTER=api` + nama env auth; credential store DPAPI (helper), tanpa dependensi baru | **DONE** (2026-10-30, `442d3be`) |
 | A2 | OAuth client: pairing loopback + PKCE, refresh token, `reauth_required` | **DONE** (2026-10-30, `5cbe70b`) |
-| A3 | `YouTubeApiAdapter`: `validate`, `publish` (resumable upload), `getStatus` (`videos.list`), pemetaan error D6 | belum |
+| A3 | `YouTubeApiAdapter`: `validate`, `publish` (resumable upload), `getStatus` (`videos.list`), pemetaan error D6 | **DONE** (2026-10-30, `26e557a`) |
 | A4 | Wiring composition root + onboarding akun + log status app (Testing/Production) saat boot | belum |
 | A5 | Test dengan HTTP palsu (tanpa kredensial) + smoke manual oleh owner pada channel sah | belum |
 
@@ -92,6 +92,20 @@ Implementasi dan test bisa berjalan dengan HTTP palsu tanpa ini; **uji live** me
 - `apps/local-api/src/server.ts`: pesan `api` diperbarui menjadi `belum terhubung ke handler (slice A3–A4)`; `PUBLISH` tetap tidak terdaftar.
 - Bukti: typecheck 9 paket + `tests/tsconfig.json` PASS; **36 file test, 269 passed / 0 failed** (21 test OAuth baru); smoke boot `YOUTUBE_ADAPTER=api` port 4397 → `/health` ok, `handlers: ["GENERATE_VIDEO"]`, port bebas setelah stop.
 - Belum: `connection_status` belum ditulis ke DB (diputuskan di A4), belum ada pemanggil pairing dari CLI/UI, adapter HTTP YouTube belum ada.
+
+### A3 — yang sudah ada (E1)
+
+- `packages/youtube/src/youtube-api-adapter.ts` — `YouTubeApiAdapter implements SocialAdapter`:
+  - `validate`: judul eksplisit ≤100 (fallback caption ≤100 dengan spasi dinormalkan), deskripsi = caption ≤5000, `<`/`>` ditolak (aturan YouTube), `visibility` hanya `private|unlisted|public`, aset ada di resolver + `mimeType` video + ukuran >0 + berkas terbaca.
+  - `publish`: `POST https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status` dengan `X-Upload-Content-Type/Length`, lalu `PUT` seluruh byte ke session URI. Body `snippet { title, description, categoryId }` + `status { privacyStatus, selfDeclaredMadeForKids:false }`; default `private` (D4), `categoryId '27'` (D5). Sukses → `{ status:'processing' }`.
+  - `getStatus`: `GET https://www.googleapis.com/youtube/v3/videos?part=status&id=…`; `published` hanya bila `privacyStatus` sama dengan permintaan, `uploadStatus failed/rejected/deleted` → `failed`, `items` kosong/404 → `unknown`, privasi berbeda → `unknown` + `YT_PRIVACY_MISMATCH`.
+  - Pemetaan D6: `quotaExceeded`/`dailyLimitExceeded`/`uploadLimitExceeded` → kelas `AUTH` (eskalasi tanpa retry); 429/`rateLimitExceeded` → `RATE_LIMIT` + `retryAfterMs`; 401/403 lain → `AUTH`; 5xx inisialisasi → `EXTERNAL_5XX`; jaringan/timeout → `TRANSIENT_NETWORK`; 400 inisialisasi → `VALIDATION`.
+  - `videos.insert` tidak idempoten: kegagalan setelah PUT dikirim (jaringan/5xx/308) dikembalikan sebagai `unknown` (`YT_UPLOAD_UNCERTAIN`/`YT_UPLOAD_INCOMPLETE`, `retryable:false`) agar handler tidak mengunggah ulang.
+  - `resolveAsset(assetId)` disuntikkan — paket tidak menyentuh DB; pemetaan `idempotencyKey → { videoId, privacy, accountId }` hanya di memori (restart → `unknown`).
+  - `capabilities`: `adapterVersion 'api-1'`, `authStatus` dihitung hanya bila `accountId` diberikan, `limitations` memuat kuota/privasi/uji live/resume 308/pemetaan memori.
+- `apps/local-api/src/server.ts`: pesan `api` menjadi `belum terhubung ke handler (slice A4)`; `PUBLISH` tetap tidak terdaftar.
+- Bukti: typecheck 9 paket + `tests/tsconfig.json` PASS; **37 file test, 292 passed / 0 failed** (23 test adapter baru); smoke boot `YOUTUBE_ADAPTER=api` port 4397 → `/health` ok, peringatan `slice A4`, port bebas setelah stop.
+- Belum: composition root `api` (A4), penulisan `connection_status`, pairing dari CLI/UI, resume bertahap HTTP 308, rekonsiliasi lintas restart, uji live.
 
 ## Open Items
 

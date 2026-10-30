@@ -1,5 +1,15 @@
 # DONE
 
+## 2026-10-30 — SESSION-2026-10-30-9
+
+- **Slice A3 — `YouTubeApiAdapter` (videos.insert resumable + verifikasi privasi)** (commit `26e557a`).
+  - `packages/youtube/src/youtube-api-adapter.ts`: `validate` (judul ≤100, deskripsi ≤5000, karakter `<`/`>` ditolak, `visibility` enum, aset video ada & terbaca), `publish` (`uploadType=resumable` → PUT byte, `status.selfDeclaredMadeForKids=false`, `categoryId` default `27`, `privacyStatus` default `private`), `getStatus` (`videos.list?part=status`, `published` hanya bila `privacyStatus` sama dengan permintaan), `capabilities` (`api-1`, `limitations` eksplisit).
+  - Pemetaan D6: `quotaExceeded`/`dailyLimitExceeded`/`uploadLimitExceeded` → kelas `AUTH` (eskalasi, tanpa retry); 429 → `RATE_LIMIT`; 401/403 → `AUTH`; 5xx inisialisasi → `EXTERNAL_5XX`; jaringan → `TRANSIENT_NETWORK`; 400 → `VALIDATION`.
+  - Kegagalan sesudah unggahan dikirim (jaringan/5xx/308) → `unknown` (`YT_UPLOAD_UNCERTAIN`/`YT_UPLOAD_INCOMPLETE`), bukan retry — `videos.insert` tidak idempoten.
+  - `resolveAsset` disuntikkan (paket tidak menyentuh DB); pemetaan `idempotencyKey → videoId` hanya di memori → setelah restart `unknown`.
+  - Bukti: typecheck 9 paket PASS · **292 test passed** (37 file; 23 test adapter baru) · smoke boot `YOUTUBE_ADAPTER=api` port 4397 → peringatan `slice A4`, `/health` ok, port bebas. Tanpa dependensi baru.
+  - Keputusan: `decisions/ADR-0008-youtube-real-adapter-od2-od5.md` bagian A3; modul: `modules/youtube.md`.
+
 ## 2026-10-30 — SESSION-2026-10-30-8
 
 - **Slice A2 — OAuth client YouTube (PKCE loopback + refresh)** (commit `5cbe70b`).

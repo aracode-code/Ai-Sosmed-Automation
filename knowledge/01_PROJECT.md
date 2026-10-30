@@ -9,7 +9,7 @@
 | Tipe | Aplikasi desktop lokal Windows, satu pengguna utama | VERIFIED (HLD §2.3) |
 | Deployment | Windows PC lokal; packaging Electron/Tauri belum dipilih | VERIFIED (HLD §4, LLD §19) |
 | Dokumen induk | `HLD.md` v1.0 dan `LLD.md` v1.0 (keduanya berstatus Draft) | VERIFIED |
-| Implementasi kode | **P1 + P2 + P3 mock + P4 backend + P4b/P4c otomatisasi + P5 mock selesai** — 8 paket + `apps/local-api`, 235 test hijau | VERIFIED (commit `debdaaf` … `77fbb9c`, 2026-10-30) |
+| Implementasi kode | **P1 + P2 + P3 mock + P4 backend + P4b/P4c otomatisasi + P5 mock selesai** — 8 paket + `apps/local-api`, 292 test hijau | VERIFIED (commit `debdaaf` … `26e557a`, 2026-10-30) |
 
 ## Tujuan Produk
 
@@ -97,6 +97,7 @@ Belum dibuat (P3 penuh–P7): `apps/desktop-ui`, adapter Flow nyata, `packages/i
 - OAuth YouTube (ADR-0008): desktop client + PKCE loopback; refresh token disimpan DPAPI di `%LOCALAPPDATA%\saa\credentials\`, DB hanya `secret_ref`; app **dilarang** beroperasi pada status Testing (refresh token 7 hari).
 - Credential store (A1, `442d3be`): `DpapiCredentialStore` menulis payload JSON terenkripsi DPAPI secara atomik; rahasia lewat stdin ke helper PowerShell, nama berkas divalidasi; kredensial OAuth hanya dari env (`GOOGLE_OAUTH_CLIENT_ID`/`_SECRET`) dan tidak masuk `AppConfig`.
 - OAuth client (A2, `5cbe70b`): pairing satu kali lewat loopback `127.0.0.1` + PKCE S256 (state konstan-waktu), token endpoint `fetch` tanpa SDK, record token `youtube-<accountId>` di DPAPI, refresh otomatis <60 s; `invalid_grant`/tanpa refresh token → `reauth_required` (kelas `AUTH`) dan bukan retry.
+- Adapter API (A3, `26e557a`): `YouTubeApiAdapter` memakai `videos.insert` resumable + `videos.list` sebagai bukti; `published` hanya bila `privacyStatus` cocok (`private` default, `categoryId 27`); kegagalan setelah unggahan dikirim menjadi `unknown` (tanpa retry) karena `videos.insert` tidak idempoten; kuota/limit → kelas `AUTH` (eskalasi). Pemetaan idempotency → videoId hanya di memori.
 - Dispatch jadwal: `ScheduleDispatchLoop` (default 5 s) hanya membuat job `PUBLISH` untuk **konten terbaru** campaign aktif dengan aset valid, akun terhubung, caption platform tersedia, dan approval terikat valid; kunci idempoten `publish:<contentId>:v<version>:<accountId>:<platform>` (ADR-0006).
 - Dispatch hanya berjalan bila `SCHEDULER_ENABLED=true`, worker aktif, dan adapter publikasi terdaftar; slot jadwal tetap maju walau tidak ada job terbuat (ADR-0006 S7).
 - Produksi konten: satu `PLAN_CONTENT` per slot dengan pipeline **kedalaman satu** — perencanaan berjalan atau konten terbaru tanpa job `PUBLISH` menahan slot berikutnya; publikasi dijalankan lebih dulu dalam tick yang sama (ADR-0007).
@@ -113,7 +114,7 @@ Belum dibuat (P3 penuh–P7): `apps/desktop-ui`, adapter Flow nyata, `packages/i
 | P4 Approval & Scheduler (backend + engine + worker loop) | **PARTIAL (2026-10-30, commits `4b513ab`,`6ad9547`)** — UI approval belum ada; dispatch jadwal periodik selesai di P4b |
 | P4b Dispatch jadwal → job `PUBLISH` otomatis (milestone turunan P4/P5) | **COMPLETED (2026-10-30, commit `bfc7c72`)** |
 | P4c Produksi konten per slot (milestone turunan P4/P5) | **COMPLETED (2026-10-30, commit `77fbb9c`)** — pipeline kedalaman satu |
-| P5 YouTube (adapter mock + PUBLISH handler + verify/reconcile) | **PARTIAL (2026-10-30, commit `7d13431`)** — upload nyata UNVERIFIED; OD-2/OD-5 dijawab (ADR-0008) dan slice **A1 credential store** (`442d3be`) + **A2 OAuth client** (`5cbe70b`) DONE, A3–A5 belum; pembuatan job publikasi otomatis selesai di P4b |
+| P5 YouTube (adapter mock + PUBLISH handler + verify/reconcile) | **PARTIAL (2026-10-30, commit `7d13431`)** — upload nyata UNVERIFIED; OD-2/OD-5 dijawab (ADR-0008) dan slice **A1 credential store** (`442d3be`) + **A2 OAuth client** (`5cbe70b`) + **A3 adapter API** (`26e557a`) DONE, A4–A5 belum; pembuatan job publikasi otomatis selesai di P4b |
 | P6 Platform lain · P7 Hardening | NOT STARTED |
 
 Rincian fase + Definition of Done: `tasks/BACKLOG.md`. Bukti: `modules/foundation.md` (P1), `modules/agent-core.md` (P2), `modules/workflow.md`, `modules/scheduler.md` (P4 engine + P4b/P4c), `modules/browser-engine.md`, `modules/youtube.md`, `modules/local-api.md` (worker + dispatch loop + composition root), `decisions/ADR-0006-schedule-publish-dispatch.md` (P4b), `decisions/ADR-0007-content-production-per-slot.md` (P4c), `decisions/ADR-0008-youtube-real-adapter-od2-od5.md` (OD-2/OD-5 YouTube).

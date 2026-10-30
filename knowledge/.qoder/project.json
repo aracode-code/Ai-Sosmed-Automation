@@ -4,7 +4,7 @@
   "root": "F:/AiSosmedAutomation",
   "type": "local-desktop-app",
   "platform_host": "Windows 10.0.19045",
-  "current_state": "implemented-p1-p2-p4-backend-p3-p5-mock-p4b-dispatch-p4c-production-worker-loop-youtube-od2-od5-decided-youtube-a1-credential-store-youtube-a2-oauth-client",
+  "current_state": "implemented-p1-p2-p4-backend-p3-p5-mock-p4b-dispatch-p4c-production-worker-loop-youtube-od2-od5-decided-youtube-a1-credential-store-youtube-a2-oauth-client-youtube-a3-api-adapter",
   "detected_stack": {
     "code": [
       "typescript",
