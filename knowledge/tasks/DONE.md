@@ -1,5 +1,13 @@
 # DONE
 
+## 2026-10-30 — SESSION-2026-10-30-6
+
+- **OD-2 & OD-5 YouTube dijawab** (`decisions/ADR-0008-youtube-real-adapter-od2-od5.md`).
+  - OD-2 (D1–D7): Data API v3 + `youtube.upload`/`youtube.readonly`; kuota bawaan 10.000 unit + 100 `videos.insert`/hari per project; privasi default `private` dengan verifikasi `privacyStatus`; metadata wajib termasuk `selfDeclaredMadeForKids=false`; `quotaExceeded`/`uploadLimitExceeded` → `NEEDS_ATTENTION` tanpa retry; channel owner tanpa CMS.
+  - OD-5 (O1–O7): OAuth desktop client + PKCE loopback; `access_type=offline` + `prompt=consent`; status app Internal/In production (**bukan** Testing, token 7 hari); refresh token di DPAPI `%LOCALAPPDATA%\saa\credentials\`; DB hanya `secret_ref`; tanpa SDK `googleapis`.
+  - Bukti: dokumentasi resmi Google (Quota Calculator, `videos.insert`, OAuth 2.0, sensitive scope verification) + issue tracker 572863050; tanpa perubahan kode sehingga test tidak dijalankan ulang (hasil terakhir 235/235 pada `77fbb9c`).
+  - Implementasi dibagi slice A1–A5; uji live menunggu input faktual owner.
+
 ## 2026-10-30 — SESSION-2026-10-30-5
 
 - **P4c — Produksi konten per slot** (commit `77fbb9c`).

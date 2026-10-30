@@ -1,7 +1,7 @@
 # Modul — YouTube (Adapter Publikasi Mock + PUBLISH Handler)
 
-**Status:** PARTIAL — adapter **mock** + handler PUBLISH + verify/reconcile COMPLETED (2026-10-30); upload nyata **UNVERIFIED** (OD-2/OD-5)
-**Sumber:** kode aktual (E1). Keputusan: `ADR-0005` (Y1–Y10). Kontrak: LLD §11.1–§11.4.
+**Status:** PARTIAL — adapter **mock** + handler PUBLISH + verify/reconcile COMPLETED (2026-10-30); keputusan adapter nyata **selesai** (ADR-0008), implementasi belum; upload nyata **UNVERIFIED**
+**Sumber:** kode aktual (E1). Keputusan: `ADR-0005` (Y1–Y10), `ADR-0008` (OD-2/OD-5). Kontrak: LLD §11.1–§11.4.
 
 ## Peta Paket
 
@@ -66,9 +66,25 @@ SocialAdapter {
 ## Wiring Runtime
 
 - `apps/local-api/src/handlers.ts`: `publisher?: SocialAdapter` → `registry.PUBLISH = createPublishHandler(...)`; tanpa adapter `PUBLISH` **tidak** terdaftar.
-- `apps/local-api/src/config.ts`: `YOUTUBE_ADAPTER=off|mock` (default `off`).
+- `apps/local-api/src/config.ts`: `YOUTUBE_ADAPTER=off|mock` (default `off`); nilai `api` belum ada di kode.
 - `apps/local-api/src/server.ts`: `YOUTUBE_ADAPTER=mock` → `new MockYouTubeAdapter()` + log peringatan "publikasi PALSU"; `off` → log `job PUBLISH tidak terdaftar`.
 - Tanpa opt-in: job `PUBLISH` → `NEEDS_ATTENTION` + `NO_HANDLER` (terlihat, bukan disembunyikan).
+
+## Adapter Nyata — Keputusan (ADR-0008, belum diimplementasikan)
+
+| Aspek | Keputusan |
+|---|---|
+| API | YouTube Data API v3; scope `youtube.upload` + `youtube.readonly` (D1) |
+| Kuota | Bawaan **10.000 unit/hari** + **100 `videos.insert`/hari per project**; `videos.insert` = 1 unit (F1/D3) |
+| Privasi | Default **`private`**; `YOUTUBE_UPLOAD_PRIVACY=private|unlisted|public`; hasil diverifikasi via `videos.list`, mismatch → `NEEDS_ATTENTION` (D4) |
+| Metadata | title ≤100, description ≤5000, `categoryId` (default `27`), `selfDeclaredMadeForKids=false` (D5) |
+| Error | `quotaExceeded`/`uploadLimitExceeded` → `NEEDS_ATTENTION` tanpa retry; `invalid_grant` → `reauth_required` (D6) |
+| OAuth | Desktop client + PKCE loopback `127.0.0.1`; `access_type=offline` + `prompt=consent` (O1–O2) |
+| Status app | Internal (Workspace) atau In production (gmail); **dilarang** Testing karena refresh token 7 hari (F4/O3) |
+| Token | DPAPI file `%LOCALAPPDATA%\saa\credentials\youtube-<accountId>.bin`; DB hanya `secret_ref` + `connection_status` (O4) |
+| Dependensi | Tanpa SDK `googleapis`; OAuth + resumable upload lewat `fetch` (O6) |
+
+Catatan konflik: referensi resmi `videos.insert` (2026-10-30) menyatakan project unverified **tidak** dibatasi private, sementara issue tracker Google 572863050 mempertanyakan inkonsistensi dokumen. Karena itu privasi `public` tidak boleh diasumsikan sampai terbukti pada uji nyata.
 
 ## Perintah
 
@@ -81,7 +97,6 @@ YOUTUBE_ADAPTER=mock corepack pnpm start        # boot dengan adapter mock
 
 ## Belum Ada
 
-- Adapter YouTube nyata (OAuth, upload resumable, kuota, batas media) — menunggu OD-2/OD-5; status UNVERIFIED.
+- Adapter YouTube nyata: slice A1–A5 (credential store, OAuth, adapter, wiring, test/uji live) — keputusan selesai di ADR-0008, kode belum.
 - Handler `VERIFY_PUBLICATION` / `RECONCILE_PUBLICATION` sebagai job terpisah.
-- Pembuatan job `PUBLISH` otomatis (dari approval/dispatch jadwal) — belum ada pemanggil.
 - Klasifikasi `publish_attempts` untuk kuota harian (semua status masih dihitung).

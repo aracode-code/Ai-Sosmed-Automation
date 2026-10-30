@@ -49,4 +49,4 @@ P4 membangun engine scheduler (`Scheduler.runOnce`) dan API jadwal, tetapi tidak
 - Pembuatan konten otomatis (job `PLAN_CONTENT` periodik atau route konten) belum ada.
 - Semantik slot saat konten belum siap (S7) dapat ditinjau ulang.
 - Status `publish_attempts` yang dihitung kuota harian belum ditetapkan (ADR-0005 open item tetap).
-- Adapter YouTube nyata tetap terkunci sampai OD-2/OD-5.
+- ~~Adapter YouTube nyata tetap terkunci sampai OD-2/OD-5.~~ **Diperbarui 2026-10-30:** OD-2/OD-5 untuk YouTube sudah dijawab di `ADR-0008`; adapter nyata belum diimplementasikan.

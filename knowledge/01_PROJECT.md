@@ -92,7 +92,9 @@ Belum dibuat (P3 penuh–P7): `apps/desktop-ui`, adapter Flow nyata, `packages/i
 - `DEEPSEEK_API_KEY` hanya dibaca dari environment dan **tidak** masuk `AppConfig` (aman dilog); nilainya tidak pernah ditulis ke output/log/state.
 - `MEDIA_ROOT` (default `./data/media`) adalah satu-satunya akar media: `outputRoot` generator = akar validasi.
 - Publikasi: `PUBLISH` mencatat `publish_attempts` sebelum aksi eksternal; status akhir hanya dari `adapter.getStatus`; `processing`/`unknown` → `NEEDS_ATTENTION` (ADR-0005).
-- Adapter YouTube saat ini **mock** (`YOUTUBE_ADAPTER=mock`, default `off`); post id `mock_yt_*` dan upload nyata UNVERIFIED sampai OD-2/OD-5 (ADR-0005).
+- Adapter YouTube saat ini **mock** (`YOUTUBE_ADAPTER=mock`, default `off`); post id `mock_yt_*` dan upload nyata UNVERIFIED (ADR-0005).
+- YouTube nyata (ADR-0008): Data API v3 dengan scope `youtube.upload` + `youtube.readonly`; kuota bawaan 10.000 unit/hari + **100 `videos.insert`/hari per project**; privasi default **`private`** dan hasil diverifikasi lewat `videos.list` (mismatch → `NEEDS_ATTENTION`); `quotaExceeded`/`uploadLimitExceeded` tidak di-retry.
+- OAuth YouTube (ADR-0008): desktop client + PKCE loopback; refresh token disimpan DPAPI di `%LOCALAPPDATA%\saa\credentials\`, DB hanya `secret_ref`; app **dilarang** beroperasi pada status Testing (refresh token 7 hari).
 - Dispatch jadwal: `ScheduleDispatchLoop` (default 5 s) hanya membuat job `PUBLISH` untuk **konten terbaru** campaign aktif dengan aset valid, akun terhubung, caption platform tersedia, dan approval terikat valid; kunci idempoten `publish:<contentId>:v<version>:<accountId>:<platform>` (ADR-0006).
 - Dispatch hanya berjalan bila `SCHEDULER_ENABLED=true`, worker aktif, dan adapter publikasi terdaftar; slot jadwal tetap maju walau tidak ada job terbuat (ADR-0006 S7).
 - Produksi konten: satu `PLAN_CONTENT` per slot dengan pipeline **kedalaman satu** — perencanaan berjalan atau konten terbaru tanpa job `PUBLISH` menahan slot berikutnya; publikasi dijalankan lebih dulu dalam tick yang sama (ADR-0007).
@@ -109,7 +111,7 @@ Belum dibuat (P3 penuh–P7): `apps/desktop-ui`, adapter Flow nyata, `packages/i
 | P4 Approval & Scheduler (backend + engine + worker loop) | **PARTIAL (2026-10-30, commits `4b513ab`,`6ad9547`)** — UI approval belum ada; dispatch jadwal periodik selesai di P4b |
 | P4b Dispatch jadwal → job `PUBLISH` otomatis (milestone turunan P4/P5) | **COMPLETED (2026-10-30, commit `bfc7c72`)** |
 | P4c Produksi konten per slot (milestone turunan P4/P5) | **COMPLETED (2026-10-30, commit `77fbb9c`)** — pipeline kedalaman satu |
-| P5 YouTube (adapter mock + PUBLISH handler + verify/reconcile) | **PARTIAL (2026-10-30, commit `7d13431`)** — upload nyata UNVERIFIED (OD-2/OD-5); pembuatan job publikasi otomatis selesai di P4b |
+| P5 YouTube (adapter mock + PUBLISH handler + verify/reconcile) | **PARTIAL (2026-10-30, commit `7d13431`)** — upload nyata UNVERIFIED; OD-2/OD-5 **sudah dijawab** (ADR-0008), adapter nyata belum diimplementasikan; pembuatan job publikasi otomatis selesai di P4b |
 | P6 Platform lain · P7 Hardening | NOT STARTED |
 
-Rincian fase + Definition of Done: `tasks/BACKLOG.md`. Bukti: `modules/foundation.md` (P1), `modules/agent-core.md` (P2), `modules/workflow.md`, `modules/scheduler.md` (P4 engine + P4b/P4c), `modules/browser-engine.md`, `modules/youtube.md`, `modules/local-api.md` (worker + dispatch loop + composition root), `decisions/ADR-0006-schedule-publish-dispatch.md` (P4b), `decisions/ADR-0007-content-production-per-slot.md` (P4c).
+Rincian fase + Definition of Done: `tasks/BACKLOG.md`. Bukti: `modules/foundation.md` (P1), `modules/agent-core.md` (P2), `modules/workflow.md`, `modules/scheduler.md` (P4 engine + P4b/P4c), `modules/browser-engine.md`, `modules/youtube.md`, `modules/local-api.md` (worker + dispatch loop + composition root), `decisions/ADR-0006-schedule-publish-dispatch.md` (P4b), `decisions/ADR-0007-content-production-per-slot.md` (P4c), `decisions/ADR-0008-youtube-real-adapter-od2-od5.md` (OD-2/OD-5 YouTube).

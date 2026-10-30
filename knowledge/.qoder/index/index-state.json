@@ -27,9 +27,9 @@
     "tests": 235
   },
   "validation": {
-    "last_validated_at": "2026-10-30T09:05:00+07:00",
+    "last_validated_at": "2026-10-30T09:15:00+07:00",
     "result": "partial",
-    "note": "Scope = daftar `git ls-files '*.ts'` pada commit 77fbb9 (107 file, 34 test). Metadata simbol/import tidak dapat dihitung tanpa index SQLite — nilai null, bukan 0. Endpoint dihitung dari route terdaftar di apps/local-api/src/routes/*.ts (15). File baru P4c: packages/scheduler/src/production.ts + test, apps/local-api/src/content-production.test.ts."
+    "note": "Scope = daftar `git ls-files '*.ts'` pada commit 77fbb9 (107 file, 34 test). Metadata simbol/import tidak dapat dihitung tanpa index SQLite — nilai null, bukan 0. Endpoint dihitung dari route terdaftar di apps/local-api/src/routes/*.ts (15). File baru P4c: packages/scheduler/src/production.ts + test, apps/local-api/src/content-production.test.ts. Sesi SESSION-2026-10-30-6 hanya dokumentasi (ADR-0008) — tidak ada file TS berubah sejak 77fbb9c, index tetap sah."
   },
   "fallback": {
     "engine": "LIGHTWEIGHT_GREP",

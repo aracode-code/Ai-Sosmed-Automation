@@ -21,10 +21,10 @@ Sumber fase + DoD: `LLD.md` §18. Urutan ini mengikat kecuali user menyatakan la
 | ID | Keputusan | Dampak bila belum dijawab | Sumber |
 |---|---|---|---|
 | OD-1 | Akses/kebijakan Google Flow dan stabilitas alur UI-nya | P3 tidak bisa dinyatakan selesai (adapter boleh dibuat dengan mock) | LLD §19 |
-| OD-2 | Izin/aplikasi publikasi per platform (TikTok app audit, Meta permissions, X tier/biaya) | P5/P6 tertahan di gate verifikasi eksternal | LLD §19 |
+| OD-2 | Izin/aplikasi publikasi per platform (TikTok app audit, Meta permissions, X tier/biaya) | **YouTube DIJAWAB** (`ADR-0008` D1–D7): Data API v3, kuota 100 upload/hari/project, privasi default `private`. TikTok/Meta/X tetap terbuka | LLD §19 · ADR-0008 |
 | OD-3 | Packaging desktop: Electron vs Tauri | P7 tertunda; worker tidak terpengaruh | HLD §4, LLD §19 |
 | OD-4 | Strategi scale antrean (tetap SQLite vs Redis/BullMQ) | Default SQLite dipertahankan sampai ada beban terukur | LLD §19 |
-| OD-5 | App registration OAuth per platform (scope, refresh, storage) | P5/P6 butuh ini untuk uji nyata | LLD §19 |
+| OD-5 | App registration OAuth per platform (scope, refresh, storage) | **YouTube DIJAWAB** (`ADR-0008` O1–O7): Desktop client + PKCE loopback, DPAPI, app bukan `Testing`. Platform P6 tetap terbuka | LLD §19 · ADR-0008 |
 | OD-6 | Retensi media & kapasitas disk | Tidak menghalangi P1–P4 | LLD §19 |
 | OD-7 | Batas concurrency produksi (mulai 1 Flow worker) | Default konservatif dipakai sampai ada uji stabilitas | LLD §19 |
 
@@ -38,7 +38,7 @@ Sumber fase + DoD: `LLD.md` §18. Urutan ini mengikat kecuali user menyatakan la
 - **Kebijakan produksi saat `approvalMode=required`** — konten menunggu approval tidak punya job `PUBLISH`, sehingga slot produksi berikutnya tertahan (ADR-0007 C2). Perlu keputusan owner: lanjutkan produksi atau tunggu approval.
 - **Approval UI** (React) di atas `POST /api/v1/content/:id/approve|reject`.
 - **Tetapkan status `publish_attempts` yang dihitung kuota harian** (saat ini semua status dihitung, termasuk `failed`/`unknown`).
-- **Adapter YouTube nyata** membutuhkan OD-2 (izin/aplikasi) + OD-5 (OAuth, scope, storage token); sekarang hanya mock dengan prefiks `mock_`.
+- **Adapter YouTube nyata** — keputusan OD-2/OD-5 sudah dijawab (`ADR-0008`); slice A1–A5 belum dikerjakan. Implementasi + test bisa jalan tanpa kredensial; **uji live** menunggu input faktual owner (project OAuth, jenis akun, channel).
 - **Job `VERIFY_PUBLICATION`/`RECONCILE_PUBLICATION` terpisah** belum ada; rekonsiliasi masih inline di handler `PUBLISH`.
 - **Adapter Flow nyata** membutuhkan OD-1 (akses/kebijakan) dan sesi browser pada akun sah.
 - Sumber API key DeepSeek (env vs Credential Manager): kode saat ini membaca `DEEPSEEK_API_KEY` dari env; Credential Manager/DPAPI belum dipilih + uji live pertama adapter (status UNVERIFIED).

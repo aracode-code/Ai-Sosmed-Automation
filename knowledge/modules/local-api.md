@@ -54,7 +54,7 @@ loadConfig → createLogger → openDatabase → runMigrations → runStartupRec
 | `WORKER_INTERVAL_MS` | `1000` | Rentang 50–60 000 |
 | `SCHEDULER_ENABLED` | `true` | Loop dispatch jadwal → job `PUBLISH` |
 | `SCHEDULER_INTERVAL_MS` | `5000` | Rentang 1 000–300 000 |
-| `YOUTUBE_ADAPTER` | `off` | `mock` = adapter palsu (tanpa unggahan nyata); tidak ada opsi live sampai OD-2/OD-5 |
+| `YOUTUBE_ADAPTER` | `off` | `mock` = adapter palsu (tanpa unggahan nyata); `api` **direncanakan** (ADR-0008, slice A1) — belum ada di kode |
 | `DEEPSEEK_API_KEY` | — | Hanya lewat env; tidak pernah dilog/dipersistensi |
 
 ## Perintah

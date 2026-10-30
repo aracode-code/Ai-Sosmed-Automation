@@ -4,10 +4,23 @@
   "root": "F:/AiSosmedAutomation",
   "type": "local-desktop-app",
   "platform_host": "Windows 10.0.19045",
-  "current_state": "implemented-p1-p2-p4-backend-p3-p5-mock-p4b-dispatch-p4c-production-worker-loop",
+  "current_state": "implemented-p1-p2-p4-backend-p3-p5-mock-p4b-dispatch-p4c-production-worker-loop-youtube-od2-od5-decided",
   "detected_stack": {
-    "code": ["typescript", "node-esm"],
-    "packages": ["@saa/domain", "@saa/database", "@saa/workflow", "@saa/observability", "@saa/agent-core", "@saa/scheduler", "@saa/browser-engine", "@saa/youtube", "@saa/local-api"],
+    "code": [
+      "typescript",
+      "node-esm"
+    ],
+    "packages": [
+      "@saa/domain",
+      "@saa/database",
+      "@saa/workflow",
+      "@saa/observability",
+      "@saa/agent-core",
+      "@saa/scheduler",
+      "@saa/browser-engine",
+      "@saa/youtube",
+      "@saa/local-api"
+    ],
     "tools_available": {
       "node": "v22.15.0",
       "git": "2.49.0",
@@ -17,18 +30,51 @@
   "planned_stack": {
     "monorepo": "pnpm workspace",
     "language": "TypeScript strict",
-    "frontend": ["React", "Vite", "Tailwind"],
-    "backend": ["Node.js", "Fastify", "Zod"],
-    "database": ["SQLite", "Drizzle ORM", "WAL", "better-sqlite3"],
+    "frontend": [
+      "React",
+      "Vite",
+      "Tailwind"
+    ],
+    "backend": [
+      "Node.js",
+      "Fastify",
+      "Zod"
+    ],
+    "database": [
+      "SQLite",
+      "Drizzle ORM",
+      "WAL",
+      "better-sqlite3"
+    ],
     "queue": "SQLite persistent queue",
     "browser": "Playwright Chromium",
     "ai": "DeepSeek API via provider adapter (fetch, tanpa SDK)",
-    "media": ["ffmpeg", "ffprobe"],
+    "media": [
+      "ffmpeg",
+      "ffprobe"
+    ],
     "logging": "Pino",
-    "testing": ["Vitest", "Playwright Test"],
+    "testing": [
+      "Vitest",
+      "Playwright Test"
+    ],
     "packaging": "Electron atau Tauri (belum dipilih)"
   },
-  "platforms": ["youtube", "tiktok", "instagram", "facebook", "x", "threads"],
-  "canonical_docs": { "hld": "HLD.md", "lld": "LLD.md", "adr": "knowledge/decisions/" },
-  "timezone": { "scheduler_default": "Asia/Jakarta", "audit_storage": "UTC ISO-8601" }
+  "platforms": [
+    "youtube",
+    "tiktok",
+    "instagram",
+    "facebook",
+    "x",
+    "threads"
+  ],
+  "canonical_docs": {
+    "hld": "HLD.md",
+    "lld": "LLD.md",
+    "adr": "knowledge/decisions/"
+  },
+  "timezone": {
+    "scheduler_default": "Asia/Jakarta",
+    "audit_storage": "UTC ISO-8601"
+  }
 }
