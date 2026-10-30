@@ -2,7 +2,13 @@ import { createDeepSeekClient, createPlanner, type Planner } from '@saa/agent-co
 import { openDatabase, resolveWorkspacePath, runMigrations } from '@saa/database';
 import type { SocialAdapter } from '@saa/domain';
 import { createLogger } from '@saa/observability';
-import { createPublicationEnqueuer, Scheduler, ScheduleDispatchLoop } from '@saa/scheduler';
+import {
+  createContentProductionEnqueuer,
+  createPublicationEnqueuer,
+  Scheduler,
+  ScheduleDispatchLoop,
+  type EnqueueFn
+} from '@saa/scheduler';
 import { Dispatcher, runStartupRecovery, Worker } from '@saa/workflow';
 import { MockYouTubeAdapter } from '@saa/youtube';
 import { buildApp } from './app';
@@ -79,12 +85,24 @@ async function main(): Promise<void> {
     logger
   });
 
+  const publicationEnqueue = createPublicationEnqueuer({
+    db,
+    platforms: publisher === undefined ? [] : [publisher.platform]
+  });
+  const productionEnqueue = createContentProductionEnqueuer({ db });
+
+  // Publikasi lebih dulu: konten yang siap pada slot ini tidak boleh tertahan
+  // oleh produksi konten berikutnya di slot yang sama.
+  const enqueue: EnqueueFn = async (schedule, context) => {
+    const published = await publicationEnqueue(schedule, context);
+    const planned =
+      planner === undefined ? [] : await productionEnqueue(schedule, context);
+    return [...published, ...planned];
+  };
+
   const dispatchLoop = new ScheduleDispatchLoop({
     scheduler: new Scheduler(db),
-    enqueue: createPublicationEnqueuer({
-      db,
-      platforms: publisher === undefined ? [] : [publisher.platform]
-    }),
+    enqueue,
     intervalMs: config.schedulerIntervalMs,
     logger
   });
@@ -139,6 +157,11 @@ async function main(): Promise<void> {
     } else if (!config.workerEnabled) {
       logger.warn('worker dimatikan; dispatch jadwal tidak dijalankan agar antrean tidak menumpuk');
     } else {
+      if (planner === undefined) {
+        logger.warn(
+          'planner tidak aktif; produksi konten otomatis tidak dijalankan (hanya publikasi konten yang sudah ada)'
+        );
+      }
       dispatchLoop.start();
       logger.info({ intervalMs: config.schedulerIntervalMs }, 'dispatch jadwal dimulai');
     }

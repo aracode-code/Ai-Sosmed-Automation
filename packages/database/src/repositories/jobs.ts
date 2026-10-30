@@ -124,6 +124,41 @@ export function getJobByIdempotencyKey(raw: SqliteDatabase, key: string): Job | 
   return row ? toJob(row) : null;
 }
 
+/**
+ * Job non-terminal untuk campaign + tipe tertentu. `NEEDS_ATTENTION` dihitung
+ * aktif: pekerjaan yang menunggu manusia tidak boleh ditumpuk job baru.
+ */
+export function hasActiveJobForCampaign(
+  raw: SqliteDatabase,
+  params: { campaignId: string; jobType: JobType }
+): boolean {
+  const row = raw
+    .prepare(
+      `SELECT 1 AS ditemukan FROM jobs
+       WHERE campaign_id = @campaignId
+         AND job_type = @jobType
+         AND status NOT IN (${TERMINAL_SQL})
+       LIMIT 1`
+    )
+    .get(params) as { ditemukan: number } | undefined;
+  return row !== undefined;
+}
+
+export function hasJobForContent(
+  raw: SqliteDatabase,
+  params: { contentId: string; jobType: JobType }
+): boolean {
+  const row = raw
+    .prepare(
+      `SELECT 1 AS ditemukan FROM jobs
+       WHERE content_id = @contentId
+         AND job_type = @jobType
+       LIMIT 1`
+    )
+    .get(params) as { ditemukan: number } | undefined;
+  return row !== undefined;
+}
+
 function isUniqueViolation(error: unknown): boolean {
   const code = (error as { code?: unknown }).code;
   return typeof code === 'string' && code.startsWith('SQLITE_CONSTRAINT');
