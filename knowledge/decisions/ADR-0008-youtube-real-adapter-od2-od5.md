@@ -65,7 +65,7 @@ Implementasi dan test bisa berjalan dengan HTTP palsu tanpa ini; **uji live** me
 | Slice | Isi | Status |
 |---|---|---|
 | A1 | Config `YOUTUBE_ADAPTER=api` + nama env auth; credential store DPAPI (helper), tanpa dependensi baru | **DONE** (2026-10-30, `442d3be`) |
-| A2 | OAuth client: pairing loopback + PKCE, refresh token, `reauth_required` | belum |
+| A2 | OAuth client: pairing loopback + PKCE, refresh token, `reauth_required` | **DONE** (2026-10-30, `5cbe70b`) |
 | A3 | `YouTubeApiAdapter`: `validate`, `publish` (resumable upload), `getStatus` (`videos.list`), pemetaan error D6 | belum |
 | A4 | Wiring composition root + onboarding akun + log status app (Testing/Production) saat boot | belum |
 | A5 | Test dengan HTTP palsu (tanpa kredensial) + smoke manual oleh owner pada channel sah | belum |
@@ -78,6 +78,20 @@ Implementasi dan test bisa berjalan dengan HTTP palsu tanpa ini; **uji live** me
 - `apps/local-api/src/config.ts`: `YOUTUBE_ADAPTER=off|mock|api`, `loadYouTubeCredentials` (`GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET` opsional) — tidak masuk `AppConfig`.
 - `apps/local-api/src/server.ts`: `api` → peringatan `belum diimplementasikan (slice A2–A4)`; `PUBLISH` tidak terdaftar (job → `NEEDS_ATTENTION` + `NO_HANDLER`).
 - Bukti: typecheck 9 paket PASS; 35 file test, **248 passed / 0 failed**; smoke boot `YOUTUBE_ADAPTER=api` port 4396 → `/health` ok + peringatan eksplisit, port bebas setelah stop.
+
+### A2 — yang sudah ada (E1)
+
+- `packages/youtube/src/oauth-client.ts`:
+  - `createPkcePair()` (verifier 32 byte base64url, challenge S256), `createOAuthState()`, `buildAuthorizationUrl()` (`access_type=offline`, `prompt=consent`, `include_granted_scopes=true`, dua scope D1).
+  - `startLoopbackReceiver()` — server `127.0.0.1` port acak pada `/oauth2/callback`, `state` dibandingkan konstan-waktu, satu callback, timeout 300 s, halaman callback statis tanpa echo parameter, CSP `default-src 'none'`.
+  - `exchangeAuthorizationCode()` / `refreshAccessToken()` — `fetch` form-urlencoded ke `https://oauth2.googleapis.com/token`, timeout 15 s, respons dibatasi 16 KB, tanpa SDK (O6).
+  - `pairYouTubeAccount()` — pairing satu kali: buka URL lewat `openUrl` yang disuntikkan (modul tidak memanggil shell), tukar kode, simpan record ke `DpapiCredentialStore` nama `youtube-<accountId>`.
+  - `ensureFreshAccessToken()` — refresh otomatis bila sisa usia < 60 s; `null` bila belum dipasangkan; `reauth_required` bila refresh token tidak ada/dicabut.
+  - `YouTubeAuthError` membawa `code` + kelas dispatcher: `reauth_required`/`authorization_denied`/`missing_refresh_token`/`invalid_client_config` → `AUTH`; `state_mismatch` → `SECURITY_CHALLENGE`; `timeout` → `TRANSIENT_NETWORK`; `provider_error` mengikuti status HTTP; `invalid_response` → `EXTERNAL_5XX`; `cancelled` → `CANCELLED`.
+- Record token (`YouTubeTokenRecord`): `accessToken`, `refreshToken`, `tokenType`, `scope`, `expiresAt`, `clientId`, `pairedAt` — semuanya di dalam blob DPAPI, **tidak** ada kolom DB baru.
+- `apps/local-api/src/server.ts`: pesan `api` diperbarui menjadi `belum terhubung ke handler (slice A3–A4)`; `PUBLISH` tetap tidak terdaftar.
+- Bukti: typecheck 9 paket + `tests/tsconfig.json` PASS; **36 file test, 269 passed / 0 failed** (21 test OAuth baru); smoke boot `YOUTUBE_ADAPTER=api` port 4397 → `/health` ok, `handlers: ["GENERATE_VIDEO"]`, port bebas setelah stop.
+- Belum: `connection_status` belum ditulis ke DB (diputuskan di A4), belum ada pemanggil pairing dari CLI/UI, adapter HTTP YouTube belum ada.
 
 ## Open Items
 

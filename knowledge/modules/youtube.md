@@ -1,6 +1,6 @@
 # Modul — YouTube (Adapter Publikasi Mock + PUBLISH Handler)
 
-**Status:** PARTIAL — adapter **mock** + handler PUBLISH + verify/reconcile COMPLETED; keputusan adapter nyata selesai (ADR-0008) dan **slice A1 (credential store DPAPI) DONE** (`442d3be`); A2–A5 belum; upload nyata **UNVERIFIED**
+**Status:** PARTIAL — adapter **mock** + handler PUBLISH + verify/reconcile COMPLETED; keputusan adapter nyata selesai (ADR-0008) dengan **A1 credential store** (`442d3be`) dan **A2 OAuth client** (`5cbe70b`) DONE; A3–A5 belum; upload nyata **UNVERIFIED**
 **Sumber:** kode aktual (E1). Keputusan: `ADR-0005` (Y1–Y10), `ADR-0008` (OD-2/OD-5). Kontrak: LLD §11.1–§11.4.
 
 ## Peta Paket
@@ -12,6 +12,7 @@
 | `packages/database/src/repositories/publish-attempts.ts` | `insertPublishAttempt` (id `pub_<uuid>`), `getPublishAttempt`, `getPublishAttemptByKey`, `updatePublishAttempt` |
 | `packages/youtube/src/mock-adapter.ts` | `MockYouTubeAdapter` — hasil deterministik, idempoten per key, capability jujur |
 | `packages/youtube/src/credential-store.ts` | `DpapiCredentialStore` — payload token terenkripsi DPAPI per akun (A1) |
+| `packages/youtube/src/oauth-client.ts` | `pairYouTubeAccount`, `ensureFreshAccessToken`, `startLoopbackReceiver` — pairing PKCE + refresh token (A2) |
 | `packages/workflow/src/handlers/publish.ts` | Handler langkah `PUBLISH`: validasi → approval binding → attempt → publish → reconcile |
 
 Arah dependensi: `@saa/youtube` → `@saa/domain`; `@saa/workflow` → `@saa/domain` + `@saa/database` (adapter disuntikkan, bukan diimpor).
@@ -52,6 +53,22 @@ SocialAdapter {
 
 Catatan: `%LOCALAPPDATA%` sudah dibatasi per user, dan ciphertext DPAPI tetap terikat ke akun Windows meski berkas disalin.
 
+## OAuth Client (A2, aktual)
+
+| Aspek | Nilai |
+|---|---|
+| API | `pairYouTubeAccount`, `ensureFreshAccessToken`, `exchangeAuthorizationCode`, `refreshAccessToken`, `startLoopbackReceiver`, `buildAuthorizationUrl`, `createPkcePair`, `credentialNameFor` |
+| PKCE | verifier 32 byte acak (43 karakter base64url), challenge `S256`; `state` 32 byte base64url dibandingkan **konstan-waktu** |
+| Loopback | `http://127.0.0.1:<port>` (port default acak) pada `/oauth2/callback`; satu callback, `timeoutMs` default 300 s, server ditutup setelah callback/galat/timeout |
+| Consent | `access_type=offline` + `prompt=consent` + `include_granted_scopes=true`; scope `youtube.upload` + `youtube.readonly` |
+| Token endpoint | `https://oauth2.googleapis.com/token` via `fetch` form-urlencoded, timeout default 15 s, respons dibatasi 16 KB |
+| Token | Disimpan sebagai record JSON di `DpapiCredentialStore` nama `youtube-<accountId>`: `accessToken`, `refreshToken`, `tokenType`, `scope`, `expiresAt` (epoch ms), `clientId`, `pairedAt` |
+| Refresh | Otomatis bila sisa usia < 60 s; `refresh_token` lama dipertahankan bila Google tidak mengirim yang baru |
+| Error | `reauth_required` (invalid_grant / tanpa refresh token, kelas `AUTH`) · `authorization_denied` (`AUTH`) · `state_mismatch` (`SECURITY_CHALLENGE`) · `timeout` (`TRANSIENT_NETWORK`) · `cancelled` (`CANCELLED`) · `provider_error` (kelas mengikuti HTTP: `RATE_LIMIT`, `EXTERNAL_5XX`, `VALIDATION`, `AUTH`) · `invalid_response` (`EXTERNAL_5XX`) · `invalid_client_config` (`AUTH`) |
+| Keamanan | Browser **tidak** dibuka oleh modul (callback `openUrl` disuntikkan); halaman callback statis tanpa echo parameter; tidak ada token di log/pesan error |
+
+Catatan: `ensureFreshAccessToken` mengembalikan `null` bila akun belum dipasangkan, `{ record, refreshed }` bila token siap dipakai, dan melempar `reauth_required` bila refresh tidak mungkin — A3/A4 yang memutuskan penandaan `connection_status`.
+
 ## Handler PUBLISH (urutan aktual)
 
 1. Payload `{ contentId, campaignId, accountId, platform }` (Zod). Adapter harus `platform` yang sama.
@@ -82,10 +99,10 @@ Catatan: `%LOCALAPPDATA%` sudah dibatasi per user, dan ciphertext DPAPI tetap te
 
 - `apps/local-api/src/handlers.ts`: `publisher?: SocialAdapter` → `registry.PUBLISH = createPublishHandler(...)`; tanpa adapter `PUBLISH` **tidak** terdaftar.
 - `apps/local-api/src/config.ts`: `YOUTUBE_ADAPTER=off|mock|api` (default `off`); `loadYouTubeCredentials` membaca `GOOGLE_OAUTH_CLIENT_ID` + `GOOGLE_OAUTH_CLIENT_SECRET` (opsional) dari env dan **tidak** memasukkannya ke `AppConfig`.
-- `apps/local-api/src/server.ts`: `mock` → `new MockYouTubeAdapter()` + log "publikasi PALSU"; `api` → log `belum diimplementasikan (slice A2–A4)`; `off` → log `job PUBLISH tidak terdaftar`.
+- `apps/local-api/src/server.ts`: `mock` → `new MockYouTubeAdapter()` + log "publikasi PALSU"; `api` → log `belum terhubung ke handler (slice A3–A4)`; `off` → log `job PUBLISH tidak terdaftar`.
 - Tanpa adapter aktif: job `PUBLISH` → `NEEDS_ATTENTION` + `NO_HANDLER` (terlihat, bukan disembunyikan).
 
-## Adapter Nyata — Keputusan (ADR-0008, belum diimplementasikan)
+## Adapter Nyata — Keputusan (ADR-0008; A1–A2 selesai, adapter belum)
 
 | Aspek | Keputusan |
 |---|---|
@@ -106,12 +123,12 @@ Catatan konflik: referensi resmi `videos.insert` (2026-10-30) menyatakan project
 ```bash
 corepack pnpm --filter @saa/youtube typecheck
 corepack pnpm vitest run packages/youtube packages/workflow/src/handlers/publish.test.ts
-corepack pnpm test                              # 248 test seluruh workspace
+corepack pnpm test                              # 269 test seluruh workspace
 YOUTUBE_ADAPTER=mock corepack pnpm start        # boot dengan adapter mock
 ```
 
 ## Belum Ada
 
-- Adapter YouTube nyata: slice A2–A5 (OAuth, adapter API, wiring, test/uji live) — A1 selesai (`442d3be`).
+- Adapter YouTube nyata: slice A3–A5 (adapter API resumable + `videos.list`, wiring/onboarding, uji live) — A1 (`442d3be`) dan A2 (`5cbe70b`) selesai.
 - Handler `VERIFY_PUBLICATION` / `RECONCILE_PUBLICATION` sebagai job terpisah.
 - Klasifikasi `publish_attempts` untuk kuota harian (semua status masih dihitung).

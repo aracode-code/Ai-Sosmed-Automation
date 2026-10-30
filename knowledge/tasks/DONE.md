@@ -1,5 +1,14 @@
 # DONE
 
+## 2026-10-30 — SESSION-2026-10-30-8
+
+- **Slice A2 — OAuth client YouTube (PKCE loopback + refresh)** (commit `5cbe70b`).
+  - `packages/youtube/src/oauth-client.ts`: `createPkcePair` (S256), `createOAuthState`, `buildAuthorizationUrl` (`access_type=offline`, `prompt=consent`), `startLoopbackReceiver` (127.0.0.1 port acak, state konstan-waktu, satu callback, timeout 300 s), `exchangeAuthorizationCode`/`refreshAccessToken` (fetch form-urlencoded, timeout 15 s, respons ≤16 KB), `pairYouTubeAccount`, `ensureFreshAccessToken` (refresh <60 s), `credentialNameFor`.
+  - Token disimpan sebagai record JSON di `DpapiCredentialStore` nama `youtube-<accountId>`; tidak ada kolom DB baru.
+  - `YouTubeAuthError` memetakan `reauth_required`/`authorization_denied`/`missing_refresh_token` ke `AUTH`, `state_mismatch` ke `SECURITY_CHALLENGE`, `timeout`/`provider_error` ke kelas retry yang sesuai, `invalid_response` ke `EXTERNAL_5XX`.
+  - Bukti: typecheck 9 paket + `tests/tsconfig.json` PASS · **269 test passed** (36 file; 21 test OAuth baru) · smoke boot `YOUTUBE_ADAPTER=api` port 4397 → peringatan `belum terhubung ke handler (slice A3–A4)`, `/health` ok, port bebas. Tanpa dependensi baru.
+  - Keputusan: `decisions/ADR-0008-youtube-real-adapter-od2-od5.md` bagian A2; modul: `modules/youtube.md`.
+
 ## 2026-10-30 — SESSION-2026-10-30-7
 
 - **Slice A1 — credential store DPAPI untuk token YouTube** (commit `442d3be`).
