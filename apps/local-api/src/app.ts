@@ -12,6 +12,7 @@ import { errorEnvelope } from './errors';
 import { accountRoutes } from './routes/accounts';
 import { approvalRoutes } from './routes/approvals';
 import { campaignRoutes } from './routes/campaigns';
+import { contentRoutes } from './routes/content';
 import { healthRoutes } from './routes/health';
 import { jobRoutes } from './routes/jobs';
 import { scheduleRoutes } from './routes/schedules';
@@ -95,6 +96,7 @@ export function buildApp(options: BuildAppOptions): FastifyInstance {
   });
   void app.register(jobRoutes, { db });
   void app.register(campaignRoutes, { db });
+  void app.register(contentRoutes, { db, now });
   void app.register(approvalRoutes, { db });
   void app.register(scheduleRoutes, { db, now });
   void app.register(accountRoutes, { db });
