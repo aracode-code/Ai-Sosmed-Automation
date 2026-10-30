@@ -54,6 +54,21 @@ describe('GET /api/v1/health', () => {
     expect(response.json<{ status: string }>().status).toBe('ok');
   });
 
+  it('melaporkan worker aktif bila callback disuntikkan', async () => {
+    const workerApp = buildApp({
+      db,
+      config: loadConfig({ DATABASE_PATH: join(workDir, 'app.sqlite') }),
+      workerActive: () => true
+    });
+    try {
+      await workerApp.ready();
+      const response = await workerApp.inject({ method: 'GET', url: '/health' });
+      expect(response.json<{ workers: { active: number } }>().workers.active).toBe(1);
+    } finally {
+      await workerApp.close();
+    }
+  });
+
   it('melaporkan degraded bila database tidak dapat diakses', async () => {
     const localDir = mkdtempSync(join(tmpdir(), 'saa-local-api-down-'));
     const brokenDb = openDatabase(join(localDir, 'app.sqlite'));

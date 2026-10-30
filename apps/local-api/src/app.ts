@@ -22,10 +22,18 @@ export interface BuildAppOptions {
   logger?: Logger;
   version?: string;
   now?: () => Date;
+  /** Status worker nyata; tanpa callback, health melaporkan 0 worker aktif. */
+  workerActive?: () => boolean;
 }
 
 export function buildApp(options: BuildAppOptions): FastifyInstance {
-  const { db, logger, version = '0.1.0', now = () => new Date() } = options;
+  const {
+    db,
+    logger,
+    version = '0.1.0',
+    now = () => new Date(),
+    workerActive
+  } = options;
 
   const fastifyOptions: FastifyServerOptions =
     logger === undefined ? { logger: false } : { loggerInstance: logger };
@@ -80,7 +88,11 @@ export function buildApp(options: BuildAppOptions): FastifyInstance {
     );
   });
 
-  void app.register(healthRoutes, { db, version });
+  void app.register(healthRoutes, {
+    db,
+    version,
+    ...(workerActive === undefined ? {} : { workerActive })
+  });
   void app.register(jobRoutes, { db });
   void app.register(campaignRoutes, { db });
   void app.register(approvalRoutes, { db });

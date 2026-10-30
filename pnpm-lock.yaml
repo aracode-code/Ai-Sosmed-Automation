@@ -47,6 +47,12 @@ importers:
 
   apps/local-api:
     dependencies:
+      '@saa/agent-core':
+        specifier: workspace:*
+        version: link:../../packages/agent-core
+      '@saa/browser-engine':
+        specifier: workspace:*
+        version: link:../../packages/browser-engine
       '@saa/database':
         specifier: workspace:*
         version: link:../../packages/database

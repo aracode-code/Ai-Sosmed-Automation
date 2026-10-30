@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ConfigError, loadConfig } from './config';
+import { ConfigError, loadAiCredentials, loadConfig } from './config';
 
 describe('loadConfig', () => {
   it('menerapkan default loopback dan timezone Jakarta', () => {
@@ -11,6 +11,9 @@ describe('loadConfig', () => {
     expect(config.env).toBe('development');
     expect(config.jobMaxAttempts).toBe(3);
     expect(config.databasePath).toBe('./data/database/app.sqlite');
+    expect(config.workerEnabled).toBe(true);
+    expect(config.workerIntervalMs).toBe(1_000);
+    expect(config.mediaRoot).toBe('./data/media');
   });
 
   it('menolak host non-loopback tanpa APP_ALLOW_NETWORK', () => {
@@ -37,6 +40,24 @@ describe('loadConfig', () => {
     expect(() => loadConfig({ LOG_LEVEL: 'verbose' })).toThrow(ConfigError);
   });
 
+  it('menolak WORKER_INTERVAL_MS di luar rentang', () => {
+    expect(() => loadConfig({ WORKER_INTERVAL_MS: '10' })).toThrow(ConfigError);
+    expect(() => loadConfig({ WORKER_INTERVAL_MS: 'abc' })).toThrow(ConfigError);
+    expect(() => loadConfig({ WORKER_INTERVAL_MS: '90000' })).toThrow(ConfigError);
+  });
+
+  it('mematikan worker lewat WORKER_ENABLED=false', () => {
+    const config = loadConfig({ WORKER_ENABLED: 'false', WORKER_INTERVAL_MS: '250' });
+    expect(config.workerEnabled).toBe(false);
+    expect(config.workerIntervalMs).toBe(250);
+  });
+
+  it('tidak pernah menyimpan API key di AppConfig', () => {
+    const config = loadConfig({ DEEPSEEK_API_KEY: 'sk-rahasia' });
+    expect(Object.values(config)).not.toContain('sk-rahasia');
+    expect('apiKey' in config).toBe(false);
+  });
+
   it('membaca konfigurasi yang diberikan secara eksplisit', () => {
     const config = loadConfig({
       APP_ENV: 'production',
@@ -53,5 +74,16 @@ describe('loadConfig', () => {
       jobMaxAttempts: 5,
       logLevel: 'silent'
     });
+  });
+});
+
+describe('loadAiCredentials', () => {
+  it('mengembalikan null bila key tidak ada atau kosong', () => {
+    expect(loadAiCredentials({})).toBeNull();
+    expect(loadAiCredentials({ DEEPSEEK_API_KEY: '   ' })).toBeNull();
+  });
+
+  it('memangkas spasi pada key', () => {
+    expect(loadAiCredentials({ DEEPSEEK_API_KEY: '  sk-uji  ' })).toEqual({ apiKey: 'sk-uji' });
   });
 });

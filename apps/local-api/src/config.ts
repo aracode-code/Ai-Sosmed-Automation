@@ -11,6 +11,9 @@ const envSchema = z
     DATABASE_PATH: z.string().min(1).default('./data/database/app.sqlite'),
     LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
     JOB_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(10).default(3),
+    WORKER_ENABLED: z.enum(['true', 'false']).default('true'),
+    WORKER_INTERVAL_MS: z.coerce.number().int().min(50).max(60_000).default(1_000),
+    MEDIA_ROOT: z.string().min(1).default('./data/media'),
     APP_ALLOW_NETWORK: z.enum(['true', 'false']).default('false')
   })
   .superRefine((env, ctx) => {
@@ -31,6 +34,9 @@ export interface AppConfig {
   databasePath: string;
   logLevel: string;
   jobMaxAttempts: number;
+  workerEnabled: boolean;
+  workerIntervalMs: number;
+  mediaRoot: string;
 }
 
 export class ConfigError extends Error {
@@ -56,6 +62,24 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
     timezone: env.APP_TIMEZONE,
     databasePath: env.DATABASE_PATH,
     logLevel: env.LOG_LEVEL,
-    jobMaxAttempts: env.JOB_MAX_ATTEMPTS
+    jobMaxAttempts: env.JOB_MAX_ATTEMPTS,
+    workerEnabled: env.WORKER_ENABLED === 'true',
+    workerIntervalMs: env.WORKER_INTERVAL_MS,
+    mediaRoot: env.MEDIA_ROOT
   };
+}
+
+export interface AiCredentials {
+  apiKey: string;
+}
+
+/**
+ * Kredensial AI hanya dari environment. Nilai tidak pernah masuk `AppConfig`,
+ * log, atau state — sengaja dipisah agar objek konfigurasi aman dicatat.
+ */
+export function loadAiCredentials(
+  source: NodeJS.ProcessEnv = process.env
+): AiCredentials | null {
+  const apiKey = source.DEEPSEEK_API_KEY?.trim();
+  return apiKey === undefined || apiKey === '' ? null : { apiKey };
 }

@@ -1,8 +1,21 @@
+import { createDeepSeekClient, createPlanner, type Planner } from '@saa/agent-core';
 import { openDatabase, resolveWorkspacePath, runMigrations } from '@saa/database';
 import { createLogger } from '@saa/observability';
-import { runStartupRecovery } from '@saa/workflow';
+import { Dispatcher, runStartupRecovery, Worker } from '@saa/workflow';
 import { buildApp } from './app';
-import { loadConfig } from './config';
+import { loadAiCredentials, loadConfig } from './config';
+import { buildHandlerRegistry } from './handlers';
+
+function buildPlanner(logger: ReturnType<typeof createLogger>): Planner | undefined {
+  const credentials = loadAiCredentials();
+  if (credentials === null) {
+    logger.warn(
+      'DEEPSEEK_API_KEY tidak ditemukan; job PLAN_CONTENT tidak terdaftar dan akan jatuh ke NEEDS_ATTENTION'
+    );
+    return undefined;
+  }
+  return createPlanner({ llm: createDeepSeekClient({ apiKey: credentials.apiKey }) });
+}
 
 async function main(): Promise<void> {
   const config = loadConfig();
@@ -13,6 +26,7 @@ async function main(): Promise<void> {
   });
 
   const databasePath = resolveWorkspacePath(config.databasePath);
+  const mediaRoot = resolveWorkspacePath(config.mediaRoot);
   const db = openDatabase(databasePath);
   const applied = runMigrations(db.raw);
   logger.info({ database: databasePath, applied }, 'migrasi selesai');
@@ -25,10 +39,36 @@ async function main(): Promise<void> {
     );
   }
 
-  const app = buildApp({ db, config, logger, version: '0.1.0' });
+  const planner = buildPlanner(logger);
+  const handlers = buildHandlerRegistry({
+    db,
+    mediaRoot,
+    ...(planner === undefined ? {} : { planner })
+  });
+
+  const dispatcher = new Dispatcher({
+    db,
+    workerId: `worker_${process.pid}`,
+    handlers,
+    logger
+  });
+  const worker = new Worker({
+    runner: dispatcher,
+    intervalMs: config.workerIntervalMs,
+    logger
+  });
+
+  const app = buildApp({
+    db,
+    config,
+    logger,
+    version: '0.1.0',
+    workerActive: () => worker.isRunning
+  });
 
   const shutdown = async (signal: string): Promise<void> => {
     logger.info({ signal }, 'shutdown dimulai');
+    await worker.stop();
     await app.close();
     db.close();
     logger.info('shutdown selesai');
@@ -42,7 +82,22 @@ async function main(): Promise<void> {
 
   try {
     await app.listen({ host: config.host, port: config.port });
-    logger.info({ host: config.host, port: config.port }, 'local api siap');
+    logger.info(
+      {
+        host: config.host,
+        port: config.port,
+        mediaRoot,
+        handlers: Object.keys(handlers)
+      },
+      'local api siap'
+    );
+
+    if (config.workerEnabled) {
+      worker.start();
+      logger.info({ intervalMs: config.workerIntervalMs }, 'worker dimulai');
+    } else {
+      logger.warn('worker dimatikan (WORKER_ENABLED=false); job tidak akan diproses');
+    }
   } catch (error) {
     logger.error({ err: error }, 'gagal menjalankan local api');
     db.close();

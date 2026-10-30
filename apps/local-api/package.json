@@ -15,6 +15,8 @@
     "start": "tsx src/server.ts"
   },
   "dependencies": {
+    "@saa/agent-core": "workspace:*",
+    "@saa/browser-engine": "workspace:*",
     "@saa/database": "workspace:*",
     "@saa/domain": "workspace:*",
     "@saa/observability": "workspace:*",

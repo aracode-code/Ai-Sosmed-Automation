@@ -4,9 +4,12 @@ import type { DatabaseHandle } from '@saa/database';
 export interface HealthRoutesDeps {
   db: DatabaseHandle;
   version: string;
+  workerActive?: () => boolean;
 }
 
 export const healthRoutes: FastifyPluginAsync<HealthRoutesDeps> = async (app, deps) => {
+  const workerActive = deps.workerActive ?? (() => false);
+
   const handler = async () => {
     let dbState: 'ok' | 'error' = 'ok';
     try {
@@ -19,7 +22,7 @@ export const healthRoutes: FastifyPluginAsync<HealthRoutesDeps> = async (app, de
       status: dbState === 'ok' ? 'ok' : 'degraded',
       version: deps.version,
       db: dbState,
-      workers: { active: 0 },
+      workers: { active: workerActive() ? 1 : 0 },
       time: new Date().toISOString()
     };
   };
