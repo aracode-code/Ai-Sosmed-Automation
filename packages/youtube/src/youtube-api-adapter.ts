@@ -47,6 +47,11 @@ export interface YouTubeApiAdapterOptions {
   categoryId?: string;
   /** Opsional; hanya dipakai `capabilities()` untuk melaporkan status auth akun tersebut. */
   accountId?: string;
+  /**
+   * Dipanggil saat akun dipastikan perlu pairing ulang. Wiring runtime memakainya untuk
+   * memperbarui `social_accounts.connection_status`; adapter tetap bebas database.
+   */
+  onReauthRequired?: (accountId: string) => void | Promise<void>;
   now?: () => Date;
   fetchImpl?: typeof fetch;
   uploadEndpoint?: string;
@@ -483,27 +488,46 @@ export class YouTubeApiAdapter implements SocialAdapter {
   }
 
   private async accessToken(accountId: string): Promise<string> {
-    const ensured = await ensureFreshAccessToken({
-      accountId,
-      clientId: this.options.clientId,
-      ...(this.options.clientSecret === undefined
-        ? {}
-        : { clientSecret: this.options.clientSecret }),
-      store: this.options.store,
-      now: this.now,
-      fetchImpl: this.doFetch,
-      ...(this.options.tokenEndpoint === undefined
-        ? {}
-        : { tokenEndpoint: this.options.tokenEndpoint }),
-      timeoutMs: this.requestTimeoutMs
-    });
+    let ensured: Awaited<ReturnType<typeof ensureFreshAccessToken>>;
+    try {
+      ensured = await ensureFreshAccessToken({
+        accountId,
+        clientId: this.options.clientId,
+        ...(this.options.clientSecret === undefined
+          ? {}
+          : { clientSecret: this.options.clientSecret }),
+        store: this.options.store,
+        now: this.now,
+        fetchImpl: this.doFetch,
+        ...(this.options.tokenEndpoint === undefined
+          ? {}
+          : { tokenEndpoint: this.options.tokenEndpoint }),
+        timeoutMs: this.requestTimeoutMs
+      });
+    } catch (error) {
+      if (error instanceof YouTubeAuthError && error.code === 'reauth_required') {
+        await this.notifyReauth(accountId);
+      }
+      throw error;
+    }
     if (ensured === null) {
+      await this.notifyReauth(accountId);
       throw new YouTubeAuthError(
         'reauth_required',
         `akun ${accountId} belum dipasangkan dengan YouTube`
       );
     }
     return ensured.record.accessToken;
+  }
+
+  /** Kegagalan mencatat status tidak boleh menutupi galat auth yang sebenarnya. */
+  private async notifyReauth(accountId: string): Promise<void> {
+    if (this.options.onReauthRequired === undefined) return;
+    try {
+      await this.options.onReauthRequired(accountId);
+    } catch {
+      // diabaikan dengan sengaja; lihat komentar di atas.
+    }
   }
 
   private privacyOf(request: PublishRequest): YouTubePrivacyStatus {

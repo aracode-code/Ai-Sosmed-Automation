@@ -17,8 +17,15 @@ const envSchema = z
     /** Dispatch jadwal → job PUBLISH; hanya berjalan bila adapter publikasi aktif. */
     SCHEDULER_ENABLED: z.enum(['true', 'false']).default('true'),
     SCHEDULER_INTERVAL_MS: z.coerce.number().int().min(1_000).max(300_000).default(5_000),
-    /** `mock` hanya untuk uji alur; `api` disiapkan untuk adapter nyata (ADR-0008), belum diimplementasikan. */
+    /** `mock` hanya untuk uji alur; `api` memakai adapter YouTube Data API v3 (ADR-0008). */
     YOUTUBE_ADAPTER: z.enum(['off', 'mock', 'api']).default('off'),
+    /** Privasi default unggahan; hasil diverifikasi lewat `videos.list` (ADR-0008 D4). */
+    YOUTUBE_UPLOAD_PRIVACY: z.enum(['private', 'unlisted', 'public']).default('private'),
+    /**
+     * Status publikasi OAuth app (Google Cloud Console). Tidak dapat dibaca lewat API;
+     * dilaporkan owner agar status Testing (refresh token 7 hari) terlihat saat boot.
+     */
+    YOUTUBE_APP_STATUS: z.enum(['testing', 'production', 'unknown']).default('unknown'),
     APP_ALLOW_NETWORK: z.enum(['true', 'false']).default('false')
   })
   .superRefine((env, ctx) => {
@@ -45,6 +52,8 @@ export interface AppConfig {
   schedulerEnabled: boolean;
   schedulerIntervalMs: number;
   youtubeAdapter: 'off' | 'mock' | 'api';
+  youtubeUploadPrivacy: 'private' | 'unlisted' | 'public';
+  youtubeAppStatus: 'testing' | 'production' | 'unknown';
 }
 
 export class ConfigError extends Error {
@@ -76,7 +85,9 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
     mediaRoot: env.MEDIA_ROOT,
     schedulerEnabled: env.SCHEDULER_ENABLED === 'true',
     schedulerIntervalMs: env.SCHEDULER_INTERVAL_MS,
-    youtubeAdapter: env.YOUTUBE_ADAPTER
+    youtubeAdapter: env.YOUTUBE_ADAPTER,
+    youtubeUploadPrivacy: env.YOUTUBE_UPLOAD_PRIVACY,
+    youtubeAppStatus: env.YOUTUBE_APP_STATUS
   };
 }
 

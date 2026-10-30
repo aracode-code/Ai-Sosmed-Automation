@@ -56,6 +56,35 @@ export function insertSocialAccount(
   return account;
 }
 
+export interface UpdateAccountConnectionInput {
+  connectionStatus: SocialAccount['connectionStatus'];
+  /** `undefined` = biarkan nilai lama; `null` = kosongkan referensi kredensial. */
+  secretRef?: string | null;
+}
+
+/** Hanya status koneksi dan referensi kredensial yang boleh berubah; label/platform tidak disentuh. */
+export function updateAccountConnection(
+  raw: SqliteDatabase,
+  id: string,
+  input: UpdateAccountConnectionInput
+): SocialAccount | null {
+  const existing = getSocialAccount(raw, id);
+  if (existing === null) return null;
+
+  raw
+    .prepare(
+      `UPDATE social_accounts SET connection_status = @connectionStatus, secret_ref = @secretRef
+       WHERE id = @id`
+    )
+    .run({
+      id,
+      connectionStatus: input.connectionStatus,
+      secretRef: input.secretRef === undefined ? existing.secretRef : input.secretRef
+    });
+
+  return getSocialAccount(raw, id);
+}
+
 export function getSocialAccount(raw: SqliteDatabase, id: string): SocialAccount | null {
   const row = raw.prepare('SELECT * FROM social_accounts WHERE id = ?').get(id) as
     | AccountRow

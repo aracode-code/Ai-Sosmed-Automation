@@ -1,5 +1,10 @@
 import { createDeepSeekClient, createPlanner, type Planner } from '@saa/agent-core';
-import { openDatabase, resolveWorkspacePath, runMigrations } from '@saa/database';
+import {
+  openDatabase,
+  resolveWorkspacePath,
+  runMigrations,
+  type DatabaseHandle
+} from '@saa/database';
 import type { SocialAdapter } from '@saa/domain';
 import { createLogger } from '@saa/observability';
 import {
@@ -12,8 +17,9 @@ import {
 import { Dispatcher, runStartupRecovery, Worker } from '@saa/workflow';
 import { MockYouTubeAdapter } from '@saa/youtube';
 import { buildApp } from './app';
-import { loadAiCredentials, loadConfig, type AppConfig } from './config';
+import { loadAiCredentials, loadConfig, loadYouTubeCredentials, type AppConfig } from './config';
 import { buildHandlerRegistry } from './handlers';
+import { createYouTubeApiPublisher } from './publisher';
 
 function buildPlanner(logger: ReturnType<typeof createLogger>): Planner | undefined {
   const credentials = loadAiCredentials();
@@ -28,13 +34,31 @@ function buildPlanner(logger: ReturnType<typeof createLogger>): Planner | undefi
 
 function buildPublisher(
   config: AppConfig,
-  logger: ReturnType<typeof createLogger>
+  logger: ReturnType<typeof createLogger>,
+  db: DatabaseHandle
 ): SocialAdapter | undefined {
   if (config.youtubeAdapter === 'api') {
-    logger.warn(
-      'YOUTUBE_ADAPTER=api belum terhubung ke handler (slice A4, ADR-0008); job PUBLISH tidak terdaftar'
+    const credentials = loadYouTubeCredentials();
+    if (credentials === null) {
+      logger.warn(
+        'GOOGLE_OAUTH_CLIENT_ID tidak ditemukan; YOUTUBE_ADAPTER=api tidak aktif dan job PUBLISH tidak terdaftar'
+      );
+      return undefined;
+    }
+    if (config.youtubeAppStatus === 'testing') {
+      logger.error(
+        'YOUTUBE_APP_STATUS=testing: refresh token Google hanya berlaku 7 hari sehingga pairing harus diulang; ADR-0008 melarang operasi pada status ini'
+      );
+    } else if (config.youtubeAppStatus !== 'production') {
+      logger.warn(
+        'YOUTUBE_APP_STATUS belum dilaporkan; pastikan OAuth app dipublikasikan (Production), bukan Testing'
+      );
+    }
+    logger.info(
+      { privacy: config.youtubeUploadPrivacy },
+      'YOUTUBE_ADAPTER=api; adapter YouTube Data API v3 aktif (ADR-0008)'
     );
-    return undefined;
+    return createYouTubeApiPublisher({ db, config, credentials });
   }
   if (config.youtubeAdapter !== 'mock') {
     logger.warn(
@@ -71,7 +95,7 @@ async function main(): Promise<void> {
   }
 
   const planner = buildPlanner(logger);
-  const publisher = buildPublisher(config, logger);
+  const publisher = buildPublisher(config, logger, db);
   const handlers = buildHandlerRegistry({
     db,
     mediaRoot,

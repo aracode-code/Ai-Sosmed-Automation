@@ -22,6 +22,20 @@ describe('loadConfig', () => {
     expect(config.schedulerEnabled).toBe(true);
     expect(config.schedulerIntervalMs).toBe(5_000);
     expect(config.youtubeAdapter).toBe('off');
+    expect(config.youtubeUploadPrivacy).toBe('private');
+    expect(config.youtubeAppStatus).toBe('unknown');
+  });
+
+  it('membaca privasi unggahan dan status app YouTube, menolak nilai lain', () => {
+    const config = loadConfig({
+      YOUTUBE_UPLOAD_PRIVACY: 'unlisted',
+      YOUTUBE_APP_STATUS: 'production'
+    });
+    expect(config.youtubeUploadPrivacy).toBe('unlisted');
+    expect(config.youtubeAppStatus).toBe('production');
+
+    expect(() => loadConfig({ YOUTUBE_UPLOAD_PRIVACY: 'hidden' })).toThrow(ConfigError);
+    expect(() => loadConfig({ YOUTUBE_APP_STATUS: 'internal' })).toThrow(ConfigError);
   });
 
   it('menerima adapter YouTube mock/api hanya dengan opt-in eksplisit', () => {

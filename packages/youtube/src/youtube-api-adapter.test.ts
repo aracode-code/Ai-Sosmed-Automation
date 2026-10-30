@@ -524,6 +524,33 @@ describe('YouTubeApiAdapter — pemetaan error (D6)', () => {
     }
   });
 
+  it('memanggil onReauthRequired saat akun perlu pairing ulang', async () => {
+    const seen: string[] = [];
+    const { adapter, store } = await harness(() => jsonResponse(500, {}), {
+      onReauthRequired: (accountId) => {
+        seen.push(accountId);
+      }
+    });
+    await store.remove('youtube-acc_1');
+
+    await expect(adapter.publish(request())).rejects.toBeInstanceOf(YouTubeAuthError);
+    expect(seen).toEqual(['acc_1']);
+  });
+
+  it('kegagalan callback reauth tidak menutupi galat auth', async () => {
+    const { adapter, store } = await harness(() => jsonResponse(500, {}), {
+      onReauthRequired: () => {
+        throw new Error('basis data tidak tersedia');
+      }
+    });
+    await store.remove('youtube-acc_1');
+
+    await expect(adapter.publish(request())).rejects.toMatchObject({
+      name: 'YouTubeAuthError',
+      code: 'reauth_required'
+    });
+  });
+
   it('menyegarkan token kedaluwarsa sebelum mengunggah', async () => {
     const { adapter, store, calls } = await harness(
       (url) => {
