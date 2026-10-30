@@ -7,14 +7,17 @@ import {
   getContentItem,
   getJob,
   getMediaAsset,
+  getPublishAttemptByKey,
   insertCampaign,
   insertJob,
+  insertSocialAccount,
   listJobs,
   openDatabase,
   runMigrations,
   type DatabaseHandle
 } from '@saa/database';
 import { Dispatcher } from '@saa/workflow';
+import { MockYouTubeAdapter } from '@saa/youtube';
 import { buildHandlerRegistry } from './handlers';
 
 let workDir: string;
@@ -69,6 +72,17 @@ describe('buildHandlerRegistry', () => {
 
     expect(Object.keys(registry).sort()).toEqual(['GENERATE_VIDEO', 'PLAN_CONTENT']);
   });
+
+  it('mendaftarkan PUBLISH hanya bila adapter publikasi diberikan', () => {
+    expect(buildHandlerRegistry({ db, mediaRoot }).PUBLISH).toBeUndefined();
+
+    const registry = buildHandlerRegistry({
+      db,
+      mediaRoot,
+      publisher: new MockYouTubeAdapter()
+    });
+    expect(Object.keys(registry).sort()).toEqual(['GENERATE_VIDEO', 'PUBLISH']);
+  });
 });
 
 describe('worker + registry di composition root', () => {
@@ -87,7 +101,7 @@ describe('worker + registry di composition root', () => {
     expect(stored?.lastErrorCode).toBe('NO_HANDLER');
   });
 
-  it('PLAN_CONTENT lalu GENERATE_VIDEO selesai dan menghasilkan media asset', async () => {
+  it('PLAN_CONTENT → GENERATE_VIDEO → PUBLISH selesai sampai PUBLISHED dengan adapter mock', async () => {
     const campaign = insertCampaign(db.raw, {
       id: 'cmp_worker',
       name: 'Kampanye Edukasi AI',
@@ -107,7 +121,14 @@ describe('worker + registry di composition root', () => {
       rationale: 'konten edukasi singkat'
     });
 
-    const dispatcher = dispatcherWith(buildHandlerRegistry({ db, mediaRoot, planner }));
+    const dispatcher = dispatcherWith(
+      buildHandlerRegistry({
+        db,
+        mediaRoot,
+        planner,
+        publisher: new MockYouTubeAdapter()
+      })
+    );
     const planJob = insertJob(db.raw, {
       jobType: 'PLAN_CONTENT',
       idempotencyKey: 'plan:rantai-penuh',
@@ -137,5 +158,37 @@ describe('worker + registry di composition root', () => {
     expect(asset?.validationStatus).toBe('valid');
     expect(asset?.mimeType).toBe('video/mp4');
     expect(asset?.sha256).toMatch(/^[0-9a-f]{64}$/);
+
+    const account = insertSocialAccount(db.raw, {
+      platform: 'youtube',
+      label: 'YouTube utama',
+      connectionStatus: 'connected'
+    });
+    const publishJob = insertJob(db.raw, {
+      jobType: 'PUBLISH',
+      idempotencyKey: 'publish:rantai-penuh',
+      campaignId: campaign.id,
+      contentId,
+      payload: {
+        contentId,
+        campaignId: campaign.id,
+        accountId: account.id,
+        platform: 'youtube'
+      }
+    });
+
+    const published = await dispatcher.runOnce();
+    expect(published?.id).toBe(publishJob.id);
+    expect(published?.status).toBe('PUBLISHED');
+    expect(published?.lastErrorCode).toBeNull();
+
+    const attempt = getPublishAttemptByKey(db.raw, `publish:${publishJob.id}`);
+    expect(attempt).toMatchObject({
+      status: 'published',
+      accountId: account.id,
+      platform: 'youtube'
+    });
+    expect(attempt?.externalPostId).toMatch(/^mock_yt_[0-9a-f]{11}$/);
+    expect(attempt?.verifiedAt).not.toBeNull();
   });
 });

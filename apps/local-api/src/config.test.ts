@@ -14,6 +14,12 @@ describe('loadConfig', () => {
     expect(config.workerEnabled).toBe(true);
     expect(config.workerIntervalMs).toBe(1_000);
     expect(config.mediaRoot).toBe('./data/media');
+    expect(config.youtubeAdapter).toBe('off');
+  });
+
+  it('menerima adapter YouTube mock hanya dengan opt-in eksplisit', () => {
+    expect(loadConfig({ YOUTUBE_ADAPTER: 'mock' }).youtubeAdapter).toBe('mock');
+    expect(() => loadConfig({ YOUTUBE_ADAPTER: 'live' })).toThrow(ConfigError);
   });
 
   it('menolak host non-loopback tanpa APP_ALLOW_NETWORK', () => {

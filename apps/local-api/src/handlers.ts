@@ -5,9 +5,11 @@ import {
   type VideoGenerator
 } from '@saa/browser-engine';
 import type { DatabaseHandle } from '@saa/database';
+import type { SocialAdapter } from '@saa/domain';
 import {
   createGenerateVideoHandler,
   createPlanContentHandler,
+  createPublishHandler,
   type HandlerRegistry
 } from '@saa/workflow';
 
@@ -19,6 +21,8 @@ export interface HandlerRegistryOptions {
   planner?: Planner;
   generator?: VideoGenerator;
   probe?: MediaProbe;
+  /** Tanpa adapter, `PUBLISH` sengaja tidak terdaftar. */
+  publisher?: SocialAdapter;
 }
 
 export function buildHandlerRegistry(options: HandlerRegistryOptions): HandlerRegistry {
@@ -38,6 +42,13 @@ export function buildHandlerRegistry(options: HandlerRegistryOptions): HandlerRe
     registry.PLAN_CONTENT = createPlanContentHandler({
       db: options.db,
       planner: options.planner
+    });
+  }
+
+  if (options.publisher !== undefined) {
+    registry.PUBLISH = createPublishHandler({
+      db: options.db,
+      adapter: options.publisher
     });
   }
 

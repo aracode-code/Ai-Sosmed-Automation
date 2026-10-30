@@ -1,9 +1,11 @@
 import { createDeepSeekClient, createPlanner, type Planner } from '@saa/agent-core';
 import { openDatabase, resolveWorkspacePath, runMigrations } from '@saa/database';
+import type { SocialAdapter } from '@saa/domain';
 import { createLogger } from '@saa/observability';
 import { Dispatcher, runStartupRecovery, Worker } from '@saa/workflow';
+import { MockYouTubeAdapter } from '@saa/youtube';
 import { buildApp } from './app';
-import { loadAiCredentials, loadConfig } from './config';
+import { loadAiCredentials, loadConfig, type AppConfig } from './config';
 import { buildHandlerRegistry } from './handlers';
 
 function buildPlanner(logger: ReturnType<typeof createLogger>): Planner | undefined {
@@ -15,6 +17,22 @@ function buildPlanner(logger: ReturnType<typeof createLogger>): Planner | undefi
     return undefined;
   }
   return createPlanner({ llm: createDeepSeekClient({ apiKey: credentials.apiKey }) });
+}
+
+function buildPublisher(
+  config: AppConfig,
+  logger: ReturnType<typeof createLogger>
+): SocialAdapter | undefined {
+  if (config.youtubeAdapter !== 'mock') {
+    logger.warn(
+      'YOUTUBE_ADAPTER=off; job PUBLISH tidak terdaftar dan akan jatuh ke NEEDS_ATTENTION'
+    );
+    return undefined;
+  }
+  logger.warn(
+    'YOUTUBE_ADAPTER=mock; publikasi YouTube bersifat PALSU (tanpa unggahan nyata) — jangan dipakai di produksi'
+  );
+  return new MockYouTubeAdapter();
 }
 
 async function main(): Promise<void> {
@@ -40,10 +58,12 @@ async function main(): Promise<void> {
   }
 
   const planner = buildPlanner(logger);
+  const publisher = buildPublisher(config, logger);
   const handlers = buildHandlerRegistry({
     db,
     mediaRoot,
-    ...(planner === undefined ? {} : { planner })
+    ...(planner === undefined ? {} : { planner }),
+    ...(publisher === undefined ? {} : { publisher })
   });
 
   const dispatcher = new Dispatcher({

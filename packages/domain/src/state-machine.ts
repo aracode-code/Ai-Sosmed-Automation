@@ -144,7 +144,10 @@ export function transitionJob(
       return current === 'AWAITING_APPROVAL' ? accept('SCHEDULED') : reject(current, event.type);
 
     case 'PUBLISH_STARTED':
-      return current === 'SCHEDULED' ? accept('PUBLISHING') : reject(current, event.type);
+      // QUEUED juga diterima: promosi retry selalu mengembalikan job ke QUEUED.
+      return current === 'SCHEDULED' || current === 'QUEUED'
+        ? accept('PUBLISHING')
+        : reject(current, event.type);
 
     case 'PUBLISH_SUBMITTED':
       return current === 'PUBLISHING' ? accept('VERIFYING') : reject(current, event.type);

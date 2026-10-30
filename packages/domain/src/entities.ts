@@ -77,6 +77,20 @@ export interface Job {
   updatedAt: string;
 }
 
+export interface PublishAttempt {
+  id: string;
+  jobId: string;
+  accountId: string;
+  platform: PlatformId;
+  idempotencyKey: string;
+  status: 'pending' | 'published' | 'processing' | 'failed' | 'unknown';
+  externalPostId: string | null;
+  permalink: string | null;
+  attemptedAt: string;
+  verifiedAt: string | null;
+  errorCode: string | null;
+}
+
 export interface AuditEvent {
   id: string;
   actorType: string;

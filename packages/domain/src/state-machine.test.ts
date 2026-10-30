@@ -48,6 +48,14 @@ describe('state machine — happy path', () => {
     expect(transitionJob('GENERATING', { type: 'START_GENERATION' }).ok).toBe(false);
     expect(transitionJob('PLANNING', { type: 'START_GENERATION' }).ok).toBe(false);
   });
+
+  it('PUBLISH_STARTED diterima dari SCHEDULED dan dari QUEUED (jalur retry)', () => {
+    expect(
+      run('SCHEDULED', [{ type: 'PUBLISH_STARTED' }, { type: 'PUBLISH_SUBMITTED' }])
+    ).toBe('VERIFYING');
+    expect(run('QUEUED', [{ type: 'PUBLISH_STARTED' }])).toBe('PUBLISHING');
+    expect(transitionJob('RETRY_WAIT', { type: 'PUBLISH_STARTED' }).ok).toBe(false);
+  });
 });
 
 describe('state machine — penolakan', () => {
