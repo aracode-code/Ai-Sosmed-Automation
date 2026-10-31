@@ -9,7 +9,7 @@
 | Tipe | Aplikasi desktop lokal Windows, satu pengguna utama | VERIFIED (HLD §2.3) |
 | Deployment | Windows PC lokal; packaging Electron/Tauri belum dipilih | VERIFIED (HLD §4, LLD §19) |
 | Dokumen induk | `HLD.md` v1.0 dan `LLD.md` v1.0 (keduanya berstatus Draft) | VERIFIED |
-| Implementasi kode | **P1 + P2 + P3 mock + P4 backend + P4b/P4c otomatisasi + P5 mock + adapter YouTube API (A1–A7) + CLI preflight selesai** — 8 paket + `apps/local-api`, 340 test hijau | VERIFIED (commit `debdaaf` … `365643d`, 2026-10-31) |
+| Implementasi kode | **P1 + P2 + P3 mock + P4 backend + P4b/P4c otomatisasi + P5 mock + adapter YouTube API (A1–A7) + CLI preflight + dashboard (approval beraksi) selesai** — 8 paket + `apps/local-api` + `apps/dashboard`, 347 test hijau | VERIFIED (commit `debdaaf` … `406f1f5`, 2026-11-01) |
 
 ## Tujuan Produk
 
@@ -52,7 +52,7 @@ Mengotomatisasi alur produksi video dari perencanaan sampai publikasi lintas pla
 
 ```text
 apps/local-api            # Fastify + composition root: health, jobs, campaigns, approvals, schedules, accounts; worker loop
-apps/dashboard            # React 18 + Vite: shell + halaman Jobs/Campaigns/Approvals/Accounts (baca-saja), proxy ke API
+apps/dashboard            # React 18 + Vite: shell + halaman Jobs/Campaigns/Approvals (aksi approve/reject)/Accounts, proxy ke API
 packages/domain           # entitas, JobType/JobStatus, error class, state machine, approval binding, schedule config, kontrak SocialAdapter
 packages/database         # schema Drizzle 12 tabel, client, migrator SQL, repository (termasuk publish_attempts)
 packages/workflow         # dispatcher, worker loop, retry, recovery, handler PLAN_CONTENT + GENERATE_VIDEO + PUBLISH
@@ -109,8 +109,9 @@ Belum dibuat (P3 penuh–P7): adapter Flow nyata, `packages/integrations/*`, aks
 - Kesiapan uji live (`bbfe83a`): `corepack pnpm --filter @saa/local-api preflight:youtube` memeriksa platform, adapter, kredensial OAuth (status ada/tidak), `YOUTUBE_APP_STATUS`, privasi, database, akun + blob DPAPI, dan aset media; exit 0 lulus/peringatan, 1 ada FAIL, 2 konfigurasi/pemakaian. Tidak memanggil Google dan tidak mencetak rahasia.
 - Dokumen operasional (`365643d`): `docs/runbook.md` (perintah, env, prosedur smoke live + bukti, troubleshooting kode galat adapter, backup) dan `docs/security.md` (status kontrol aktual, celah auth/`Origin` local API, insiden, checklist P7). LLD §13 tetap kanonik.
 - Aplikasi tidak membaca `.env`; semua konfigurasi dari environment proses. Perintah script pakai `pnpm run <script> <flag>` tanpa `--` pemisah (argumen `--` ikut diteruskan dan ditolak CLI).
-- Dashboard (ADR-0009): `apps/dashboard` React 18 + Vite, dev di `localhost:5174` dengan proxy `/api` dan `/health` ke `127.0.0.1:4317`; **baca-saja** (tanpa aksi approve/pairing); tanpa router dan tanpa Tailwind pada iterasi ini; tidak ada test UI otomatis.
+- Dashboard (ADR-0009): `apps/dashboard` React 18 + Vite, dev di `localhost:5174` dengan proxy `/api` dan `/health` ke `127.0.0.1:4317`; halaman Jobs/Campaigns/Approvals/Accounts. **Aksi approve/reject** memakai binding dari `GET /api/v1/content/:id` (UI tidak menghitung hash); pairing akun tetap CLI. Tanpa router dan tanpa Tailwind pada iterasi ini; tidak ada test UI otomatis.
 - D7 dijawab sebagian oleh ADR-0009 U6: artefak build dashboard = `vite build` (`apps/dashboard/dist`, gitignored), typecheck = `tsc`, **lint belum dipilih**.
+- **Drift skema (2026-11-01):** `content_items` memakai PK `id` tunggal sementara LLD §5 menyebut `unique(id, version)`; versi baru untuk id yang sama tidak dapat disimpan (`UNIQUE constraint failed`). Saat ini satu baris per konten (versi selalu 1); revisi multi-versi menunggu keputusan owner (migrasi PK komposit vs tetapkan satu baris per id).
 - Dispatch jadwal: `ScheduleDispatchLoop` (default 5 s) hanya membuat job `PUBLISH` untuk **konten terbaru** campaign aktif dengan aset valid, akun terhubung, caption platform tersedia, dan approval terikat valid; kunci idempoten `publish:<contentId>:v<version>:<accountId>:<platform>` (ADR-0006).
 - Dispatch hanya berjalan bila `SCHEDULER_ENABLED=true`, worker aktif, dan adapter publikasi terdaftar; slot jadwal tetap maju walau tidak ada job terbuat (ADR-0006 S7).
 - Produksi konten: satu `PLAN_CONTENT` per slot dengan pipeline **kedalaman satu** — perencanaan berjalan atau konten terbaru tanpa job `PUBLISH` menahan slot berikutnya; publikasi dijalankan lebih dulu dalam tick yang sama (ADR-0007).

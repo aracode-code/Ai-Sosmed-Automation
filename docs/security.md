@@ -51,10 +51,10 @@ membuka token. Namun perlakukan tetap sebagai rahasia.
 - **Local API.** Tanpa autentikasi, siapa pun yang dapat menjalankan proses di mesin yang sama dapat
   memanggil route. Karena itu `APP_HOST` wajib loopback. Jangan aktifkan `APP_ALLOW_NETWORK=true`
   sampai autentikasi token dan validasi `Origin` tersedia.
-- **Dashboard (dev).** `apps/dashboard` adalah UI baca-saja yang dilayani Vite di `localhost:5174`
-  dan memanggil API lewat proxy loopback; UI tidak menyimpan token dan tidak memanggil DB.
-  Dev server Vite **bukan** proses produksi: jangan bind ke LAN (`--host`) atau memakainya di luar
-  mesin ini sampai autentikasi local API diterapkan.
+- **Dashboard (dev).** `apps/dashboard` adalah UI yang dilayani Vite di `localhost:5174`
+  dan memanggil API lewat proxy loopback (termasuk aksi approve/reject); UI tidak menyimpan token
+  dan tidak memanggil DB. Dev server Vite **bukan** proses produksi: jangan bind ke LAN (`--host`)
+  atau memakainya di luar mesin ini sampai autentikasi local API diterapkan.
 - **AI (planner).** Output model tidak dipercaya: schema validation, tool allowlist, budget langkah,
   timeout; tidak ada akses shell. Campaign/capability/caption divalidasi di luar model (ADR-0002).
 - **Adapter publikasi.** Setiap `PUBLISH` menulis `publish_attempts` (audit), memakai idempotency key,

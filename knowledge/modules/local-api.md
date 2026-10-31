@@ -35,7 +35,7 @@ loadConfig → createLogger → openDatabase → runMigrations → runStartupRec
 - Shutdown (`SIGINT`/`SIGTERM`): `dispatchLoop.stop()` → `worker.stop()` → `app.close()` → `db.close()` (dispatch lebih dulu agar tidak ada job baru).
 - `workerId = worker_<pid>`; satu worker per proses, satu job per siklus (ADR-0004 W8).
 
-## Route Terdaftar (16)
+## Route Terdaftar (17)
 
 | Area | Route |
 |---|---|
@@ -46,6 +46,7 @@ loadConfig → createLogger → openDatabase → runMigrations → runStartupRec
 | Schedules | `POST /api/v1/schedules`, `GET /api/v1/schedules`, `PATCH /api/v1/schedules/:id`, `POST /api/v1/scheduler/pause`, `POST /api/v1/scheduler/resume` |
 | Accounts | `GET /api/v1/accounts` (tanpa `secretRef`/`profileKey`) |
 | Content | `POST /api/v1/content` — 202 `{jobId, status:'queued'|'duplicate'}`; key `plan:manual:<campaignId>:<requestId|uuid>`; 404 campaign, 409 `CAMPAIGN_INACTIVE`/`CAMPAIGN_NO_PLATFORM`/`PLAN_IN_PROGRESS`/`PIPELINE_BUSY` |
+| Content detail | `GET /api/v1/content/:id?version=n` — konten (default versi tertinggi pada baris id itu), `campaign {platforms, approvalMode}`, `assets` tanpa `path`, `captionHash` dihitung server, `accounts` kandidat sesuai platform campaign; 404 konten/versi, 400 versi invalid |
 
 ## Konfigurasi Penting
 

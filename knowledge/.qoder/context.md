@@ -1,13 +1,13 @@
 # L0 — Active Context
 
-**Session:** SESSION-2026-10-31-2
-**Updated:** 2026-10-31T23:58:00+07:00
+**Session:** SESSION-2026-11-01-1
+**Updated:** 2026-11-01T00:30:00+07:00
 **Autonomy:** L1 (BALANCED)
-**Change class terakhir:** LARGE (paket aplikasi baru `apps/dashboard`; tanpa perubahan schema, route, atau dependensi backend)
+**Change class terakhir:** MEDIUM (satu route baca + aksi approval di UI; tanpa migrasi/dependensi baru)
 
 ## Current Task
 
-**Tidak ada task aktif.** Owner memilih opsi B: dashboard minimal sekarang. `apps/dashboard` (React 18 + Vite 6, baca-saja) dibuat dan diverifikasi 2026-10-31 (`8e27b27`, `04c5c23`).
+**Tidak ada task aktif.** Owner meminta fokus ke versi web; slice aksi approval selesai 2026-11-01 (`5e8184b`, `406f1f5`).
 
 | Fase | Commit | Isi |
 |---|---|---|
@@ -15,9 +15,10 @@
 | I–N | `8288450` … `8b8a698` | ADR-0008 dan slice A1–A5 adapter YouTube API |
 | O–S | `c310d1f` … `bb1ba57` | resume 308, kuota pra-unggah, route konten manual, rekonsiliasi restart, authStatus |
 | T–U | `bbfe83a`, `365643d` | CLI `preflight:youtube`, runbook + security docs |
-| V — dashboard | `8e27b27`, `04c5c23` | `apps/dashboard` baca-saja, ADR-0009, runbook UI, catatan keamanan dev server |
+| V | `8e27b27`, `04c5c23` | `apps/dashboard` baca-saja + ADR-0009 + docs |
+| W | `5e8184b`, `406f1f5` | `GET /api/v1/content/:id`, dialog tinjau + aksi approve/reject |
 
-Status fase: **P3 PARTIAL** (Flow/OD-1) · **P4 PARTIAL** (UI baca-saja ada, aksi approval belum) · **P4b/P4c COMPLETED** · **P5 PARTIAL** (A1–A7 DONE; unggahan nyata UNVERIFIED).
+Status fase: **P3 PARTIAL** (Flow/OD-1) · **P4 PARTIAL** (UI approval beraksi DONE; pairing UI belum) · **P4b/P4c COMPLETED** · **P5 PARTIAL** (A1–A7 DONE; unggahan nyata UNVERIFIED).
 
 ## Konteks Minimum
 
@@ -28,8 +29,8 @@ Status fase: **P3 PARTIAL** (Flow/OD-1) · **P4 PARTIAL** (UI baca-saja ada, aks
 
 ## Fakta Aktif (terverifikasi)
 
-- 8 paket workspace + `apps/local-api` + `apps/dashboard`; **133 file TS/TSX**, 42 file test, **340 test hijau** (commit `04c5c23`); typecheck 10 paket + `tests/tsconfig.json` PASS.
-- Migrasi tetap 3 berkas; 12 tabel; **16 route**; UI tidak menambah route.
+- 8 paket workspace + `apps/local-api` + `apps/dashboard`; **135 file TS/TSX**, 43 file test, **347 test hijau** (commit `406f1f5`); typecheck 10 paket + `tests/tsconfig.json` PASS.
+- Migrasi tetap 3 berkas; 12 tabel; **17 route**.
 - Rantai otomatis: slot → `PLAN_CONTENT` → `GENERATE_VIDEO` → media valid → `PUBLISH` + produksi slot berikutnya; publikasi lebih dulu dalam satu tick.
 - Pipeline kedalaman satu: slot ditahan bila ada `PLAN_CONTENT` non-terminal atau konten terbaru belum punya job `PUBLISH`.
 - Kunci idempoten: `plan:<scheduleId>:<slot>`, `publish:<contentId>:v<version>:<accountId>:<platform>`, `plan:manual:<campaignId>:<requestId|uuid>`, `publish:<jobId>`.
@@ -38,22 +39,24 @@ Status fase: **P3 PARTIAL** (Flow/OD-1) · **P4 PARTIAL** (UI baca-saja ada, aks
 - **Kredensial (E1):** token YouTube di DPAPI `%LOCALAPPDATA%\saa\credentials\youtube-<accountId>.bin`; DB hanya `secret_ref` + `connection_status`; OAuth client hanya dari env; aplikasi tidak membaca `.env`.
 - **Konfigurasi (E1):** `YOUTUBE_ADAPTER=off|mock|api`, `YOUTUBE_UPLOAD_PRIVACY`, `YOUTUBE_APP_STATUS=testing|production|unknown` (status *Internal* diwakili `production`).
 - **Preflight (E1, `bbfe83a`):** `preflight:youtube` — tanpa jaringan, tanpa mencetak rahasia; exit 0 lulus/peringatan, 1 FAIL, 2 konfigurasi.
-- **Dashboard (E1, `8e27b27`):** `apps/dashboard` React 18 + Vite 6, dev `localhost:5174`, proxy `/api` + `/health` → `127.0.0.1:4317`; halaman Jobs/Campaigns/Approvals/Accounts **baca-saja**; tanpa router, tanpa Tailwind, tanpa test UI; `getJson` memetakan respons non-JSON ≥500 menjadi "Local API tidak merespons".
+- **Dashboard (E1, `8e27b27`, `406f1f5`):** `apps/dashboard` React 18 + Vite 6, dev `localhost:5174`, proxy `/api` + `/health` → `127.0.0.1:4317`; halaman Jobs/Campaigns/Approvals/Accounts; **aksi approve/reject** memakai binding dari `GET /api/v1/content/:id` (UI tidak menghitung hash), diblokir tanpa aset `valid`/akun `connected`, `APPROVAL_MISMATCH` → minta muat ulang. Tanpa router, tanpa Tailwind, tanpa test UI.
+- **Endpoint detail konten (E1, `5e8184b`):** `GET /api/v1/content/:id?version=n` → konten (default versi tertinggi pada baris itu), `campaign {platforms, approvalMode}`, `assets` tanpa `path`, `captionHash` server-side, `accounts` kandidat; 7 test.
+- **Drift skema (2026-11-01):** `content_items` PK `id` tunggal vs LLD §5 `unique(id, version)` → versi baru untuk id yang sama gagal; `version` saat ini selalu 1; menunggu keputusan owner.
 - **D7 (E1, ADR-0009 U6):** build UI = `vite build` (`dist` gitignored), typecheck = `tsc`; **lint belum dipilih**.
 - **pnpm (E1):** argumen script diteruskan apa adanya; jangan memakai `--` pemisah. Root `typecheck` memakai `-r --if-present` sehingga paket UI ikut diverifikasi.
 
-## Keputusan Sesi Ini (dashboard)
+## Keputusan Sesi Ini (aksi approval)
 
-1. UI hanya lewat proxy loopback; tidak menyentuh DB dan tidak menyimpan token (ADR-0009 U2).
-2. Tanpa router & Tailwind pada iterasi pertama; dicatat sebagai penyimpangan LLD yang dapat ditinjau (U3/U4).
-3. Aksi approve/reject ditunda karena binding (`assetSha256`, `captionHash`, `accountId`, `platform`) belum diekspos API; menghitung hash di browser akan menduplikasi `hashCaption` (U7).
-4. Tanpa test UI otomatis; verifikasi di browser sungguhan (U8).
+1. Binding approval dibaca dari server (`captionHash`, `assetSha256`), UI hanya memantulkannya; server tetap menghitung ulang saat keputusan dikirim.
+2. Keputusan diblokir bila belum ada aset `valid` atau akun `connected` — mencegah approval yang tidak dapat dipublikasikan.
+3. `GET /api/v1/content/:id` tidak mengembalikan `path` aset maupun `secretRef` akun; akun kandidat difilter berdasarkan platform campaign.
+4. Tidak ada migrasi schema: drift PK `content_items` dicatat sebagai keputusan owner, bukan diperbaiki sepihak.
 
 ## Langkah Berikutnya
 
-1. Buka UI: `corepack pnpm start` + `corepack pnpm ui`.
-2. Kandidat kerja UI berikutnya: endpoint baca binding approval → aksi approve/reject di halaman Approvals → `GET /dashboard/summary`.
-3. Menunggu owner: smoke live YouTube (`docs/runbook.md` §4), job rekonsiliasi terjadwal, OD-1 Flow, lint (D7), `AGENTS.md`.
+1. Buka UI: `corepack pnpm start` + `corepack pnpm ui`; alur approval ada di tab Approvals.
+2. Kandidat berikutnya: `GET /dashboard/summary` (LLD §6) + kartu ringkasan, filter/pencarian job, atau desain pairing di UI.
+3. Menunggu owner: keputusan revisi multi-versi konten, smoke live YouTube (`docs/runbook.md` §4), job rekonsiliasi terjadwal, OD-1 Flow, lint (D7), `AGENTS.md`.
 
 ## Asumsi Terbuka (jangan dibangun di atasnya tanpa verifikasi)
 
@@ -63,5 +66,6 @@ Status fase: **P3 PARTIAL** (Flow/OD-1) · **P4 PARTIAL** (UI baca-saja ada, aks
 - Onboarding nyata (browser + consent Google) belum pernah dijalankan.
 - DPAPI hanya teruji di Windows 10 host ini; OAuth/refresh/resume hanya dengan `fetch` palsu.
 - Adapter DeepSeek belum diuji live; sumber API key belum diputuskan.
-- Dashboard hanya diuji di Chromium desktop (viewport ~818px, layout sidebar); perilaku di resolusi lain belum diverifikasi.
-- Flow nyata, aksi approval di UI, dan lint belum ada.
+- Dashboard hanya diuji di Chromium desktop (viewport ~818px); perilaku di resolusi lain belum diverifikasi.
+- Revisi konten multi-versi tidak dapat disimpan (PK `content_items` = `id`); `version` selalu 1 sampai owner memutuskan.
+- Flow nyata dan lint belum ada; pairing akun tetap CLI.

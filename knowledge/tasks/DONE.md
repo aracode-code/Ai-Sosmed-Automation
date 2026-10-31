@@ -1,5 +1,14 @@
 # DONE
 
+## 2026-11-01 — SESSION-2026-11-01-1
+
+- **W1 + W2 — aksi approval di versi web** (`5e8184b`, `406f1f5`).
+  - `GET /api/v1/content/:id?version=n`: konten (default versi tertinggi pada baris itu), campaign (`platforms`, `approvalMode`), ringkasan aset **tanpa path**, `captionHash` dihitung server, akun kandidat sesuai platform campaign; 404 konten/versi, 400 versi invalid. 7 test.
+  - `apps/dashboard`: `sendJson`, `ContentDetail`/`AssetSummary`/`ApprovalRecord`, `ApprovalDialog` (pilih aset `valid` + akun `connected`, alasan, kirim binding), tombol *Tinjau* di Approvals, refresh otomatis setelah keputusan, pesan khusus `APPROVAL_MISMATCH`, tombol diblokir tanpa aset/akun.
+  - Bukti: typecheck 10 paket exit 0 · **43 file, 347 test** · build UI exit 0 (163,24 kB) · approve **dan** reject diverifikasi di browser pada DB demo dengan bukti `approvals` + `content_items.approval_status` + audit.
+  - Temuan: `content_items` PK `id` tunggal vs LLD §5 `unique(id, version)` → revisi multi-versi tidak bisa disimpan; keputusan owner dicatat di BACKLOG.
+  - Tidak dikerjakan: pairing di UI, `GET /dashboard/summary`, smoke live YouTube.
+
 ## 2026-10-31 — SESSION-2026-10-31-2
 
 - **Dashboard baca-saja `apps/dashboard`** (`8e27b27`, `04c5c23`).

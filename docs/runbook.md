@@ -147,7 +147,7 @@ Jangan nyatakan P5 COMPLETED sebelum seluruh baris bukti di atas terisi.
 
 Jangan menyalin berkas SQLite saat server berjalan.
 
-### Dashboard lokal (baca-saja)
+### Dashboard lokal
 
 ```bash
 corepack pnpm start   # terminal 1 — Local API 127.0.0.1:4317
@@ -155,9 +155,11 @@ corepack pnpm ui      # terminal 2 — http://localhost:5174 (proxy /api → 431
 ```
 
 - Halaman: **Jobs** (filter status + detail payload), **Campaigns** (daftar + konten per campaign),
-  **Approvals** (agregasi konten `pending`), **Accounts** (status koneksi).
-- Bersifat baca-saja: setujui/tolak belum tersedia karena binding approval memerlukan
-  `assetSha256`, `captionHash`, `accountId`, dan `platform` yang belum diekspos endpoint mana pun.
+  **Approvals** (konten `pending` + aksi tinjau), **Accounts** (status koneksi).
+- **Aksi approval**: tombol *Tinjau* membuka dialog yang memuat versi konten, aset, `captionHash`,
+  dan akun kandidat dari `GET /api/v1/content/:id`; keputusan dikirim ke `approve`/`reject` dengan
+  binding tersebut. Keputusan diblokir bila belum ada aset `valid` atau akun `connected`.
+  Bila konten berubah di antara buka dialog dan kirim, API menolak dengan `APPROVAL_MISMATCH`.
 - Pairing/reauth tetap lewat CLI (`pair:youtube`).
 - Proxy dev hanya mengarah ke `127.0.0.1:4317`; jika Local API mati, halaman menampilkan
   "Local API tidak merespons".
@@ -166,6 +168,6 @@ corepack pnpm ui      # terminal 2 — http://localhost:5174 (proxy /api → 431
 
 - Local API belum memiliki autentikasi token/Origin check (LLD §13.2) — jangan aktifkan `APP_ALLOW_NETWORK`.
 - Job `VERIFY_PUBLICATION`/`RECONCILE_PUBLICATION` terjadwal belum ada; rekonsiliasi hanya berjalan inline saat `PUBLISH` dan saat restart (via `externalPostId` tersimpan).
-- Dashboard masih baca-saja: aksi approve/reject dan pairing belum ada di UI.
+- Dashboard: aksi approve/reject tersedia; pairing akun tetap lewat CLI.
 - Adapter Flow masih mock; publikasi platform lain (P6) belum ada.
 - Prosedur ini hanya divalidasi untuk Windows.
