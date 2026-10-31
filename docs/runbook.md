@@ -131,6 +131,7 @@ Jangan nyatakan P5 COMPLETED sebelum seluruh baris bukti di atas terisi.
 | `flow:login` berhenti (exit 134/OOM) tetapi jendela Chromium masih terbuka | proses Node mati, browser menjadi yatim | selesaikan login di jendela itu lalu tutup; bila CLI tidak berjalan lagi, tunggu lock kedaluwarsa (10 menit) sebelum menjalankan `flow:login` |
 | `.worker-lock.json` menahan profil Flow | sesi sebelumnya mati tanpa melepas lock | hapus hanya bila **tidak ada** proses `chrome.exe` dengan `--user-data-dir` profil Flow |
 | `flow:login` melaporkan "halaman belum selesai dimuat" | SPA Flow lambat / jaringan lambat | muat ulang halaman di jendela tersebut; login tetap bisa dilakukan |
+| Login berakhir di `flow.google.com/about` | sesi belum valid atau akun belum punya akses Flow | login ulang dan pastikan studio tampil; bila tetap `/about`, catat sebagai blokir akses (OD-1) |
 | `Gagal: konfigurasi tidak valid … APP_HOST` | host non-loopback tanpa izin | pakai `127.0.0.1` atau set `APP_ALLOW_NETWORK=true` secara sadar |
 
 ## 6. Operasional harian
@@ -171,13 +172,18 @@ corepack pnpm ui      # terminal 2 — http://localhost:5174 (proxy /api → 431
 ## 7. Login Google Flow (akses awal)
 
 ```bash
-corepack pnpm --filter @saa/local-api flow:login --check   # profil + Chromium, tanpa membuka jendela
-corepack pnpm --filter @saa/local-api flow:login           # buka Chromium untuk login manual
+corepack pnpm --filter @saa/local-api flow:login --check   # profil + browser, tanpa membuka jendela
+corepack pnpm --filter @saa/local-api flow:login           # buka browser untuk login manual
+corepack pnpm --filter @saa/local-api flow:inspect         # petakan DOM + tangkapan layar (read-only)
 ```
 
-- Jendela Chromium memakai profil persisten `%LOCALAPPDATA%\saa\browser\flow-profile`
-  (override: `FLOW_PROFILE_DIR` absolut). Login sendiri di jendela itu, lalu **tutup jendela**;
-  sesi tersimpan otomatis di profil.
+- Flow berada di **`https://flow.google.com/`**; URL lama `labs.google/fx/tools/flow` mengalihkan ke sana.
+- Login **wajib memakai Chrome/Edge terpasang** (otomatis dideteksi; `FLOW_BROWSER_CHANNEL` untuk menimpa).
+  Chromium bawaan Playwright ditolak Google dengan pesan "browser or app may not be secure" — jangan dicoba
+  diakali (tidak ada stealth/spoof/cookie-copy).
+- Setelah login, pastikan URL **tetap di `flow.google.com`** dan terlihat studio Flow (kolom prompt/daftar project).
+  Bila yang muncul `/about` (halaman marketing: "Create with Google Flow", "Try in Google Flow"), sesi belum valid
+  atau akun belum punya akses Flow.
 - Aplikasi tidak mengisi kredensial, tidak memecahkan CAPTCHA, dan tidak menembus verifikasi apa pun.
   Bila Flow menampilkan tantangan, pekerjaan berhenti (`NEEDS_ATTENTION`).
 - Satu profil hanya boleh dipakai satu proses. `flow:login` memegang lock; bila ada worker yang

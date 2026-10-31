@@ -13,10 +13,12 @@
 | F2 | Profil persisten di `%LOCALAPPDATA%\saa\browser\flow-profile`; override hanya lewat `FLOW_PROFILE_DIR` **absolut** | Konsisten dengan lokasi kredensial DPAPI; di luar repo sehingga tidak pernah ter-commit; profil berisi cookie sesi Google | Butuh multi-profil/multi-akun (satu profil = satu akun Google) |
 | F3 | Login **manual** oleh pemilik akun di jendela yang dibuka `flow:login`; aplikasi tidak mengisi kredensial, tidak melewati CAPTCHA, tidak menyentuh verifikasi | Batas keamanan §13 dan kebijakan layanan; tantangan apa pun → berhenti `NEEDS_ATTENTION` | Tidak ada — batas ini permanen |
 | F4 | Satu profil = satu proses. `.worker-lock.json` diambil sebelum browser dibuka dan dilepas pada semua jalur (sukses, launch gagal, navigasi gagal, browser ditutup) | Mencegah dua proses menulis profil yang sama (korupsi profil, sesi bertabrakan) | Butuh banyak worker paralel → profil terpisah per worker |
-| F5 | URL default `https://labs.google/fx/tools/flow`, dapat diganti lewat `openFlowSession({ url })` | URL Flow belum diverifikasi dari akun nyata; **UNKNOWN** apakah stabil atau butuh parameter produk | URL berubah / tersedia jalur lain |
+| F5 | URL default **`https://flow.google.com/`** (bukan lagi `labs.google/fx/tools/flow`), dapat diganti lewat `openFlowSession({ url })`; `flow:inspect --url` dibatasi ke host `flow.google.com` | Terverifikasi 2026-11-01: URL lama mengalihkan ke `flow.google.com/about`; rute tanpa sesi valid juga berakhir di `/about` | URL berubah / tersedia jalur lain |
 | F6 | Slice ini **tidak** memuat adapter generasi: selektor/DOM Flow belum dipetakan dan tidak boleh ditulis tanpa bukti | Menulis selektor tanpa akun nyata = kode fiktif; urutan dipilih owner: login dulu, lalu petakan DOM, baru adapter | — |
 | F7 | Login berjalan **headed** (`headless: false`, `viewport: null`, `--start-maximized`) | Login Google tidak dapat diselesaikan headless | Adapter generasi mungkin boleh headless — UNKNOWN |
 | F8 | Navigasi memakai `domcontentloaded` + timeout 60 s; `flow:login` memakai mode **toleran** (jendela tetap terbuka bila navigasi lambat, `navigationError` dilaporkan). Adapter generasi memakai mode ketat | Percobaan pertama memakai `load` penuh → timeout 30 s lalu sesi ditutup; Flow adalah SPA berat | Flow berubah menjadi halaman ringan |
+| F9 | Browser memakai **build resmi terpasang** (`channel: chrome`, fallback `msedge`, terakhir `chromium` bawaan); `FLOW_BROWSER_CHANNEL` menimpa | Google menolak sign-in di Chromium for Testing ("browser or app may not be secure"). Memakai Chrome/Edge sesuai saran pesan; **dilarang** stealth/UA-spoof/cookie-copy | Mesin tanpa Chrome/Edge |
+| F10 | `flow:inspect` (read-only) memetakan DOM + tangkapan layar untuk memastikan sesi valid sebelum adapter ditulis | Menulis selektor tanpa bukti = kode fiktif; `/about` menandakan sesi belum login/akun tanpa akses | — |
 
 ## Konsekuensi
 
@@ -30,9 +32,9 @@
 
 - Commit `fd62314`: `packages/browser-engine/src/flow-session.ts` (`resolveFlowProfileDir`, `openFlowSession`, `checkFlowBrowser`), `apps/local-api/src/flow-login.ts`, script `flow:login`.
 - Commit `260ac52`: navigasi `domcontentloaded` + `gotoTimeoutMs` (60 s) + `tolerateGotoFailure` untuk login; 11 test sesi.
-- Test: `packages/browser-engine/src/flow-session.test.ts` — 11 test (default/override/relatif ditolak, lock dipegang & dilepas, sesi kedua `ProfileBusyError`, launch gagal, navigasi gagal ketat, navigasi gagal toleran).
-- `corepack pnpm typecheck` exit 0 (10 paket) · `corepack pnpm vitest run --no-file-parallelism` **44 file / 358 test** hijau.
-- Catatan lingkungan: `pnpm test` paralel default gagal OOM saat mesin kekurangan commit charge (Chromium + Chrome pengguna); mode tanpa paralelisme lulus — bukan kegagalan kode.
-- `corepack pnpm --filter @saa/local-api flow:login --check` → profil `C:\Users\sayaa\AppData\Local\saa\browser\flow-profile`, Chromium `...\ms-playwright\chromium-1248\chrome-win64\chrome.exe`, exit 0.
-- Percobaan `flow:login` nyata: jendela Chromium terbuka dan memuat "Google Flow — Tools"; login manual **belum** diselesaikan.
-- Belum: login nyata, pemetaan DOM Flow, adapter generasi, smoke satu video.
+- Commit `f2e586e`: deteksi Chrome/Edge terpasang + `FLOW_BROWSER_CHANNEL`; 18 test sesi. Chromium bawaan ditolak Google pada sign-in ("browser or app may not be secure") — diverifikasi pada sesi nyata.
+- Commit `5093c28`: `flow:inspect` (outline DOM + screenshot, read-only) dan koreksi `DEFAULT_FLOW_URL` ke `https://flow.google.com/`.
+- Test: `packages/browser-engine/src/flow-session.test.ts` — 18 test.
+- `corepack pnpm typecheck` exit 0 (10 paket) · `flow:login --check` → `chrome — C:\Program Files\Google\Chrome\Application\chrome.exe`.
+- `flow:inspect` pada sesi tersimpan (2026-11-01): URL berakhir di `https://flow.google.com/about`, judul "Google Flow — AI Creative Studio…", **0 input**, 60 tombol marketing ("Create with Google Flow", "Try in Google Flow") → **sesi belum terautentikasi / akun belum punya akses studio**; bukti di `data/flow-inspect-*.json` + `.png`.
+- Belum: login studio nyata (bukan `/about`), pemetaan DOM studio, adapter generasi, smoke satu video.

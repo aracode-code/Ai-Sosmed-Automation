@@ -13,7 +13,8 @@
 | `packages/browser-engine/src/media.ts` | `validateMediaFile`: containment → ukuran → magic `ftyp` → sha256 → probe opsional |
 | `packages/browser-engine/src/probe.ts` | `unavailableProbe`, `createFfprobeProbe` (execFile, timeout 5 s, gagal → `available:false`) |
 | `packages/browser-engine/src/profile-lock.ts` | `acquireProfileLock`, `ProfileBusyError` (`RESOURCE_BUSY`) |
-| `packages/browser-engine/src/flow-session.ts` | `resolveFlowProfileDir`, `checkFlowBrowser`, `openFlowSession` — profil persisten + lock + launcher Playwright yang dapat disuntikkan (ADR-0010) |
+| `packages/browser-engine/src/flow-session.ts` | `resolveFlowProfileDir`, `detectInstalledBrowser`, `resolveFlowBrowserChannel`, `checkFlowBrowser`, `openFlowSession` — profil persisten + lock + launcher Playwright (ADR-0010) |
+| `packages/browser-engine/src/flow-inspect.ts` | `collectPageOutline` — outline input/tombol/heading + deteksi halaman login, dievaluasi di halaman (read-only) |
 
 Dependensi: `@saa/domain` + `playwright` (Chromium di `%LOCALAPPDATA%\ms-playwright`; ADR-0010 F1).
 
@@ -49,7 +50,9 @@ Probe yang gagal dieksekusi menandai `available:false` dan **tidak** menggagalka
 ## Sesi Profil Flow (ADR-0010)
 
 - `resolveFlowProfileDir()`: default `%LOCALAPPDATA%\saa\browser\flow-profile` (atau `~/.local/share/saa/browser/flow-profile` di non-Windows); `FLOW_PROFILE_DIR` hanya diterima bila **absolut**, selain itu `VALIDATION`.
-- `openFlowSession({ profileDir, url?, lockOwnerId?, launcher?, gotoTimeoutMs?, tolerateGotoFailure? })`: ambil lock profil → buka Chromium persisten (`headless:false`, `viewport:null`, `--start-maximized`) → `goto` dengan `waitUntil:'domcontentloaded'` (timeout 60 s, Flow adalah SPA) → kembalikan `{ page, close, waitForClose, releaseLock, lockPath, navigationError }`.
+- `detectInstalledBrowser()` / `resolveFlowBrowserChannel()`: pilih `chrome` bila terpasang, lalu `msedge`, fallback `chromium`; `FLOW_BROWSER_CHANNEL=chrome|msedge|chromium` menimpa. Chromium bawaan ditolak Google pada sign-in (F9).
+- `DEFAULT_FLOW_URL = https://flow.google.com/` (F5); `flow:inspect --url` dibatasi ke host itu.
+- `openFlowSession({ profileDir, url?, lockOwnerId?, channel?, launcher?, gotoTimeoutMs?, tolerateGotoFailure? })`: ambil lock profil → buka browser persisten headed → `goto` `domcontentloaded` (timeout 60 s) → kembalikan `{ page, close, waitForClose, releaseLock, lockPath, channel, navigationError }`.
 - Mode **toleran** (`tolerateGotoFailure: true`, dipakai `flow:login`) mempertahankan jendela bila navigasi lambat/gagal dan mengisi `navigationError`; mode ketat (default, untuk adapter) menutup browser + `TRANSIENT_NETWORK`.
 - Jalur gagal: launcher gagal → lock dilepas (`UNKNOWN`); `goto` gagal → browser ditutup + lock dilepas (`TRANSIENT_NETWORK`); `close()` selalu melepas lock.
 - Sesi kedua selama lock aktif → `ProfileBusyError` (`RESOURCE_BUSY`).
@@ -61,8 +64,9 @@ Probe yang gagal dieksekusi menandai `available:false` dan **tidak** menggagalka
 ```bash
 corepack pnpm --filter @saa/browser-engine typecheck
 corepack pnpm vitest run packages/browser-engine   # 23 test (media, generator, lock, flow-session)
-corepack pnpm --filter @saa/local-api flow:login --check   # cek profil + Chromium tanpa membuka jendela
+corepack pnpm --filter @saa/local-api flow:login --check   # cek profil + browser tanpa membuka jendela
 corepack pnpm --filter @saa/local-api flow:login           # login manual, tunggu jendela ditutup
+corepack pnpm --filter @saa/local-api flow:inspect [--url https://flow.google.com/…] [--wait ms]
 ```
 
 ## Belum Ada (P3 penuh — tertahan OD-1)
