@@ -34,13 +34,13 @@
   "memory_version": 20,
   "context_version": 20,
   "skill_registry_version": 0,
-  "current_task": "NONE — sesi Flow login + peta DOM studio DONE; adapter generasi & smoke (perlu kredit) belum",
+  "current_task": "NONE — peta DOM + alur generasi/unduh Flow DONE; adapter FlowVideoGenerator belum ditulis",
   "last_task": "F: sesi profil Flow persisten + CLI flow:login (ADR-0010)",
   "last_session_id": "SESSION-2026-11-01-2",
   "last_scan": "2026-11-01T00:40:00+07:00",
   "last_index": "2026-11-01T00:40:00+07:00",
-  "last_updated": "2026-11-01T06:25:00+07:00",
-  "last_validation": "2026-11-01 — sesi Flow terautentikasi (akun owner) dibaca via CDP attach read-only: studio https://flow.google.com/project/<uuid>, prompt ProseMirror, tombol Mulai pembuatan (disabled), reCAPTCHA Enterprise; tanpa klik Generate",
+  "last_updated": "2026-11-01T06:40:00+07:00",
+  "last_validation": "2026-11-01 — dua generasi uji nyata (izin owner): gambar via Nano Banana 2.1; video via Veo 3.1 Lite (9,96 s) lalu diunduh Ukuran asli 2.923.700 byte ftyp mp42 ke data/media/flow-smoke; selektor prompt/kirim/unduh terverifikasi",
   "last_test_status": "358 passed / 0 failed (vitest --no-file-parallelism; flow-session 18/18)",
   "last_command": "coba jalankan lagi",
   "last_command_status": "PARTIAL",
@@ -48,5 +48,5 @@
   "dirty": true,
   "dirty_reason": "AGENTS.md masih untracked (keputusan owner belum diambil)",
   "drift_detected": false,
-  "next_step": "Implementasi FlowVideoGenerator memakai peta DOM (ADR-0010): isi prompt ProseMirror → tunggu button[aria-label=Mulai pembuatan] aktif → klik → tunggu render → unduh. Smoke memakai kredit akun → butuh izin owner. Kontrol unduh/progres belum dipetakan."
+  "next_step": "Implementasi FlowVideoGenerator di @saa/browser-engine memakai peta ADR-0010 (prompt eksplisit video, tunggu Hentikan hilang, unduh via menu Ukuran asli, validateMediaFile), wiring FLOW_ADAPTER, lalu smoke melalui aplikasi (perlu kredit + izin owner)."
 }

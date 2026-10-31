@@ -58,4 +58,20 @@ Konsekuensi untuk adapter:
 - Label UI **dilokalkan** (Indonesia). Selektor harus toleran locale (cocokkan ID+EN) atau memakai anchor struktural (`ProseMirror`, ikon `arrow_forward`) — jangan hardcode satu bahasa.
 - Tidak ada `data-testid`; andalkan `aria-label`/role.
 - Ada iframe **reCAPTCHA Enterprise** → tantangan apa pun = `SECURITY_CHALLENGE` → `NEEDS_ATTENTION`, tanpa bypass.
-- Belum dipetakan (butuh satu pembuatan nyata): tombol/unduhan hasil, progres render, kuota kredit. Smoke akan memakai kredit akun → menunggu izin owner.
+
+### Alur generasi & unduhan (E1, dua pembuatan uji nyata)
+
+| Tahap | Fakta terverifikasi |
+|---|---|
+| Jenis media | Prompt menentukan model: prompt gambar → **Nano Banana 2.1** (2 gambar, aria `Model default pembuatan gambar`); prompt "Buat video 5 detik …" → **Veo 3.1 - Lite** (1 video, aria `Model default pembuatan video`). Tidak ada tombol mode terpisah yang dapat ditemukan |
+| Kirim | `button[aria-label="Mulai pembuatan"]` **disabled** saat prompt kosong, aktif setelah teks diketik; saat proses berjalan tombol berubah menjadi **"Hentikan"** lalu hilang ketika selesai |
+| Hasil video | elemen `<video>` dengan `src` bertanda tangan `https://flow.google.com/asb/…` (durasi terukur **9,96 s**) — jangan andalkan URL ini untuk unduh |
+| Unduhan | kartu → `button[aria-label="Opsi lainnya"]` → menuitem **Download** → submenu kualitas: `270p`, `GIF Animasi`, `720p`, **`Ukuran asli`**, `1080p (Upgrade)`, `4K (Upgrade)` |
+| Bukti unduh | "Ukuran asli" → **2.923.700 byte**, nama `<Judul_slug>_<8 hex>.mp4`, `ftyp mp42` (valid MP4) |
+| Menu kartu lain | Favorit, Gunakan kembali perintah, Tambahkan ke adegan/perintah, Salin, Ganti nama, Bagikan, **Publikasikan ke YouTube**, Tetapkan sampul, Laporkan, Pindahkan ke sampah |
+| Setelan agen project | "Konfirmasi sebelum membuat": `Selalu` (default) / `Jangan pernah` (agen membuat media dan **otomatis memotong kredit**) |
+
+Catatan penting:
+- **"Publikasikan ke YouTube"** ada di Flow — alternatif jalur publikasi tanpa API; keputusan owner bila ingin dipakai (bukan bagian adapter saat ini).
+- Kuota kredit dan biaya per model **belum** terukur; pembuatan uji memakai kredit akun owner.
+- Unduhan harus lewat UI (menu), bukan URL bertanda tangan.

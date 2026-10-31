@@ -19,21 +19,26 @@ _Tidak ada task aktif._ Owner meminta akses & menjalankan Google Flow; dipilih *
 
 | Bukti | Hasil |
 |---|---|
-| Commit | `fd62314` sesi Flow + CLI `flow:login` + dependensi Playwright |
-| Dependensi | `playwright` di `@saa/browser-engine`; Chromium `...\ms-playwright\chromium-1248\chrome-win64\chrome.exe` (ada) |
+| Commit | `fd62314` sesi+login · `260ac52` navigasi · `f2e586e` channel Chrome · `5093c28` `flow:inspect`+URL · `36484ee` peta DOM |
+| Dependensi | `playwright`; Chrome terpasang dipakai (`channel: chrome`) |
 | Typecheck | PASS — 10 paket + `tests/tsconfig.json` (exit 0) |
-| Test | `corepack pnpm test` → **44 file, 357 passed / 0 failed** (+10) |
-| Smoke `--check` | profil `C:\Users\sayaa\AppData\Local\saa\browser\flow-profile`, Chromium terdeteksi, exit **0** |
-| Test sesi | lock dipegang selama sesi & dilepas saat `close`; sesi kedua → `ProfileBusyError`; launcher gagal / `goto` gagal → lock dilepas & browser ditutup |
+| Test | `flow-session.test.ts` **18/18**; suite penuh lulus 358 test dengan `--no-file-parallelism` (paralel default OOM di mesin ini) |
+| Login | Berhasil manual di Chrome profil khusus; sesi land di studio `flow.google.com` |
+| Generasi uji 1 | Prompt gambar → **2 gambar** (Nano Banana 2.1), bukan video |
+| Generasi uji 2 | Prompt "Buat video 5 detik …" → **1 video Veo 3.1 Lite**, durasi 9,96 s |
+| Unduhan | Kartu ⋮ → Download → **Ukuran asli** → `Red_apple_on_wooden_table_6cc18a29.mp4`, **2.923.700 byte**, `ftyp mp42` (tersimpan di `data/media/flow-smoke/`) |
+| Bukti JSON | `data/flow-studio-*.json`, `data/flow-generate-*.json`, `data/flow-video-run-*.json` + PNG |
 
 ## Temuan yang Mengikat
 
 | Temuan | Dampak |
 |---|---|
-| Login Google tidak dapat diselesaikan headless | `flow:login` wajib headed; adapter generasi nanti juga diasumsikan headed sampai dibuktikan |
-| Profil memuat cookie sesi | Diperlakukan sebagai material sensitif; tidak disalin ke repo/mesin lain tanpa kesadaran |
-| Satu profil = satu proses | `openFlowSession` memakai `.worker-lock.json`; worker Flow nanti harus memakai lock yang sama |
-| URL Flow belum diverifikasi dari akun nyata | Default `https://labs.google/fx/tools/flow`, dapat diganti lewat parameter; status UNKNOWN |
+| Chromium for Testing ditolak Google saat sign-in | Wajib `channel: chrome`/`msedge`; tanpa stealth/cookie-copy |
+| Label UI berbahasa Indonesia, tanpa `data-testid` | Selektor harus toleran locale atau memakai anchor struktural |
+| Prompt menentukan jenis media (bukan tombol mode) | Adapter harus meminta "video" secara eksplisit agar Veo dipakai |
+| Unduhan lewat menu kualitas, bukan URL bertanda tangan | Adapter memilih "Ukuran asli" via menu kartu |
+| Flow punya menu **Publikasikan ke YouTube** | Alternatif jalur publikasi; keputusan owner, bukan bagian adapter sekarang |
+| reCAPTCHA Enterprise ada di halaman | Tantangan = `SECURITY_CHALLENGE` → `NEEDS_ATTENTION` |
 
 ## Impact Map
 
@@ -56,8 +61,8 @@ _Tidak ada gelombang aktif._ `state.open_wave = null`.
 
 ## Next Session Handoff
 
-1. Owner sudah login (akun terdeteksi); studio di `https://flow.google.com/`, project di `/project/<uuid>`.
-2. Selektor inti (E1): prompt `div[role="textbox"][contenteditable="true"]` (ProseMirror, aria-label ID "Apa yang ingin Anda buat?"); kirim `button[aria-label="Mulai pembuatan"]` (disabled saat kosong); lampiran `Tambahkan bahan ke kotak perintah`; setelan `Setelan`.
-3. Berikutnya: implementasi `FlowVideoGenerator` (isi prompt → tunggu tombol aktif → klik → tunggu render → unduh) dengan selektor toleran locale; tombol/kontrol unduh **belum** dipetakan.
-4. Smoke satu video **memakai kredit akun** dan dapat memicu reCAPTCHA → perlu izin owner sebelum dijalankan; tantangan = `SECURITY_CHALLENGE`/`NEEDS_ATTENTION`.
-5. Jangan nyatakan P3 COMPLETED sebelum smoke pada akun sah berhasil.
+1. Selektor inti (E1, ADR-0010): prompt `div[role="textbox"][contenteditable="true"]` (ProseMirror), kirim `button[aria-label="Mulai pembuatan"]` (aktif setelah teks), hasil `<video src="/asb/...">`, unduhan lewat kartu → `Opsi lainnya` → `Download` → `Ukuran asli`.
+2. Berikutnya: implementasi `FlowVideoGenerator` di `@saa/browser-engine` memakai peta itu (prompt eksplisit "video" agar Veo dipakai; tunggu tombol Hentikan hilang; unduh via menu; validasi dengan `validateMediaFile`), lalu sambungkan ke handler `GENERATE_VIDEO` via `FLOW_ADAPTER=real|mock`.
+3. Smoke melalui aplikasi (bukan skrip ad-hoc) akan memakai kredit lagi — minta izin owner sebelum menjalankan.
+4. Pertimbangkan (keputusan owner): memakai menu **Publikasikan ke YouTube** Flow sebagai jalur alternatif P5, dan setelan agen "Konfirmasi sebelum membuat".
+5. Jangan nyatakan P3 COMPLETED sebelum smoke melalui aplikasi berhasil.
