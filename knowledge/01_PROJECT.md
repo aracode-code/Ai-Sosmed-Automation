@@ -9,7 +9,7 @@
 | Tipe | Aplikasi desktop lokal Windows, satu pengguna utama | VERIFIED (HLD §2.3) |
 | Deployment | Windows PC lokal; packaging Electron/Tauri belum dipilih | VERIFIED (HLD §4, LLD §19) |
 | Dokumen induk | `HLD.md` v1.0 dan `LLD.md` v1.0 (keduanya berstatus Draft) | VERIFIED |
-| Implementasi kode | **P1 + P2 + P3 mock + P4 backend + P4b/P4c otomatisasi + P5 mock + adapter YouTube API (A1–A7) + CLI preflight + dashboard (approval beraksi) selesai** — 8 paket + `apps/local-api` + `apps/dashboard`, 347 test hijau | VERIFIED (commit `debdaaf` … `406f1f5`, 2026-11-01) |
+| Implementasi kode | **P1 + P2 + P3 mock + P4 backend + P4b/P4c otomatisasi + P5 mock + adapter YouTube API (A1–A7) + CLI preflight + dashboard (approval beraksi) + sesi Flow/login selesai** — 8 paket + `apps/local-api` + `apps/dashboard`, 357 test hijau | VERIFIED (commit `debdaaf` … `fd62314`, 2026-11-01) |
 
 ## Tujuan Produk
 
@@ -41,7 +41,7 @@ Mengotomatisasi alur produksi video dari perencanaan sampai publikasi lintas pla
 | API | Fastify + Zod | bind `127.0.0.1` default |
 | DB | SQLite + Drizzle, WAL, foreign_keys ON, migrasi versioned | waktu disimpan UTC ISO-8601 |
 | Queue | SQLite persistent queue | satu sumber kebenaran status job |
-| Browser | Playwright Chromium | satu profil = satu worker |
+| Browser | Playwright + Chromium (terpasang; sesi Flow saja) | satu profil = satu worker; login manual, tanpa bypass CAPTCHA (ADR-0010) |
 | AI | DeepSeek provider adapter (`fetch`, tanpa SDK) — ADR-0002 D1 | key hanya di secret store |
 | Media | Filesystem + ffprobe | metadata di DB, file di storage |
 | Logs | Pino | redaksi token/cookie/header |
@@ -112,6 +112,7 @@ Belum dibuat (P3 penuh–P7): adapter Flow nyata, `packages/integrations/*`, aks
 - Dashboard (ADR-0009): `apps/dashboard` React 18 + Vite, dev di `localhost:5174` dengan proxy `/api` dan `/health` ke `127.0.0.1:4317`; halaman Jobs/Campaigns/Approvals/Accounts. **Aksi approve/reject** memakai binding dari `GET /api/v1/content/:id` (UI tidak menghitung hash); pairing akun tetap CLI. Tanpa router dan tanpa Tailwind pada iterasi ini; tidak ada test UI otomatis.
 - D7 dijawab sebagian oleh ADR-0009 U6: artefak build dashboard = `vite build` (`apps/dashboard/dist`, gitignored), typecheck = `tsc`, **lint belum dipilih**.
 - **Drift skema (2026-11-01):** `content_items` memakai PK `id` tunggal sementara LLD §5 menyebut `unique(id, version)`; versi baru untuk id yang sama tidak dapat disimpan (`UNIQUE constraint failed`). Saat ini satu baris per konten (versi selalu 1); revisi multi-versi menunggu keputusan owner (migrasi PK komposit vs tetapkan satu baris per id).
+- Flow (ADR-0010): `playwright` + Chromium terunduh; profil persisten `%LOCALAPPDATA%\saa\browser\flow-profile` (`FLOW_PROFILE_DIR` absolut untuk override); `openFlowSession` memegang lock profil dan melepasnya pada semua jalur; `flow:login` membuka Chromium **headed** untuk login manual — aplikasi tidak mengisi kredensial dan tidak menembus CAPTCHA. Adapter generasi & selektor belum dipetakan.
 - Dispatch jadwal: `ScheduleDispatchLoop` (default 5 s) hanya membuat job `PUBLISH` untuk **konten terbaru** campaign aktif dengan aset valid, akun terhubung, caption platform tersedia, dan approval terikat valid; kunci idempoten `publish:<contentId>:v<version>:<accountId>:<platform>` (ADR-0006).
 - Dispatch hanya berjalan bila `SCHEDULER_ENABLED=true`, worker aktif, dan adapter publikasi terdaftar; slot jadwal tetap maju walau tidak ada job terbuat (ADR-0006 S7).
 - Produksi konten: satu `PLAN_CONTENT` per slot dengan pipeline **kedalaman satu** — perencanaan berjalan atau konten terbaru tanpa job `PUBLISH` menahan slot berikutnya; publikasi dijalankan lebih dulu dalam tick yang sama (ADR-0007).
@@ -124,7 +125,7 @@ Belum dibuat (P3 penuh–P7): adapter Flow nyata, `packages/integrations/*`, aks
 | P0 Bootstrap knowledge OS | COMPLETED (2026-10-29) |
 | P1 Foundation (workspace, DB, API, logs, state machine, queue) | **COMPLETED (2026-10-30, commit `debdaaf`)** |
 | P2 Agent core (kontrak planner, adapter DeepSeek, tool allowlist) | **COMPLETED (2026-10-30, commits `7d02a06`,`9cd360c`)** |
-| P3 Flow (mock adapter + validasi media + handler GENERATE_VIDEO) | **PARTIAL (2026-10-30, commits `013531a`,`b8c85e0`)** — Flow nyata tertahan OD-1 |
+| P3 Flow (mock adapter + validasi media + handler GENERATE_VIDEO) | **PARTIAL (2026-10-30/11-01, commits `013531a`,`b8c85e0`,`fd62314`)** — mock + validasi media selesai; sesi profil Flow + `flow:login` selesai (ADR-0010); adapter generasi nyata & smoke menunggu login owner |
 | P4 Approval & Scheduler (backend + engine + worker loop) | **PARTIAL (2026-10-30, commits `4b513ab`,`6ad9547`)** — UI baca-saja ada (ADR-0009, 2026-10-31); aksi approve/reject di UI belum |
 | P4b Dispatch jadwal → job `PUBLISH` otomatis (milestone turunan P4/P5) | **COMPLETED (2026-10-30, commit `bfc7c72`)** |
 | P4c Produksi konten per slot (milestone turunan P4/P5) | **COMPLETED (2026-10-30, commit `77fbb9c`)** — pipeline kedalaman satu |

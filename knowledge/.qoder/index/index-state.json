@@ -3,8 +3,8 @@
   "mode": "LIGHTWEIGHT_GREP",
   "status": "DEGRADED",
   "reason": "Tidak ada tool SQLite index di runtime ini (`sqlite_query_tool` missing). Pencarian memakai ripgrep terhadap source aktual; tidak ada code.db.",
-  "indexed_commit": "406f1f59b7ee163447c440359d4bb5c721bb7f9d",
-  "indexed_at": "2026-11-01T00:30:00+07:00",
+  "indexed_commit": "fd6231484aa8ac8420baf798ef7c2a1dd1e041c9",
+  "indexed_at": "2026-11-01T00:40:00+07:00",
   "scope": [
     "apps/local-api/src/**",
     "apps/dashboard/src/**",
@@ -20,18 +20,18 @@
     "docs/**"
   ],
   "counts": {
-    "files": 135,
-    "test_files": 43,
+    "files": 138,
+    "test_files": 44,
     "symbols": null,
     "imports": null,
     "apis": 17,
     "db_objects": 12,
-    "tests": 347
+    "tests": 357
   },
   "validation": {
-    "last_validated_at": "2026-11-01T00:30:00+07:00",
+    "last_validated_at": "2026-11-01T00:40:00+07:00",
     "result": "partial",
-    "note": "Scope = daftar `git ls-files '*.ts' '*.tsx'` pada commit 406f1f5 (135 file, 43 test) + docs/. Metadata simbol/import tidak dapat dihitung tanpa index SQLite — nilai null, bukan 0. Route baru: GET /api/v1/content/:id (total 17 endpoint). Perubahan sesi: routes/content.ts (detail binding approval), content-detail.test.ts (7 test), apps/dashboard ApprovalDialog + aksi approve/reject; counts dari `git ls-files` dan vitest aktual (347 test, 43 file)."
+    "note": "Scope = daftar git ls-files (ts/tsx) pada commit fd62314: 138 file, 44 test + docs/. Tanpa index SQLite metadata simbol/import null. Endpoint tetap 17. Perubahan sesi: packages/browser-engine/src/flow-session.ts (+test 10), apps/local-api/src/flow-login.ts, dependensi playwright; counts dari git ls-files dan vitest aktual (357 test, 44 file)."
   },
   "fallback": {
     "engine": "LIGHTWEIGHT_GREP",

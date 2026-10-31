@@ -30,6 +30,7 @@ Aplikasi **tidak** membaca berkas `.env`. Semua konfigurasi berasal dari environ
 | Buka dashboard | `corepack pnpm ui` → `http://localhost:5174` |
 | Build dashboard | `corepack pnpm --filter @saa/dashboard build` |
 | Cek kesiapan YouTube | `corepack pnpm --filter @saa/local-api preflight:youtube` |
+| Login Google Flow | `corepack pnpm --filter @saa/local-api flow:login` (`--check` untuk cek tanpa jendela) |
 | Pairing akun YouTube | `corepack pnpm --filter @saa/local-api pair:youtube --label "YouTube Utama"` |
 
 Catatan: argumen CLI **tidak** memakai `--` pemisah. `pnpm run <script> --label "x"` diteruskan apa adanya;
@@ -164,10 +165,28 @@ corepack pnpm ui      # terminal 2 — http://localhost:5174 (proxy /api → 431
 - Proxy dev hanya mengarah ke `127.0.0.1:4317`; jika Local API mati, halaman menampilkan
   "Local API tidak merespons".
 
-## 7. Batas yang diketahui
+## 7. Login Google Flow (akses awal)
+
+```bash
+corepack pnpm --filter @saa/local-api flow:login --check   # profil + Chromium, tanpa membuka jendela
+corepack pnpm --filter @saa/local-api flow:login           # buka Chromium untuk login manual
+```
+
+- Jendela Chromium memakai profil persisten `%LOCALAPPDATA%\saa\browser\flow-profile`
+  (override: `FLOW_PROFILE_DIR` absolut). Login sendiri di jendela itu, lalu **tutup jendela**;
+  sesi tersimpan otomatis di profil.
+- Aplikasi tidak mengisi kredensial, tidak memecahkan CAPTCHA, dan tidak menembus verifikasi apa pun.
+  Bila Flow menampilkan tantangan, pekerjaan berhenti (`NEEDS_ATTENTION`).
+- Satu profil hanya boleh dipakai satu proses. `flow:login` memegang lock; bila ada worker yang
+  sedang memakai profil, perintah menolak dengan `RESOURCE_BUSY` — hentikan worker dulu.
+- Adapter generasi Flow **belum ada**; langkah berikutnya memetakan UI Flow dari sesi ini
+  sebelum menulis adapter (ADR-0010).
+
+## 8. Batas yang diketahui
 
 - Local API belum memiliki autentikasi token/Origin check (LLD §13.2) — jangan aktifkan `APP_ALLOW_NETWORK`.
 - Job `VERIFY_PUBLICATION`/`RECONCILE_PUBLICATION` terjadwal belum ada; rekonsiliasi hanya berjalan inline saat `PUBLISH` dan saat restart (via `externalPostId` tersimpan).
 - Dashboard: aksi approve/reject tersedia; pairing akun tetap lewat CLI.
-- Adapter Flow masih mock; publikasi platform lain (P6) belum ada.
+- Adapter Flow masih mock; sesi/login sudah tersedia, generasi nyata belum.
+- Publikasi platform lain (P6) belum ada.
 - Prosedur ini hanya divalidasi untuk Windows.

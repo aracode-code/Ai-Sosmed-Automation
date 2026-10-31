@@ -8,7 +8,7 @@ Sumber fase + DoD: `LLD.md` §18. Urutan ini mengikat kecuali user menyatakan la
 |---|---|---|---|---|
 | P1 | Foundation | Workspace pnpm, schema DB + migrasi, Local API dasar, logging, domain state machine, persistent queue | Migrations · unit tests · `/health` · restart recovery | **COMPLETED** (2026-10-30, `debdaaf`) — bukti di `CURRENT.md` |
 | P2 | Agent | DeepSeek provider, planner, tool registry allowlist | Schema validation, budget/timeout, mock tests | **COMPLETED** (2026-10-30, `7d02a06`,`9cd360c`) — bukti di `CURRENT.md` |
-| P3 | Flow | Playwright session manager, Google Flow adapter, validasi media | Smoke test pada akun sah, file tervalidasi | **PARTIAL** (2026-10-30, `013531a`) — mock + validasi media + lock profil selesai; Flow nyata tertahan OD-1 |
+| P3 | Flow | Playwright session manager, Google Flow adapter, validasi media | Smoke test pada akun sah, file tervalidasi | **PARTIAL** (2026-10-30/11-01, `013531a`,`fd62314`) — mock + validasi media + lock profil + **sesi Playwright & `flow:login`** selesai (ADR-0010); adapter generasi & smoke menunggu login owner + pemetaan DOM |
 | P4 | Approval & Scheduler | Approval UI, schedules, quota, pause/resume | Approval binding + schedule persistence tests | **PARTIAL** (2026-10-30, `4b513ab`,`6ad9547`) — backend + engine + worker loop selesai; UI baca-saja ada (ADR-0009), aksi approval belum |
 | P4b | Dispatch jadwal (turunan P4/P5) | Loop dispatch periodik + enqueuer job `PUBLISH` | Tick berulang tidak menggandakan job; siap-konten dinilai sebelum enqueue | **COMPLETED** (2026-10-30, `bfc7c72`) — ADR-0006 |
 | P4c | Produksi konten (turunan P4/P5) | `PLAN_CONTENT` per slot, pipeline kedalaman satu, publikasi lebih dulu dalam tick | Slot tidak menumpuk job; konten baru terbit di slot berikutnya | **COMPLETED** (2026-10-30, `77fbb9c`) — ADR-0007 |
@@ -20,7 +20,7 @@ Sumber fase + DoD: `LLD.md` §18. Urutan ini mengikat kecuali user menyatakan la
 
 | ID | Keputusan | Dampak bila belum dijawab | Sumber |
 |---|---|---|---|
-| OD-1 | Akses/kebijakan Google Flow dan stabilitas alur UI-nya | P3 tidak bisa dinyatakan selesai (adapter boleh dibuat dengan mock) | LLD §19 |
+| OD-1 | Akses/kebijakan Google Flow dan stabilitas alur UI-nya | P3 tidak bisa dinyatakan selesai (adapter boleh dibuat dengan mock). **Sebagian dijawab 2026-11-01** (`ADR-0010`): sesi Playwright + login manual tersedia; sisa faktual = apakah akun owner punya akses Flow, kuota, dan kebijakan otomasi | LLD §19 · ADR-0010 |
 | OD-2 | Izin/aplikasi publikasi per platform (TikTok app audit, Meta permissions, X tier/biaya) | **YouTube DIJAWAB** (`ADR-0008` D1–D7): Data API v3, kuota 100 upload/hari/project, privasi default `private`. TikTok/Meta/X tetap terbuka | LLD §19 · ADR-0008 |
 | OD-3 | Packaging desktop: Electron vs Tauri | P7 tertunda; worker tidak terpengaruh. Batasan agar konversi tetap murah dicatat di bagian *Backlog Teknis* ("Prasyarat konversi desktop") | HLD §4, LLD §19 |
 | OD-4 | Strategi scale antrean (tetap SQLite vs Redis/BullMQ) | Default SQLite dipertahankan sampai ada beban terukur | LLD §19 |

@@ -4,7 +4,7 @@
   "root": "F:/AiSosmedAutomation",
   "type": "local-desktop-app",
   "platform_host": "Windows 10.0.19045",
-  "current_state": "implemented-p1-p2-p4-backend-p3-p5-mock-p4b-dispatch-p4c-production-worker-loop-youtube-od2-od5-decided-youtube-a1-credential-store-youtube-a2-oauth-client-youtube-a3-api-adapter-youtube-a4-wiring-onboarding-youtube-a5-crosslayer-tests-youtube-a5-review-hardening-youtube-a6-resume-308-youtube-a7-restart-reconcile-quota-preupload-excluded-manual-content-route-preflight-cli-runbook-security-docs-dashboard-readonly-vite-dashboard-approval-actions",
+  "current_state": "implemented-p1-p2-p4-backend-p3-p5-mock-p4b-dispatch-p4c-production-worker-loop-youtube-od2-od5-decided-youtube-a1-credential-store-youtube-a2-oauth-client-youtube-a3-api-adapter-youtube-a4-wiring-onboarding-youtube-a5-crosslayer-tests-youtube-a5-review-hardening-youtube-a6-resume-308-youtube-a7-restart-reconcile-quota-preupload-excluded-manual-content-route-preflight-cli-runbook-security-docs-dashboard-readonly-vite-dashboard-approval-actions-flow-session-login-playwright",
   "detected_stack": {
     "code": [
       "typescript",

@@ -1,5 +1,14 @@
 # DONE
 
+## 2026-11-01 — SESSION-2026-11-01-2
+
+- **Sesi profil Flow + `flow:login`** (`fd62314`).
+  - `packages/browser-engine/src/flow-session.ts`: `resolveFlowProfileDir` (LOCALAPPDATA / override absolut), `checkFlowBrowser`, `openFlowSession` (lock profil → Chromium persisten headed → `goto`; lock dilepas pada semua jalur), `waitForClose`.
+  - `apps/local-api/src/flow-login.ts` + script `flow:login [--check]` — login manual, tanpa mengisi kredensial/menembus CAPTCHA.
+  - Dependensi `playwright` (G5 disetujui owner) + Chromium terunduh.
+  - Bukti: typecheck 10 paket exit 0 · **44 file, 357 test** · `flow:login --check` exit 0 (profil + Chromium) · 10 test sesi (lock, sesi kedua, jalur gagal).
+  - Tidak dikerjakan (butuh login owner + bukti DOM): adapter generasi Flow, pemetaan `SECURITY_CHALLENGE`/`UI_CHANGED`, smoke satu video.
+
 ## 2026-11-01 — SESSION-2026-11-01-1
 
 - **W1 + W2 — aksi approval di versi web** (`5e8184b`, `406f1f5`).

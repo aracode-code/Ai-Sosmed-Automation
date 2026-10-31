@@ -1,7 +1,7 @@
-# Modul — Browser Engine (P3 Mock Flow)
+# Modul — Browser Engine (P3 Mock Flow + Sesi Flow)
 
-**Status:** PARTIAL — mock adapter selesai; Flow asli tertahan OD-1 (2026-10-30) · commit `013531a`
-**Sumber:** kode aktual (E1). Keputusan: `ADR-0003` D16–D21. Kontrak: LLD §10.1, §10.4, §13.2, §7.3.
+**Status:** PARTIAL — mock adapter + sesi profil Flow & login manual selesai; adapter generasi nyata belum · commit `013531a`, `fd62314`
+**Sumber:** kode aktual (E1). Keputusan: `ADR-0003` D16–D21, `ADR-0010` (F1–F7). Kontrak: LLD §10.1, §10.4, §13.2, §7.3.
 
 ## Peta Paket
 
@@ -13,8 +13,9 @@
 | `packages/browser-engine/src/media.ts` | `validateMediaFile`: containment → ukuran → magic `ftyp` → sha256 → probe opsional |
 | `packages/browser-engine/src/probe.ts` | `unavailableProbe`, `createFfprobeProbe` (execFile, timeout 5 s, gagal → `available:false`) |
 | `packages/browser-engine/src/profile-lock.ts` | `acquireProfileLock`, `ProfileBusyError` (`RESOURCE_BUSY`) |
+| `packages/browser-engine/src/flow-session.ts` | `resolveFlowProfileDir`, `checkFlowBrowser`, `openFlowSession` — profil persisten + lock + launcher Playwright yang dapat disuntikkan (ADR-0010) |
 
-Dependensi: `@saa/domain` saja — tidak ada Playwright, ffprobe, atau database.
+Dependensi: `@saa/domain` + `playwright` (Chromium di `%LOCALAPPDATA%\ms-playwright`; ADR-0010 F1).
 
 ## MockVideoGenerator
 
@@ -45,16 +46,27 @@ Probe yang gagal dieksekusi menandai `available:false` dan **tidak** menggagalka
 - Konflik aktif → `ProfileBusyError` (`RESOURCE_BUSY` → retry policy default).
 - Batasan jujur: pengambilalihan bersamaan dari dua proses adalah best-effort (last-write-wins pada rename); cocok untuk satu mesin lokal.
 
+## Sesi Profil Flow (ADR-0010)
+
+- `resolveFlowProfileDir()`: default `%LOCALAPPDATA%\saa\browser\flow-profile` (atau `~/.local/share/saa/browser/flow-profile` di non-Windows); `FLOW_PROFILE_DIR` hanya diterima bila **absolut**, selain itu `VALIDATION`.
+- `openFlowSession({ profileDir, url?, lockOwnerId?, launcher? })`: ambil lock profil → buka Chromium persisten (`headless:false`, `viewport:null`, `--start-maximized`) → `goto` URL (default `DEFAULT_FLOW_URL`) → kembalikan `{ page, close, waitForClose, releaseLock, lockPath }`.
+- Jalur gagal: launcher gagal → lock dilepas (`UNKNOWN`); `goto` gagal → browser ditutup + lock dilepas (`TRANSIENT_NETWORK`); `close()` selalu melepas lock.
+- Sesi kedua selama lock aktif → `ProfileBusyError` (`RESOURCE_BUSY`).
+- `checkFlowBrowser()`: memuat `playwright`, menghitung `chromium.executablePath()`, memeriksa keberadaan berkas — tanpa membuka jendela.
+- **Batas:** aplikasi tidak mengisi kredensial, tidak menembus CAPTCHA/verifikasi; login sepenuhnya manual (`flow:login`).
+
 ## Perintah
 
 ```bash
 corepack pnpm --filter @saa/browser-engine typecheck
-corepack pnpm vitest run packages/browser-engine   # 13 test (media, generator, lock)
+corepack pnpm vitest run packages/browser-engine   # 23 test (media, generator, lock, flow-session)
+corepack pnpm --filter @saa/local-api flow:login --check   # cek profil + Chromium tanpa membuka jendela
+corepack pnpm --filter @saa/local-api flow:login           # login manual, tunggu jendela ditutup
 ```
 
 ## Belum Ada (P3 penuh — tertahan OD-1)
 
-- Adapter Flow nyata (Playwright session manager, unggah prompt, unduh hasil, deteksi tantangan keamanan).
+- Adapter generasi Flow nyata (isi prompt, tunggu render, unduh hasil, deteksi tantangan keamanan) — selektor belum dipetakan dari akun nyata (ADR-0010 F6).
 - Pemetaan `SECURITY_CHALLENGE`/`UI_CHANGED` dari halaman Flow.
 - `checkAvailability` berbasis sesi/akun nyata.
 - Pembersihan artefak lama dan kebijakan retensi media (OD-6).
