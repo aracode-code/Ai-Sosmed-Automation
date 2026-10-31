@@ -38,3 +38,24 @@
 - `corepack pnpm typecheck` exit 0 (10 paket) · `flow:login --check` → `chrome — C:\Program Files\Google\Chrome\Application\chrome.exe`.
 - `flow:inspect` pada sesi tersimpan (2026-11-01): URL berakhir di `https://flow.google.com/about`, judul "Google Flow — AI Creative Studio…", **0 input**, 60 tombol marketing ("Create with Google Flow", "Try in Google Flow") → **sesi belum terautentikasi / akun belum punya akses studio**; bukti di `data/flow-inspect-*.json` + `.png`.
 - Belum: login studio nyata (bukan `/about`), pemetaan DOM studio, adapter generasi, smoke satu video.
+
+## Peta DOM Studio Flow (E1, 2026-11-01, sesi terautentikasi)
+
+Diambil read-only lewat `flow:inspect` + attach CDP (`127.0.0.1:9222`) pada akun pemilik. **Tidak** ada klik Generate, tidak ada prompt diketik.
+
+| Elemen | Selektor terverifikasi | Catatan |
+|---|---|---|
+| Root studio | `https://flow.google.com/?pli=1` | daftar project; tombol `Create a character`, `Project baru`, `Buka project`, `Edit judul project`, `Hapus project` |
+| Layar project | `https://flow.google.com/project/<uuid>` | judul project + sesi; heading `Sesi tanpa judul`, prompt `Apa yang ingin Anda buat?` |
+| **Kolom prompt** | `div[role="textbox"][contenteditable="true"]` (kelas `ProseMirror`) | aria-label **berbahasa Indonesia** "Apa yang ingin Anda buat?" |
+| **Tombol kirim** | `button[aria-label="Mulai pembuatan"]` (ikon `arrow_forward`) | **disabled** saat prompt kosong |
+| Lampiran bahan | `button[aria-label="Tambahkan bahan ke kotak perintah"]` | opsional |
+| Setelan | `button[aria-label="Setelan"]` (ikon `tune`) | rasio/model |
+| Sesi baru | `button[aria-label="Mulai sesi baru"]` | |
+| Biaya | tombol `Pelajari biaya pembuatan`; banner "50 additional Flow credits daily" | pembuatan memakai kredit |
+
+Konsekuensi untuk adapter:
+- Label UI **dilokalkan** (Indonesia). Selektor harus toleran locale (cocokkan ID+EN) atau memakai anchor struktural (`ProseMirror`, ikon `arrow_forward`) — jangan hardcode satu bahasa.
+- Tidak ada `data-testid`; andalkan `aria-label`/role.
+- Ada iframe **reCAPTCHA Enterprise** → tantangan apa pun = `SECURITY_CHALLENGE` → `NEEDS_ATTENTION`, tanpa bypass.
+- Belum dipetakan (butuh satu pembuatan nyata): tombol/unduhan hasil, progres render, kuota kredit. Smoke akan memakai kredit akun → menunggu izin owner.

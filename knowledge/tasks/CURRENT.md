@@ -10,8 +10,8 @@ _Tidak ada task aktif._ Owner meminta akses & menjalankan Google Flow; dipilih *
 
 | Field | Nilai |
 |---|---|
-| Task terakhir | **F1** — sesi profil Flow persisten + `flow:login` (+ `--check`) |
-| Status | **P3 PARTIAL** — sesi/login siap; adapter generasi & smoke belum · P4 PARTIAL (pairing UI) · P5 PARTIAL (smoke live) |
+| Task terakhir | **F1** — sesi profil Flow + `flow:login` + `flow:inspect`; **peta DOM studio terverifikasi** (ADR-0010) |
+| Status | **P3 PARTIAL** — sesi/login + DOM studio terpetakan; adapter generasi & smoke belum · P4 PARTIAL (pairing UI) · P5 PARTIAL (smoke live) |
 | Mode eksekusi | SINGLE-WRITER sequential |
 | DoD tercapai | ✅ 10 test sesi · ✅ typecheck & 357 test · ✅ `flow:login --check` hijau (Chromium + profil) |
 
@@ -56,7 +56,8 @@ _Tidak ada gelombang aktif._ `state.open_wave = null`.
 
 ## Next Session Handoff
 
-1. Jalankan `corepack pnpm --filter @saa/local-api flow:login` saat siap; login Google Flow di jendela yang terbuka; tutup jendela.
-2. Setelah login: petakan DOM Flow dari sesi nyata (buka Flow, catat selektor prompt/generate/unduh) — jangan menulis adapter dari asumsi.
-3. Implementasi `FlowVideoGenerator` (isi prompt, tunggu render, unduh, validasi media) + pemetaan `SECURITY_CHALLENGE`/`UI_CHANGED`; lalu smoke satu video.
-4. Jangan nyatakan P3 COMPLETED sebelum smoke pada akun sah berhasil.
+1. Owner sudah login (akun terdeteksi); studio di `https://flow.google.com/`, project di `/project/<uuid>`.
+2. Selektor inti (E1): prompt `div[role="textbox"][contenteditable="true"]` (ProseMirror, aria-label ID "Apa yang ingin Anda buat?"); kirim `button[aria-label="Mulai pembuatan"]` (disabled saat kosong); lampiran `Tambahkan bahan ke kotak perintah`; setelan `Setelan`.
+3. Berikutnya: implementasi `FlowVideoGenerator` (isi prompt → tunggu tombol aktif → klik → tunggu render → unduh) dengan selektor toleran locale; tombol/kontrol unduh **belum** dipetakan.
+4. Smoke satu video **memakai kredit akun** dan dapat memicu reCAPTCHA → perlu izin owner sebelum dijalankan; tantangan = `SECURITY_CHALLENGE`/`NEEDS_ATTENTION`.
+5. Jangan nyatakan P3 COMPLETED sebelum smoke pada akun sah berhasil.
