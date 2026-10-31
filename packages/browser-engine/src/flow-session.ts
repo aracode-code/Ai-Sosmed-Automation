@@ -42,7 +42,10 @@ export function resolveFlowProfileDir(options: FlowProfileOptions = {}): string 
 }
 
 export interface FlowPage {
-  goto(url: string): Promise<unknown>;
+  goto(
+    url: string,
+    options?: { waitUntil?: 'domcontentloaded' | 'load'; timeout?: number }
+  ): Promise<unknown>;
 }
 
 export interface FlowBrowserHandle {
@@ -111,12 +114,21 @@ export interface OpenFlowSessionOptions {
   lockTtlMs?: number;
   launcher?: FlowLauncher;
   now?: () => Date;
+  /** Default 60 s; Flow adalah SPA dan `load` penuh bisa lama. */
+  gotoTimeoutMs?: number;
+  /**
+   * Login manual: kegagalan/kelambatan navigasi tidak menutup jendela,
+   * pengguna tetap bisa login. Untuk adapter generasi, biarkan `false`.
+   */
+  tolerateGotoFailure?: boolean;
 }
 
 export interface FlowSession extends FlowBrowserHandle {
   profileDir: string;
   lockPath: string;
   startedAt: string;
+  /** Terisi bila navigasi gagal tetapi sesi tetap dibuka (mode toleran). */
+  navigationError: string | null;
   /** Melepas lock tanpa menutup browser (dipakai hanya bila browser sudah tertutup). */
   releaseLock(): boolean;
 }
@@ -146,18 +158,26 @@ export async function openFlowSession(
     throw new AppError('UNKNOWN', 'gagal membuka browser Flow', { cause: error });
   }
 
+  let navigationError: string | null = null;
   try {
-    await handle.page.goto(options.url ?? DEFAULT_FLOW_URL);
+    await handle.page.goto(options.url ?? DEFAULT_FLOW_URL, {
+      waitUntil: 'domcontentloaded',
+      timeout: options.gotoTimeoutMs ?? 60_000
+    });
   } catch (error) {
-    await handle.close().catch(() => undefined);
-    lock.release();
-    throw new AppError('TRANSIENT_NETWORK', 'gagal membuka halaman Flow', { cause: error });
+    if (options.tolerateGotoFailure !== true) {
+      await handle.close().catch(() => undefined);
+      lock.release();
+      throw new AppError('TRANSIENT_NETWORK', 'gagal membuka halaman Flow', { cause: error });
+    }
+    navigationError = error instanceof Error ? error.message : 'navigasi tidak selesai';
   }
 
   return {
     profileDir: options.profileDir,
     lockPath: lock.path,
     startedAt: now().toISOString(),
+    navigationError,
     page: handle.page,
     waitForClose: handle.waitForClose,
     releaseLock: () => lock.release(),

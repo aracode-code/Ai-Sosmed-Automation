@@ -169,4 +169,29 @@ describe('openFlowSession', () => {
     expect(calls.closed).toBe(1);
     expect(existsSync(join(profileDir, '.worker-lock.json'))).toBe(false);
   });
+
+  it('mode toleran membiarkan jendela terbuka walau navigasi gagal', async () => {
+    const profileDir = join(workDir, 'profile');
+    const handle: FlowBrowserHandle = {
+      page: {
+        async goto() {
+          throw new Error('Timeout 60000ms exceeded');
+        }
+      },
+      async close() {},
+      async waitForClose() {}
+    };
+
+    const session = await openFlowSession({
+      profileDir,
+      launcher: launcherReturning(handle),
+      tolerateGotoFailure: true
+    });
+
+    expect(session.navigationError).toContain('Timeout');
+    expect(existsSync(session.lockPath)).toBe(true);
+
+    await session.close();
+    expect(existsSync(session.lockPath)).toBe(false);
+  });
 });

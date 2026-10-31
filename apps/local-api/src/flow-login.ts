@@ -41,8 +41,16 @@ async function main(): Promise<void> {
 
   const session = await openFlowSession({
     profileDir,
-    lockOwnerId: 'flow-login'
+    lockOwnerId: 'flow-login',
+    tolerateGotoFailure: true
   });
+
+  if (session.navigationError !== null) {
+    console.log(
+      `Peringatan   : halaman belum selesai dimuat (${session.navigationError}).`
+    );
+    console.log('               Muat ulang di jendela bila perlu, lalu login dan tutup jendela.');
+  }
 
   try {
     await session.waitForClose();
