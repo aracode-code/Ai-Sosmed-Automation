@@ -14,7 +14,8 @@
     "dev": "tsx watch src/server.ts",
     "start": "tsx src/server.ts",
     "pair:youtube": "tsx src/pair-youtube.ts",
-    "preflight:youtube": "tsx src/preflight-youtube.ts"
+    "preflight:youtube": "tsx src/preflight-youtube.ts",
+    "flow:login": "tsx src/flow-login.ts"
   },
   "dependencies": {
     "@saa/agent-core": "workspace:*",
