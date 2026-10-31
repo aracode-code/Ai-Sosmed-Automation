@@ -27,6 +27,8 @@ Aplikasi **tidak** membaca berkas `.env`. Semua konfigurasi berasal dari environ
 | Typecheck + test | `corepack pnpm typecheck` · `corepack pnpm test` |
 | Migrasi database | `corepack pnpm migrate` |
 | Jalankan server | `corepack pnpm start` |
+| Buka dashboard | `corepack pnpm ui` → `http://localhost:5174` |
+| Build dashboard | `corepack pnpm --filter @saa/dashboard build` |
 | Cek kesiapan YouTube | `corepack pnpm --filter @saa/local-api preflight:youtube` |
 | Pairing akun YouTube | `corepack pnpm --filter @saa/local-api pair:youtube --label "YouTube Utama"` |
 
@@ -145,10 +147,25 @@ Jangan nyatakan P5 COMPLETED sebelum seluruh baris bukti di atas terisi.
 
 Jangan menyalin berkas SQLite saat server berjalan.
 
+### Dashboard lokal (baca-saja)
+
+```bash
+corepack pnpm start   # terminal 1 — Local API 127.0.0.1:4317
+corepack pnpm ui      # terminal 2 — http://localhost:5174 (proxy /api → 4317)
+```
+
+- Halaman: **Jobs** (filter status + detail payload), **Campaigns** (daftar + konten per campaign),
+  **Approvals** (agregasi konten `pending`), **Accounts** (status koneksi).
+- Bersifat baca-saja: setujui/tolak belum tersedia karena binding approval memerlukan
+  `assetSha256`, `captionHash`, `accountId`, dan `platform` yang belum diekspos endpoint mana pun.
+- Pairing/reauth tetap lewat CLI (`pair:youtube`).
+- Proxy dev hanya mengarah ke `127.0.0.1:4317`; jika Local API mati, halaman menampilkan
+  "Local API tidak merespons".
+
 ## 7. Batas yang diketahui
 
 - Local API belum memiliki autentikasi token/Origin check (LLD §13.2) — jangan aktifkan `APP_ALLOW_NETWORK`.
 - Job `VERIFY_PUBLICATION`/`RECONCILE_PUBLICATION` terjadwal belum ada; rekonsiliasi hanya berjalan inline saat `PUBLISH` dan saat restart (via `externalPostId` tersimpan).
-- Antarmuka approval masih berupa API, belum ada UI.
+- Dashboard masih baca-saja: aksi approve/reject dan pairing belum ada di UI.
 - Adapter Flow masih mock; publikasi platform lain (P6) belum ada.
 - Prosedur ini hanya divalidasi untuk Windows.
