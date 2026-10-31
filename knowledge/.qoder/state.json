@@ -3,7 +3,7 @@
   "project": "AI Social Media Automation Agent",
   "project_root": "F:/AiSosmedAutomation",
   "branch": "main",
-  "commit": "5093c28",
+  "commit": "a7aad95",
   "status": "PARTIAL",
   "autonomy": "L1",
   "runtime": {
@@ -34,19 +34,19 @@
   "memory_version": 20,
   "context_version": 20,
   "skill_registry_version": 0,
-  "current_task": "NONE — peta DOM + alur generasi/unduh Flow DONE; adapter FlowVideoGenerator belum ditulis",
+  "current_task": "NONE — guard pemakaian + generator Flow + CLI flow:generate DONE; smoke image via CLI belum",
   "last_task": "F: sesi profil Flow persisten + CLI flow:login (ADR-0010)",
   "last_session_id": "SESSION-2026-11-01-2",
   "last_scan": "2026-11-01T00:40:00+07:00",
   "last_index": "2026-11-01T00:40:00+07:00",
-  "last_updated": "2026-11-01T06:40:00+07:00",
-  "last_validation": "2026-11-01 — dua generasi uji nyata (izin owner): gambar via Nano Banana 2.1; video via Veo 3.1 Lite (9,96 s) lalu diunduh Ukuran asli 2.923.700 byte ftyp mp42 ke data/media/flow-smoke; selektor prompt/kirim/unduh terverifikasi",
-  "last_test_status": "358 passed / 0 failed (vitest --no-file-parallelism; flow-session 18/18)",
+  "last_updated": "2026-11-01T06:50:00+07:00",
+  "last_validation": "2026-11-01 (a7aad95) — typecheck 10 paket exit 0; flow-usage 11/11 test; flow:generate --dry-run exit 0 (prompt ada, tombol kirim ada, tanpa tantangan, 0/1 hari ini WIB)",
+  "last_test_status": "flow-usage 11/11; suite penuh terakhir 358 lulus dengan --no-file-parallelism",
   "last_command": "coba jalankan lagi",
   "last_command_status": "PARTIAL",
   "open_wave": null,
   "dirty": true,
   "dirty_reason": "AGENTS.md masih untracked (keputusan owner belum diambil)",
   "drift_detected": false,
-  "next_step": "Implementasi FlowVideoGenerator di @saa/browser-engine memakai peta ADR-0010 (prompt eksplisit video, tunggu Hentikan hilang, unduh via menu Ukuran asli, validateMediaFile), wiring FLOW_ADAPTER, lalu smoke melalui aplikasi (perlu kredit + izin owner)."
+  "next_step": "Smoke image pertama lewat CLI (butuh --yes dan memotong kredit gambar; default x2): flow:generate --kind image --prompt … --yes. Setelah sukses, sambungkan generator ke handler GENERATE_VIDEO (FLOW_ADAPTER=real) dan lanjut video."
 }

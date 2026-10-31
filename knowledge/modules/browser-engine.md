@@ -15,6 +15,9 @@
 | `packages/browser-engine/src/profile-lock.ts` | `acquireProfileLock`, `ProfileBusyError` (`RESOURCE_BUSY`) |
 | `packages/browser-engine/src/flow-session.ts` | `resolveFlowProfileDir`, `detectInstalledBrowser`, `resolveFlowBrowserChannel`, `checkFlowBrowser`, `openFlowSession` — profil persisten + lock + launcher Playwright (ADR-0010) |
 | `packages/browser-engine/src/flow-inspect.ts` | `collectPageOutline` — outline input/tombol/heading + deteksi halaman login, dievaluasi di halaman (read-only) |
+| `packages/browser-engine/src/flow-readiness.ts` | `inspectFlowReady(endpoint)` — cek prompt/kirim/tantangan tanpa mengubah apa pun |
+| `packages/browser-engine/src/flow-generator.ts` | `generateFlowMedia` — isi prompt ProseMirror → kirim → tunggu hasil → unduh via menu `Opsi lainnya → Download → Ukuran asli` |
+| `packages/browser-engine/src/flow-usage.ts` | Guard hitungan: `parseFlowGuard`, `decideGeneration`, ledger `parseLedger`/`appendUsage`/`updateLastStatus`, `dayOf` (Asia/Jakarta) |
 
 Dependensi: `@saa/domain` + `playwright` (Chromium di `%LOCALAPPDATA%\ms-playwright`; ADR-0010 F1).
 
@@ -67,7 +70,11 @@ corepack pnpm vitest run packages/browser-engine   # 23 test (media, generator, 
 corepack pnpm --filter @saa/local-api flow:login --check   # cek profil + browser tanpa membuka jendela
 corepack pnpm --filter @saa/local-api flow:login           # login manual, tunggu jendela ditutup
 corepack pnpm --filter @saa/local-api flow:inspect [--url https://flow.google.com/…] [--wait ms]
+corepack pnpm --filter @saa/local-api flow:generate --dry-run            # tanpa biaya
+corepack pnpm --filter @saa/local-api flow:generate --kind image --prompt "…" --yes
 ```
+
+Guard: `FLOW_MAX_GENERATIONS_PER_DAY` (default 1), `FLOW_REQUIRE_CONFIRM` (default true → butuh `--yes`), `FLOW_DRY_RUN`. Ledger: `data/flow-usage.json`. Hari dihitung Asia/Jakarta. Satu run bisa menghasilkan beberapa item (mis. gambar x2) — guard menghitung **run**, bukan item.
 
 ## Belum Ada (P3 penuh — tertahan OD-1)
 

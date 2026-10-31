@@ -191,6 +191,27 @@ corepack pnpm --filter @saa/local-api flow:inspect         # petakan DOM + tangk
 - Adapter generasi Flow **belum ada**; langkah berikutnya memetakan UI Flow dari sesi ini
   sebelum menulis adapter (ADR-0010).
 
+### Guard pemakaian Flow (biaya kredit)
+
+Tidak ada API saldo kredit, jadi guard membatasi **jumlah pembuatan**:
+
+| Env | Default | Arti |
+|---|---|---|
+| `FLOW_MAX_GENERATIONS_PER_DAY` | `1` | batas run per hari (Asia/Jakarta); `0` = nonaktif |
+| `FLOW_REQUIRE_CONFIRM` | `true` | wajib `--yes` sebelum benar-benar mengirim prompt |
+| `FLOW_DRY_RUN` | `false` | set `true` untuk selalu dry-run |
+
+```bash
+corepack pnpm --filter @saa/local-api flow:generate --dry-run          # cek sesi + selector, tanpa biaya
+corepack pnpm --filter @saa/local-api flow:generate --kind image --prompt "…" --yes
+```
+
+- Ledger: `data/flow-usage.json` (waktu, jenis, hash prompt, status; **tanpa** teks prompt penuh).
+- Satu run dapat menghasilkan beberapa item (default gambar x2) — guard menghitung run, bukan item.
+- Setelan "Konfirmasi sebelum membuat" di Flow hanya mengikat **agen Flow**, bukan pembuatan langsung
+  dari kotak prompt; karena itu guard ini ada di aplikasi kita.
+- Prasyarat: Chrome berjalan dengan `--remote-debugging-port=9222` dan satu tab project Flow terbuka.
+
 ## 8. Batas yang diketahui
 
 - Local API belum memiliki autentikasi token/Origin check (LLD §13.2) — jangan aktifkan `APP_ALLOW_NETWORK`.

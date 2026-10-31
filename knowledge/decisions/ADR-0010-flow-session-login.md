@@ -19,6 +19,9 @@
 | F8 | Navigasi memakai `domcontentloaded` + timeout 60 s; `flow:login` memakai mode **toleran** (jendela tetap terbuka bila navigasi lambat, `navigationError` dilaporkan). Adapter generasi memakai mode ketat | Percobaan pertama memakai `load` penuh → timeout 30 s lalu sesi ditutup; Flow adalah SPA berat | Flow berubah menjadi halaman ringan |
 | F9 | Browser memakai **build resmi terpasang** (`channel: chrome`, fallback `msedge`, terakhir `chromium` bawaan); `FLOW_BROWSER_CHANNEL` menimpa | Google menolak sign-in di Chromium for Testing ("browser or app may not be secure"). Memakai Chrome/Edge sesuai saran pesan; **dilarang** stealth/UA-spoof/cookie-copy | Mesin tanpa Chrome/Edge |
 | F10 | `flow:inspect` (read-only) memetakan DOM + tangkapan layar untuk memastikan sesi valid sebelum adapter ditulis | Menulis selektor tanpa bukti = kode fiktif; `/about` menandakan sesi belum login/akun tanpa akses | — |
+| F11 | **Guard pemakaian berbasis hitungan**: `FLOW_MAX_GENERATIONS_PER_DAY` (default 1), `FLOW_REQUIRE_CONFIRM` (default true → wajib `--yes`), `FLOW_DRY_RUN`, ledger `data/flow-usage.json`; hari dihitung pada `Asia/Jakarta` | Tidak ada API saldo kredit, dan setelan "Konfirmasi sebelum membuat" milik agen Flow **tidak** melindungi pembuatan langsung dari kotak prompt | Ada sumber saldo kredit resmi |
+| F12 | CLI `flow:generate [--kind image|video] [--prompt …] [--dry-run] [--yes] [--endpoint]` memasang guard lalu menjalankan generator | Membuat jalur uji berbiaya terkendali sebelum menyambungkannya ke handler `GENERATE_VIDEO` | Adapter disambungkan ke workflow |
+| F13 | Attach CDP tidak punya "disconnect" tanpa menutup browser → proses CLI keluar eksplisit setelah selesai | Chrome milik pengguna harus tetap terbuka | Playwright menyediakan detach murni |
 
 ## Konsekuensi
 
@@ -34,6 +37,8 @@
 - Commit `260ac52`: navigasi `domcontentloaded` + `gotoTimeoutMs` (60 s) + `tolerateGotoFailure` untuk login; 11 test sesi.
 - Commit `f2e586e`: deteksi Chrome/Edge terpasang + `FLOW_BROWSER_CHANNEL`; 18 test sesi. Chromium bawaan ditolak Google pada sign-in ("browser or app may not be secure") — diverifikasi pada sesi nyata.
 - Commit `5093c28`: `flow:inspect` (outline DOM + screenshot, read-only) dan koreksi `DEFAULT_FLOW_URL` ke `https://flow.google.com/`.
+- Commit `a7aad95`: guard pemakaian (`flow-usage.ts`, 11 test), `flow-generator.ts` (prompt → kirim → tunggu → unduh via menu), `flow-readiness.ts`, CLI `flow:generate` (`--dry-run`/`--yes`).
+- Verifikasi guard: `flow:generate --dry-run` → `Prompt: ada`, `Tombol kirim: ada`, `Tantangan: tidak`, `Pemakaian 0/1 (2026-11-01 WIB)`, exit 0 tanpa biaya.
 - Test: `packages/browser-engine/src/flow-session.test.ts` — 18 test.
 - `corepack pnpm typecheck` exit 0 (10 paket) · `flow:login --check` → `chrome — C:\Program Files\Google\Chrome\Application\chrome.exe`.
 - `flow:inspect` pada sesi tersimpan (2026-11-01): URL berakhir di `https://flow.google.com/about`, judul "Google Flow — AI Creative Studio…", **0 input**, 60 tombol marketing ("Create with Google Flow", "Try in Google Flow") → **sesi belum terautentikasi / akun belum punya akses studio**; bukti di `data/flow-inspect-*.json` + `.png`.
