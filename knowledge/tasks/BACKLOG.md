@@ -22,7 +22,7 @@ Sumber fase + DoD: `LLD.md` §18. Urutan ini mengikat kecuali user menyatakan la
 |---|---|---|---|
 | OD-1 | Akses/kebijakan Google Flow dan stabilitas alur UI-nya | P3 tidak bisa dinyatakan selesai (adapter boleh dibuat dengan mock) | LLD §19 |
 | OD-2 | Izin/aplikasi publikasi per platform (TikTok app audit, Meta permissions, X tier/biaya) | **YouTube DIJAWAB** (`ADR-0008` D1–D7): Data API v3, kuota 100 upload/hari/project, privasi default `private`. TikTok/Meta/X tetap terbuka | LLD §19 · ADR-0008 |
-| OD-3 | Packaging desktop: Electron vs Tauri | P7 tertunda; worker tidak terpengaruh | HLD §4, LLD §19 |
+| OD-3 | Packaging desktop: Electron vs Tauri | P7 tertunda; worker tidak terpengaruh. Batasan agar konversi tetap murah dicatat di bagian *Backlog Teknis* ("Prasyarat konversi desktop") | HLD §4, LLD §19 |
 | OD-4 | Strategi scale antrean (tetap SQLite vs Redis/BullMQ) | Default SQLite dipertahankan sampai ada beban terukur | LLD §19 |
 | OD-5 | App registration OAuth per platform (scope, refresh, storage) | **YouTube DIJAWAB** (`ADR-0008` O1–O7): Desktop client + PKCE loopback, DPAPI, app bukan `Testing`. Platform P6 tetap terbuka | LLD §19 · ADR-0008 |
 | OD-6 | Retensi media & kapasitas disk | Tidak menghalangi P1–P4 | LLD §19 |
@@ -49,4 +49,11 @@ Sumber fase + DoD: `LLD.md` §18. Urutan ini mengikat kecuali user menyatakan la
 - ~~Siapkan `docs/security.md` dan `docs/runbook.md` sebelum P7.~~ DONE 2026-10-31 (`365643d`) — runbook memuat prosedur smoke live; security mencatat celah auth/`Origin` local API sebagai pekerjaan P7. Tinjau ulang keduanya sebelum rilis.
 - **Celah keamanan local API**: autentikasi token + validasi `Origin` + rate limit belum ada (LLD §13.2; tercatat di `docs/security.md`).
 - Putuskan tool lint + build artefak (ADR-0001 D7) sebelum UI desktop dimulai.
+- **Prasyarat konversi desktop (OD-3, ditunda 2026-11-01).** Rencana shell = Tauri v2 + sidecar Node yang membungkus UI + API yang sudah ada (bukan porting core). Konversi tetap murah **hanya bila** batasan ini dijaga selama versi web dibangun:
+  - UI hanya memakai path relatif (`/api`, `/health`) dan tidak bergantung pada fitur dev server Vite (HMR/proxy); nanti `dist` disajikan sidecar agar satu origin.
+  - Konfigurasi tetap env-driven dengan nilai absolut (`DATABASE_PATH`, `MEDIA_ROOT`, `APP_PORT`); app terpaket menulis ke `%LOCALAPPDATA%`, bukan folder instalasi yang read-only.
+  - Tidak menyimpan state di cwd/repo; `resolveWorkspacePath` hanya untuk dev.
+  - Tidak menaruh logika penting di script dev (`tsx watch`); packaging butuh build JS murni (Node SEA/esbuild) karena `tsconfig` memakai `noEmit`.
+  - Penyesuaian pasti saat konversi: (a) route statis `dist` di Fastify, (b) sidecar berhenti bila proses induk mati (watchdog parent-death).
+  - Verifikasi sebelum memilih shell: `better-sqlite3` + Node berjalan dari path read-only, DPAPI dari sidecar terpaket, Playwright Chromium diluncurkan dari sidecar, ukuran installer, auto-update.
 - Keputusan owner: `AGENTS.md` dikomit atau di-ignore.
