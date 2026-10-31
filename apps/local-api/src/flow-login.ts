@@ -1,4 +1,9 @@
-import { checkFlowBrowser, openFlowSession, resolveFlowProfileDir } from '@saa/browser-engine';
+import {
+  checkFlowBrowser,
+  openFlowSession,
+  resolveFlowBrowserChannel,
+  resolveFlowProfileDir
+} from '@saa/browser-engine';
 import { AppError } from '@saa/domain';
 
 /**
@@ -16,15 +21,15 @@ async function main(): Promise<void> {
   }
 
   const profileDir = resolveFlowProfileDir();
-  const browser = await checkFlowBrowser();
+  const channel = resolveFlowBrowserChannel();
+  const browser = await checkFlowBrowser(channel);
 
   if (args[0] === '--check') {
     console.log(`Profil Flow : ${profileDir}`);
-    console.log(
-      browser.available
-        ? `Chromium    : ${browser.executablePath}`
-        : `Chromium    : TIDAK SIAP — ${browser.reason ?? 'tidak diketahui'}`
-    );
+    console.log(`Browser     : ${channel}${browser.executablePath === null ? '' : ` — ${browser.executablePath}`}`);
+    if (!browser.available) {
+      console.log(`Status      : TIDAK SIAP — ${browser.reason ?? 'tidak diketahui'}`);
+    }
     process.exitCode = browser.available ? 0 : 1;
     return;
   }
@@ -36,12 +41,19 @@ async function main(): Promise<void> {
   }
 
   console.log(`Profil Flow : ${profileDir}`);
-  console.log('Membuka Chromium. Login ke Google Flow di jendela itu, lalu tutup jendela bila selesai.');
+  console.log(`Browser     : ${channel}${browser.executablePath === null ? '' : ` — ${browser.executablePath}`}`);
+  console.log('Login ke Google Flow di jendela itu, lalu tutup jendela bila selesai.');
   console.log('Aplikasi tidak mengisi kredensial dan tidak melewati CAPTCHA/verifikasi apa pun.');
+  if (channel === 'chromium') {
+    console.log(
+      'Catatan     : Chromium bawaan Playwright dapat ditolak Google saat sign-in. Pasang Chrome/Edge atau set FLOW_BROWSER_CHANNEL.'
+    );
+  }
 
   const session = await openFlowSession({
     profileDir,
     lockOwnerId: 'flow-login',
+    channel,
     tolerateGotoFailure: true
   });
 

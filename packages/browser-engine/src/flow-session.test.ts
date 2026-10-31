@@ -5,7 +5,9 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { ProfileBusyError } from './profile-lock';
 import {
   DEFAULT_FLOW_URL,
+  detectInstalledBrowser,
   openFlowSession,
+  resolveFlowBrowserChannel,
   resolveFlowProfileDir,
   type FlowBrowserHandle,
   type FlowLauncher
@@ -83,6 +85,61 @@ describe('resolveFlowProfileDir', () => {
   });
 });
 
+describe('detectInstalledBrowser', () => {
+  const chromePath = join('C:\\Program Files', 'Google', 'Chrome', 'Application', 'chrome.exe');
+  const edgePath = join('C:\\Program Files (x86)', 'Microsoft', 'Edge', 'Application', 'msedge.exe');
+
+  it('memilih Chrome bila terpasang', () => {
+    const found = detectInstalledBrowser({
+      platform: 'win32',
+      env: { PROGRAMFILES: 'C:\\Program Files', 'PROGRAMFILES(X86)': 'C:\\Program Files (x86)' },
+      exists: (path) => path === chromePath
+    });
+    expect(found).toEqual({ channel: 'chrome', executablePath: chromePath });
+  });
+
+  it('jatuh ke Edge bila Chrome tidak ada', () => {
+    const found = detectInstalledBrowser({
+      platform: 'win32',
+      env: { PROGRAMFILES: 'C:\\Program Files', 'PROGRAMFILES(X86)': 'C:\\Program Files (x86)' },
+      exists: (path) => path === edgePath
+    });
+    expect(found).toEqual({ channel: 'msedge', executablePath: edgePath });
+  });
+
+  it('null bila tidak ada browser resmi atau bukan Windows', () => {
+    expect(detectInstalledBrowser({ platform: 'win32', env: {}, exists: () => false })).toBeNull();
+    expect(detectInstalledBrowser({ platform: 'linux', env: {}, exists: () => true })).toBeNull();
+  });
+});
+
+describe('resolveFlowBrowserChannel', () => {
+  it('menghormati override FLOW_BROWSER_CHANNEL', () => {
+    expect(resolveFlowBrowserChannel({ env: { FLOW_BROWSER_CHANNEL: 'msedge' } })).toBe('msedge');
+    expect(resolveFlowBrowserChannel({ env: { FLOW_BROWSER_CHANNEL: 'chromium' } })).toBe('chromium');
+  });
+
+  it('menolak nilai yang tidak dikenal', () => {
+    expect(() => resolveFlowBrowserChannel({ env: { FLOW_BROWSER_CHANNEL: 'firefox' } })).toThrow(
+      /tidak dikenal/
+    );
+  });
+
+  it('memakai deteksi otomatis dan fallback ke chromium', () => {
+    const chromePath = join('C:\\Program Files', 'Google', 'Chrome', 'Application', 'chrome.exe');
+    expect(
+      resolveFlowBrowserChannel({
+        platform: 'win32',
+        env: { PROGRAMFILES: 'C:\\Program Files', 'PROGRAMFILES(X86)': 'C:\\Program Files (x86)' },
+        exists: (path) => path === chromePath
+      })
+    ).toBe('chrome');
+    expect(resolveFlowBrowserChannel({ platform: 'linux', env: {}, exists: () => false })).toBe(
+      'chromium'
+    );
+  });
+});
+
 describe('openFlowSession', () => {
   it('membuka halaman Flow dengan lock dipegang selama sesi', async () => {
     const { handle, calls } = fakeBrowser();
@@ -111,6 +168,25 @@ describe('openFlowSession', () => {
     });
 
     expect(calls.urls).toEqual(['https://example.test/flow']);
+    await session.close();
+  });
+
+  it('meneruskan channel ke launcher', async () => {
+    const profileDir = join(workDir, 'profile');
+    const channels: string[] = [];
+    const { handle } = fakeBrowser();
+
+    const session = await openFlowSession({
+      profileDir,
+      channel: 'chrome',
+      launcher: async (_dir, channel) => {
+        channels.push(channel);
+        return handle;
+      }
+    });
+
+    expect(channels).toEqual(['chrome']);
+    expect(session.channel).toBe('chrome');
     await session.close();
   });
 
