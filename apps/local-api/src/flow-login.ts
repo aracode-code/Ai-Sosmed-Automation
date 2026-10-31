@@ -43,6 +43,8 @@ async function main(): Promise<void> {
   console.log(`Profil Flow : ${profileDir}`);
   console.log(`Browser     : ${channel}${browser.executablePath === null ? '' : ` — ${browser.executablePath}`}`);
   console.log('Login ke Google Flow di jendela itu, lalu tutup jendela bila selesai.');
+  console.log('Verifikasi  : setelah login, URL harus tetap di flow.google.com (bukan /about)');
+  console.log('              dan terlihat studio Flow (kolom prompt / daftar project).');
   console.log('Aplikasi tidak mengisi kredensial dan tidak melewati CAPTCHA/verifikasi apa pun.');
   if (channel === 'chromium') {
     console.log(

@@ -1,3 +1,4 @@
+export * from './flow-inspect';
 export * from './flow-session';
 export * from './media';
 export * from './mock-generator';

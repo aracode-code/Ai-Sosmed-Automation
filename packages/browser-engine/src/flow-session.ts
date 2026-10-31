@@ -9,7 +9,8 @@ import { acquireProfileLock, type ProfileLock } from './profile-lock';
  * Aplikasi tidak pernah mengisi kredensial, memecahkan CAPTCHA, atau menembus
  * verifikasi apa pun — bila Flow menantang, worker berhenti (NEEDS_ATTENTION).
  */
-export const DEFAULT_FLOW_URL = 'https://labs.google/fx/tools/flow';
+/** Terverifikasi 2026-11-01: URL lama `labs.google/fx/tools/flow` mengalihkan ke sini. */
+export const DEFAULT_FLOW_URL = 'https://flow.google.com/';
 
 export interface FlowProfileOptions {
   env?: NodeJS.ProcessEnv;
@@ -46,6 +47,11 @@ export interface FlowPage {
     url: string,
     options?: { waitUntil?: 'domcontentloaded' | 'load'; timeout?: number }
   ): Promise<unknown>;
+  url?(): string;
+  title?(): Promise<string>;
+  evaluate?<T>(expression: string): Promise<T>;
+  screenshot?(options: { path: string; fullPage?: boolean }): Promise<unknown>;
+  waitForTimeout?(ms: number): Promise<void>;
 }
 
 export interface FlowBrowserHandle {
