@@ -128,6 +128,9 @@ Jangan nyatakan P5 COMPLETED sebelum seluruh baris bukti di atas terisi.
 | `LEASE_EXPIRED` | proses berhenti saat job berjalan | job dipulihkan saat start; periksa apakah publikasi sudah terjadi sebelum mengulang |
 | `EADDRINUSE` saat start | port dipakai proses lain | hentikan proses lama atau ubah `APP_PORT` |
 | preflight `FAIL` pada `akun:<id>` | blob DPAPI hilang/tak terbaca | jalankan pairing ulang dengan akun Windows yang sama |
+| `flow:login` berhenti (exit 134/OOM) tetapi jendela Chromium masih terbuka | proses Node mati, browser menjadi yatim | selesaikan login di jendela itu lalu tutup; bila CLI tidak berjalan lagi, tunggu lock kedaluwarsa (10 menit) sebelum menjalankan `flow:login` |
+| `.worker-lock.json` menahan profil Flow | sesi sebelumnya mati tanpa melepas lock | hapus hanya bila **tidak ada** proses `chrome.exe` dengan `--user-data-dir` profil Flow |
+| `flow:login` melaporkan "halaman belum selesai dimuat" | SPA Flow lambat / jaringan lambat | muat ulang halaman di jendela tersebut; login tetap bisa dilakukan |
 | `Gagal: konfigurasi tidak valid … APP_HOST` | host non-loopback tanpa izin | pakai `127.0.0.1` atau set `APP_ALLOW_NETWORK=true` secara sadar |
 
 ## 6. Operasional harian

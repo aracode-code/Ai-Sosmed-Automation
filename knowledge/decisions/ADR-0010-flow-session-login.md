@@ -16,6 +16,7 @@
 | F5 | URL default `https://labs.google/fx/tools/flow`, dapat diganti lewat `openFlowSession({ url })` | URL Flow belum diverifikasi dari akun nyata; **UNKNOWN** apakah stabil atau butuh parameter produk | URL berubah / tersedia jalur lain |
 | F6 | Slice ini **tidak** memuat adapter generasi: selektor/DOM Flow belum dipetakan dan tidak boleh ditulis tanpa bukti | Menulis selektor tanpa akun nyata = kode fiktif; urutan dipilih owner: login dulu, lalu petakan DOM, baru adapter | — |
 | F7 | Login berjalan **headed** (`headless: false`, `viewport: null`, `--start-maximized`) | Login Google tidak dapat diselesaikan headless | Adapter generasi mungkin boleh headless — UNKNOWN |
+| F8 | Navigasi memakai `domcontentloaded` + timeout 60 s; `flow:login` memakai mode **toleran** (jendela tetap terbuka bila navigasi lambat, `navigationError` dilaporkan). Adapter generasi memakai mode ketat | Percobaan pertama memakai `load` penuh → timeout 30 s lalu sesi ditutup; Flow adalah SPA berat | Flow berubah menjadi halaman ringan |
 
 ## Konsekuensi
 
@@ -28,7 +29,10 @@
 ## Bukti Implementasi (E1, 2026-11-01)
 
 - Commit `fd62314`: `packages/browser-engine/src/flow-session.ts` (`resolveFlowProfileDir`, `openFlowSession`, `checkFlowBrowser`), `apps/local-api/src/flow-login.ts`, script `flow:login`.
-- Test: `packages/browser-engine/src/flow-session.test.ts` — 10 test (default/override/relatif ditolak, lock dipegang & dilepas, sesi kedua `ProfileBusyError`, launch gagal, navigasi gagal).
-- `corepack pnpm typecheck` exit 0 (10 paket) · `corepack pnpm test` **44 file / 357 test** hijau.
+- Commit `260ac52`: navigasi `domcontentloaded` + `gotoTimeoutMs` (60 s) + `tolerateGotoFailure` untuk login; 11 test sesi.
+- Test: `packages/browser-engine/src/flow-session.test.ts` — 11 test (default/override/relatif ditolak, lock dipegang & dilepas, sesi kedua `ProfileBusyError`, launch gagal, navigasi gagal ketat, navigasi gagal toleran).
+- `corepack pnpm typecheck` exit 0 (10 paket) · `corepack pnpm vitest run --no-file-parallelism` **44 file / 358 test** hijau.
+- Catatan lingkungan: `pnpm test` paralel default gagal OOM saat mesin kekurangan commit charge (Chromium + Chrome pengguna); mode tanpa paralelisme lulus — bukan kegagalan kode.
 - `corepack pnpm --filter @saa/local-api flow:login --check` → profil `C:\Users\sayaa\AppData\Local\saa\browser\flow-profile`, Chromium `...\ms-playwright\chromium-1248\chrome-win64\chrome.exe`, exit 0.
+- Percobaan `flow:login` nyata: jendela Chromium terbuka dan memuat "Google Flow — Tools"; login manual **belum** diselesaikan.
 - Belum: login nyata, pemetaan DOM Flow, adapter generasi, smoke satu video.

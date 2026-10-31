@@ -49,7 +49,8 @@ Probe yang gagal dieksekusi menandai `available:false` dan **tidak** menggagalka
 ## Sesi Profil Flow (ADR-0010)
 
 - `resolveFlowProfileDir()`: default `%LOCALAPPDATA%\saa\browser\flow-profile` (atau `~/.local/share/saa/browser/flow-profile` di non-Windows); `FLOW_PROFILE_DIR` hanya diterima bila **absolut**, selain itu `VALIDATION`.
-- `openFlowSession({ profileDir, url?, lockOwnerId?, launcher? })`: ambil lock profil → buka Chromium persisten (`headless:false`, `viewport:null`, `--start-maximized`) → `goto` URL (default `DEFAULT_FLOW_URL`) → kembalikan `{ page, close, waitForClose, releaseLock, lockPath }`.
+- `openFlowSession({ profileDir, url?, lockOwnerId?, launcher?, gotoTimeoutMs?, tolerateGotoFailure? })`: ambil lock profil → buka Chromium persisten (`headless:false`, `viewport:null`, `--start-maximized`) → `goto` dengan `waitUntil:'domcontentloaded'` (timeout 60 s, Flow adalah SPA) → kembalikan `{ page, close, waitForClose, releaseLock, lockPath, navigationError }`.
+- Mode **toleran** (`tolerateGotoFailure: true`, dipakai `flow:login`) mempertahankan jendela bila navigasi lambat/gagal dan mengisi `navigationError`; mode ketat (default, untuk adapter) menutup browser + `TRANSIENT_NETWORK`.
 - Jalur gagal: launcher gagal → lock dilepas (`UNKNOWN`); `goto` gagal → browser ditutup + lock dilepas (`TRANSIENT_NETWORK`); `close()` selalu melepas lock.
 - Sesi kedua selama lock aktif → `ProfileBusyError` (`RESOURCE_BUSY`).
 - `checkFlowBrowser()`: memuat `playwright`, menghitung `chromium.executablePath()`, memeriksa keberadaan berkas — tanpa membuka jendela.
