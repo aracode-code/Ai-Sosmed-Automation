@@ -1,6 +1,6 @@
 # Modul — YouTube (Adapter Publikasi Mock + PUBLISH Handler)
 
-**Status:** PARTIAL — adapter **mock** + handler PUBLISH + verify/reconcile COMPLETED; keputusan adapter nyata selesai (ADR-0008) dengan **A1 credential store** (`442d3be`), **A2 OAuth client** (`5cbe70b`), **A3 adapter API** (`26e557a`), **A4 wiring + onboarding** (`0b4194f`), **A5 uji lintas lapisan** (`df9a2b7`, diperkuat `8b8a698`), **A6 resume 308** (`c310d1f`), dan **A7 rekonsiliasi lintas restart** (`a6dde05`, wiring `bb1ba57`) DONE; smoke live (pairing + unggah nyata) belum; upload nyata **UNVERIFIED**
+**Status:** PARTIAL — adapter **mock** + handler PUBLISH + verify/reconcile COMPLETED; keputusan adapter nyata selesai (ADR-0008) dengan **A1 credential store** (`442d3be`), **A2 OAuth client** (`5cbe70b`), **A3 adapter API** (`26e557a`), **A4 wiring + onboarding** (`0b4194f`), **A5 uji lintas lapisan** (`df9a2b7`, diperkuat `8b8a698`), **A6 resume 308** (`c310d1f`), dan **A7 rekonsiliasi lintas restart** (`a6dde05`, wiring `bb1ba57`) DONE; CLI kesiapan `preflight:youtube` (`bbfe83a`) tersedia; smoke live (pairing + unggah nyata) belum; upload nyata **UNVERIFIED**
 **Sumber:** kode aktual (E1). Keputusan: `ADR-0005` (Y1–Y10), `ADR-0008` (OD-2/OD-5). Kontrak: LLD §11.1–§11.4.
 
 ## Peta Paket
@@ -159,7 +159,7 @@ Alasan dua baris terakhir: `videos.insert` tidak idempoten — retry otomatis bi
 
 | Aspek | Nilai |
 |---|---|
-| Perintah | `corepack pnpm --filter @saa/local-api pair:youtube -- --account <id>` atau `--label "<label>"` (+ `--port` opsional) |
+| Perintah | `corepack pnpm --filter @saa/local-api pair:youtube --account <id>` atau `--label "<label>"` (+ `--port` opsional). Jangan memakai `--` pemisah: argumen `--` ikut diteruskan dan ditolak CLI |
 | Alur | DB dimigrasi → akun dicari/dibuat (`--label` idempoten) → `GOOGLE_OAUTH_CLIENT_ID` wajib ada → `pairYouTubeAccount` (browser via `rundll32 url.dll,FileProtocolHandler`, URL **tidak** lewat shell) → token DPAPI → `updateAccountConnection(connected, secretRef)` |
 | Output | id akun, nama kredensial, `pairedAt`, waktu kedaluwarsa token; **tidak pernah** access/refresh token |
 | Gagal | Akun dibuat tetap `disconnected`; exit 2 untuk kesalahan pemakaian/konfigurasi, exit 1 untuk galat runtime |
@@ -205,15 +205,16 @@ Catatan: `getStatus` adapter API tidak pernah mengembalikan `processing`; jalur 
 corepack pnpm --filter @saa/youtube typecheck
 corepack pnpm vitest run packages/youtube packages/workflow/src/handlers/publish.test.ts
 corepack pnpm vitest run tests/integration/p5-publish-youtube-api.test.ts
-corepack pnpm test                              # 321 test seluruh workspace
+corepack pnpm test                              # 340 test seluruh workspace
 YOUTUBE_ADAPTER=mock corepack pnpm start        # boot dengan adapter mock
 YOUTUBE_ADAPTER=api GOOGLE_OAUTH_CLIENT_ID=<id> YOUTUBE_APP_STATUS=production corepack pnpm start
-corepack pnpm --filter @saa/local-api pair:youtube -- --label "kanal utama"
+corepack pnpm --filter @saa/local-api preflight:youtube            # kesiapan uji live
+corepack pnpm --filter @saa/local-api pair:youtube --label "kanal utama"
 ```
 
 ## Belum Ada
 
-- Smoke live: pairing nyata + satu unggahan `private` dengan bukti `videos.list` (sisa slice A5; butuh prasyarat owner).
+- Smoke live: pairing nyata + satu unggahan `private` dengan bukti `videos.list` (sisa slice A5; butuh prasyarat owner). Kesiapan lokal dicek lebih dulu dengan `corepack pnpm --filter @saa/local-api preflight:youtube` (`bbfe83a`; prosedur `docs/runbook.md` §4).
 - Job `VERIFY_PUBLICATION`/`RECONCILE_PUBLICATION` terpisah: rekonsiliasi saat ini hanya terjadi bila job `PUBLISH` dijalankan ulang; kadensi polling dan biaya kuota `videos.list` menunggu keputusan owner.
 - Resume 308 tidak menyimpan state sesi di disk: proses yang mati di tengah unggahan memulai sesi baru (video yatim harus dihapus manual di YouTube Studio).
 - `resolveUpload` hanya mengenali attempt yang sudah punya `externalPostId`; attempt `unknown` tanpa id tidak dapat direkonsiliasi otomatis.

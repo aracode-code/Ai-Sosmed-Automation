@@ -2,7 +2,7 @@
 
 **Project:** AI Social Media Automation Agent
 **Dibuat:** 2026-10-29 (SESSION-2026-10-29-1)
-**Status:** P1 + P2 COMPLETED, P3 mock + P4 backend + P5 mock PARTIAL, worker loop + handler registration + P4b dispatch + P4c produksi konten + pemicu konten manual COMPLETED (2026-10-30); OD-2/OD-5 untuk YouTube sudah dijawab (ADR-0008) dengan slice **A1 credential store** (`442d3be`), **A2 OAuth client** (`5cbe70b`), **A3 adapter API** (`26e557a`), **A4 wiring + onboarding** (`0b4194f`), **A5 uji lintas lapisan** (`df9a2b7`, diperkuat `8b8a698`), **A6 resume 308** (`c310d1f`), dan **A7 rekonsiliasi lintas restart** (`a6dde05`, `bb1ba57`) DONE; smoke live (unggah nyata) belum — 321 test hijau, kode aktual ada di `apps/` + `packages/`.
+**Status:** P1 + P2 COMPLETED, P3 mock + P4 backend + P5 mock PARTIAL, worker loop + handler registration + P4b dispatch + P4c produksi konten + pemicu konten manual COMPLETED (2026-10-30); OD-2/OD-5 untuk YouTube sudah dijawab (ADR-0008) dengan slice **A1 credential store** (`442d3be`), **A2 OAuth client** (`5cbe70b`), **A3 adapter API** (`26e557a`), **A4 wiring + onboarding** (`0b4194f`), **A5 uji lintas lapisan** (`df9a2b7`, diperkuat `8b8a698`), **A6 resume 308** (`c310d1f`), dan **A7 rekonsiliasi lintas restart** (`a6dde05`, `bb1ba57`) DONE; ditambah **CLI `preflight:youtube`** (`bbfe83a`) dan **dokumen operasional** `docs/runbook.md` + `docs/security.md` (`365643d`, 2026-10-31); smoke live (unggah nyata) belum — 340 test hijau, kode aktual ada di `apps/` + `packages/`.
 
 ---
 

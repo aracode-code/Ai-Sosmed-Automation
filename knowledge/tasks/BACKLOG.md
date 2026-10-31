@@ -46,6 +46,7 @@ Sumber fase + DoD: `LLD.md` §18. Urutan ini mengikat kecuali user menyatakan la
 - ~~Wiring planner → dispatcher `PLAN_CONTENT`~~ DONE 2026-10-30 (`826a732`) — ADR-0003 D1–D6.
 - ~~Pin versi Node LTS + pnpm; komit lockfile.~~ DONE 2026-10-30 — `engines >=22.12 <23`, `packageManager pnpm@9.15.4`, `pnpm-lock.yaml` dikomit.
 - Tentukan apakah `HLD.md`/`LLD.md` dipindah ke `docs/` (buat ADR bila ya).
-- Siapkan `docs/security.md` dan `docs/runbook.md` sebelum P7.
+- ~~Siapkan `docs/security.md` dan `docs/runbook.md` sebelum P7.~~ DONE 2026-10-31 (`365643d`) — runbook memuat prosedur smoke live; security mencatat celah auth/`Origin` local API sebagai pekerjaan P7. Tinjau ulang keduanya sebelum rilis.
+- **Celah keamanan local API**: autentikasi token + validasi `Origin` + rate limit belum ada (LLD §13.2; tercatat di `docs/security.md`).
 - Putuskan tool lint + build artefak (ADR-0001 D7) sebelum UI desktop dimulai.
 - Keputusan owner: `AGENTS.md` dikomit atau di-ignore.

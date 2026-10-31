@@ -1,6 +1,6 @@
 # Modul — Local API (App, Route, Composition Root)
 
-**Status:** P1–P5 backend (mock publish) + worker loop + dispatch jadwal + produksi konten + pemicu konten manual COMPLETED (2026-10-30) · commit `debdaaf`, `4b513ab`, `6ad9547`, `7d13431`, `bfc7c72`, `77fbb9c`, `1f27cd5`, `bb1ba57`
+**Status:** P1–P5 backend (mock publish) + worker loop + dispatch jadwal + produksi konten + pemicu konten manual + CLI kesiapan COMPLETED (2026-10-31) · commit `debdaaf`, `4b513ab`, `6ad9547`, `7d13431`, `bfc7c72`, `77fbb9c`, `1f27cd5`, `bb1ba57`, `bbfe83a`
 **Sumber:** kode aktual (E1). Keputusan: `ADR-0001` (konfigurasi), `ADR-0003` D15, `ADR-0004` (worker + registry), `ADR-0005` (publikasi mock), `ADR-0006` (dispatch jadwal), `ADR-0007` (produksi konten per slot).
 
 ## Peta Berkas
@@ -13,6 +13,8 @@
 | `apps/local-api/src/server.ts` | Composition root: migrasi → recovery → registry → dispatcher/worker → listen → start; shutdown berurutan |
 | `apps/local-api/src/routes/*.ts` | Route HTTP per area (health, jobs, campaigns, approvals, schedules, accounts, content) |
 | `apps/local-api/src/errors.ts` | `errorEnvelope` bersama (`{ error: { code, message, requestId, details? } }`) |
+| `apps/local-api/src/preflight.ts` | Logika murni `collectPreflightChecks` — status PASS/WARN/FAIL tanpa akses jaringan dan tanpa mencetak rahasia |
+| `apps/local-api/src/preflight-youtube.ts` | CLI `preflight:youtube` — probe database read-only, akun, blob DPAPI, aset media; exit 0/1/2 |
 
 ## Composition Root (urutan boot)
 
@@ -57,6 +59,8 @@ loadConfig → createLogger → openDatabase → runMigrations → runStartupRec
 | `SCHEDULER_ENABLED` | `true` | Loop dispatch jadwal → job `PUBLISH` |
 | `SCHEDULER_INTERVAL_MS` | `5000` | Rentang 1 000–300 000 |
 | `YOUTUBE_ADAPTER` | `off` | `mock` = adapter palsu (tanpa unggahan nyata); `api` = adapter YouTube Data API v3 (ADR-0008), hanya aktif bila `GOOGLE_OAUTH_CLIENT_ID` ada |
+| `YOUTUBE_UPLOAD_PRIVACY` | `private` | `private`/`unlisted`/`public`; hasil diverifikasi `videos.list` |
+| `YOUTUBE_APP_STATUS` | `unknown` | `testing`/`production`/`unknown`; `testing` dicatat `error` saat boot (ADR-0008 O3) |
 | `DEEPSEEK_API_KEY` | — | Hanya lewat env; tidak pernah dilog/dipersistensi |
 
 ## Perintah
@@ -65,12 +69,16 @@ loadConfig → createLogger → openDatabase → runMigrations → runStartupRec
 corepack pnpm start          # boot default 127.0.0.1:4317
 corepack pnpm dev            # tsx watch
 corepack pnpm test           # seluruh workspace
+corepack pnpm --filter @saa/local-api pair:youtube --label "YouTube Utama"
+corepack pnpm --filter @saa/local-api preflight:youtube   # exit 0 lulus/peringatan, 1 FAIL, 2 konfigurasi
 curl http://127.0.0.1:4317/health
 ```
 
+Argumen script diteruskan apa adanya; jangan memakai `--` pemisah (`--` ikut menjadi argumen dan ditolak CLI).
+
 ## Belum Ada
 
-- Auth lokal pada API (saat ini loopback-only sebagai batas keamanan).
+- Auth lokal pada API (saat ini loopback-only sebagai batas keamanan). Celah autentikasi token + validasi `Origin` + rate limit dicatat di `docs/security.md` sebagai pekerjaan P7.
 - Route untuk media/aset, approval UI, dan kontrol worker/scheduler (start/stop/status per proses).
 - Pemicu `PLAN_CONTENT` manual ada di `POST /api/v1/content` (idempoten via `requestId`); belum ada route untuk membatalkan job atau membaca attempt publikasi.
 - Produksi konten ikut berhenti bila adapter publikasi tidak terdaftar, karena loop dispatch digerbangi adapter (ADR-0006 S8).

@@ -1,5 +1,13 @@
 # DONE
 
+## 2026-10-31 — SESSION-2026-10-31-1
+
+- **B + C — opsi non-kredensial sebelum smoke live** (`bbfe83a`, `365643d`).
+  - **CLI `preflight:youtube`** (`bbfe83a`): logika murni `collectPreflightChecks` + CLI tipis; memeriksa platform, adapter, kredensial OAuth (status ada/tidak), `YOUTUBE_APP_STATUS`, privasi, database, akun + blob DPAPI, aset media; exit 0/1/2; 19 test termasuk asersi tidak ada nilai rahasia di keluaran.
+  - **Dokumen operasional** (`365643d`): `docs/runbook.md` (prosedur smoke live + bukti, env, troubleshooting, backup) dan `docs/security.md` (status kontrol + celah auth/`Origin` local API yang masih BELUM, insiden, checklist P7); LLD §13 tetap kanonik.
+  - Bukti: typecheck exit 0 · **42 file, 340 passed / 0 failed** · smoke CLI tanpa kredensial exit 1, `APP_HOST=0.0.0.0` exit 2, argumen asing exit 2 · tanpa migrasi/dependensi baru; hanya `AGENTS.md` untracked.
+  - Tidak dikerjakan (keputusan owner): smoke live YouTube, job rekonsiliasi terjadwal, approval UI/D7, OD-1 Flow.
+
 ## 2026-10-30 — SESSION-2026-10-30-13
 
 - **S1–S5 — lima backlog non-owner diselesaikan** (`c310d1f` … `bb1ba57`).

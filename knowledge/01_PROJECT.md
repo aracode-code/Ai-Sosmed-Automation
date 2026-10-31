@@ -9,7 +9,7 @@
 | Tipe | Aplikasi desktop lokal Windows, satu pengguna utama | VERIFIED (HLD §2.3) |
 | Deployment | Windows PC lokal; packaging Electron/Tauri belum dipilih | VERIFIED (HLD §4, LLD §19) |
 | Dokumen induk | `HLD.md` v1.0 dan `LLD.md` v1.0 (keduanya berstatus Draft) | VERIFIED |
-| Implementasi kode | **P1 + P2 + P3 mock + P4 backend + P4b/P4c otomatisasi + P5 mock + adapter YouTube API (A1–A7) selesai** — 8 paket + `apps/local-api`, 321 test hijau | VERIFIED (commit `debdaaf` … `bb1ba57`, 2026-10-30) |
+| Implementasi kode | **P1 + P2 + P3 mock + P4 backend + P4b/P4c otomatisasi + P5 mock + adapter YouTube API (A1–A7) + CLI preflight selesai** — 8 paket + `apps/local-api`, 340 test hijau | VERIFIED (commit `debdaaf` … `365643d`, 2026-10-31) |
 
 ## Tujuan Produk
 
@@ -61,9 +61,10 @@ packages/scheduler        # zona waktu, window/quiet, kuota harian, Scheduler pa
 packages/browser-engine   # kontrak VideoGenerator, mock Flow, validasi media, lock profil
 packages/youtube          # adapter YouTube mock (kontrak SocialAdapter), idempoten per key
 tests/integration         # migrasi, restart recovery, klaim lintas koneksi, envelope API
+docs                      # runbook operasional + security checklist (merujuk LLD §13, tidak menduplikasi)
 ```
 
-Belum dibuat (P3 penuh–P7): `apps/desktop-ui`, adapter Flow nyata, `packages/integrations/*`, `docs/{security.md,runbook.md}`.
+Belum dibuat (P3 penuh–P7): `apps/desktop-ui`, adapter Flow nyata, `packages/integrations/*`.
 
 > Catatan: HLD/LLD berada di root repo (bukan `docs/`). Pindahkan hanya bila diputuskan di ADR — jangan memindahkan dokumen canonical tanpa jejak.
 
@@ -104,6 +105,9 @@ Belum dibuat (P3 penuh–P7): `apps/desktop-ui`, adapter Flow nyata, `packages/i
 - Rekonsiliasi lintas restart (A7, `a6dde05` + `bb1ba57`): handler menyimpan `externalPostId` segera setelah adapter mengembalikannya pada fase `processing`; adapter menerima `resolveUpload(key)` yang dibaca composition root dari `publish_attempts.external_post_id`, sehingga proses yang hidup kembali memverifikasi video tanpa mengunggah ulang. Tanpa `externalPostId` tersimpan, hasil tetap `unknown`.
 - Kuota harian scheduler (`5af62ca`): attempt dengan `error_code` `PUBLISH_VALIDATION`/`VALIDATION`/`DISK` tidak dihitung karena tidak ada byte terkirim; kode lain tetap dihitung (konservatif terhadap batas YouTube).
 - Pemicu konten manual (`1f27cd5`): `POST /api/v1/content` membuat job `PLAN_CONTENT` `QUEUED` dengan key `plan:manual:<campaignId>:<requestId|uuid>`; `requestId` sama → 202 `duplicate`; campaign/pipeline sibuk → 409.
+- Kesiapan uji live (`bbfe83a`): `corepack pnpm --filter @saa/local-api preflight:youtube` memeriksa platform, adapter, kredensial OAuth (status ada/tidak), `YOUTUBE_APP_STATUS`, privasi, database, akun + blob DPAPI, dan aset media; exit 0 lulus/peringatan, 1 ada FAIL, 2 konfigurasi/pemakaian. Tidak memanggil Google dan tidak mencetak rahasia.
+- Dokumen operasional (`365643d`): `docs/runbook.md` (perintah, env, prosedur smoke live + bukti, troubleshooting kode galat adapter, backup) dan `docs/security.md` (status kontrol aktual, celah auth/`Origin` local API, insiden, checklist P7). LLD §13 tetap kanonik.
+- Aplikasi tidak membaca `.env`; semua konfigurasi dari environment proses. Perintah script pakai `pnpm run <script> <flag>` tanpa `--` pemisah (argumen `--` ikut diteruskan dan ditolak CLI).
 - Dispatch jadwal: `ScheduleDispatchLoop` (default 5 s) hanya membuat job `PUBLISH` untuk **konten terbaru** campaign aktif dengan aset valid, akun terhubung, caption platform tersedia, dan approval terikat valid; kunci idempoten `publish:<contentId>:v<version>:<accountId>:<platform>` (ADR-0006).
 - Dispatch hanya berjalan bila `SCHEDULER_ENABLED=true`, worker aktif, dan adapter publikasi terdaftar; slot jadwal tetap maju walau tidak ada job terbuat (ADR-0006 S7).
 - Produksi konten: satu `PLAN_CONTENT` per slot dengan pipeline **kedalaman satu** — perencanaan berjalan atau konten terbaru tanpa job `PUBLISH` menahan slot berikutnya; publikasi dijalankan lebih dulu dalam tick yang sama (ADR-0007).
@@ -120,7 +124,7 @@ Belum dibuat (P3 penuh–P7): `apps/desktop-ui`, adapter Flow nyata, `packages/i
 | P4 Approval & Scheduler (backend + engine + worker loop) | **PARTIAL (2026-10-30, commits `4b513ab`,`6ad9547`)** — UI approval belum ada; dispatch jadwal periodik selesai di P4b |
 | P4b Dispatch jadwal → job `PUBLISH` otomatis (milestone turunan P4/P5) | **COMPLETED (2026-10-30, commit `bfc7c72`)** |
 | P4c Produksi konten per slot (milestone turunan P4/P5) | **COMPLETED (2026-10-30, commit `77fbb9c`)** — pipeline kedalaman satu |
-| P5 YouTube (adapter mock + PUBLISH handler + verify/reconcile) | **PARTIAL (2026-10-30, commit `7d13431`)** — upload nyata UNVERIFIED; OD-2/OD-5 dijawab (ADR-0008) dan slice **A1 credential store** (`442d3be`) + **A2 OAuth client** (`5cbe70b`) + **A3 adapter API** (`26e557a`) + **A4 wiring/onboarding** (`0b4194f`) + **A5 uji lintas lapisan** (`df9a2b7`, diperkuat `8b8a698`) + **A6 resume 308** (`c310d1f`) + **A7 rekonsiliasi lintas restart** (`a6dde05`, `bb1ba57`) DONE, smoke live belum; pembuatan job publikasi otomatis selesai di P4b |
+| P5 YouTube (adapter mock + PUBLISH handler + verify/reconcile) | **PARTIAL (2026-10-30, commit `7d13431`)** — upload nyata UNVERIFIED; OD-2/OD-5 dijawab (ADR-0008) dan slice **A1 credential store** (`442d3be`) + **A2 OAuth client** (`5cbe70b`) + **A3 adapter API** (`26e557a`) + **A4 wiring/onboarding** (`0b4194f`) + **A5 uji lintas lapisan** (`df9a2b7`, diperkuat `8b8a698`) + **A6 resume 308** (`c310d1f`) + **A7 rekonsiliasi lintas restart** (`a6dde05`, `bb1ba57`) DONE, ditambah **CLI `preflight:youtube`** (`bbfe83a`) dan **runbook/security docs** (`365643d`); smoke live belum |
 | P6 Platform lain · P7 Hardening | NOT STARTED |
 
 Rincian fase + Definition of Done: `tasks/BACKLOG.md`. Bukti: `modules/foundation.md` (P1), `modules/agent-core.md` (P2), `modules/workflow.md`, `modules/scheduler.md` (P4 engine + P4b/P4c), `modules/browser-engine.md`, `modules/youtube.md`, `modules/local-api.md` (worker + dispatch loop + composition root), `decisions/ADR-0006-schedule-publish-dispatch.md` (P4b), `decisions/ADR-0007-content-production-per-slot.md` (P4c), `decisions/ADR-0008-youtube-real-adapter-od2-od5.md` (OD-2/OD-5 YouTube).
