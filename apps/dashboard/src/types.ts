@@ -1,0 +1,63 @@
+export interface Health {
+  status: string;
+  version: string;
+  db: string;
+  workers: { active: number };
+  time: string;
+}
+
+export interface Job {
+  id: string;
+  campaignId: string | null;
+  contentId: string | null;
+  parentJobId: string | null;
+  jobType: string;
+  status: string;
+  payload: unknown;
+  runAt: string | null;
+  attempts: number;
+  maxAttempts: number;
+  leaseOwner: string | null;
+  leaseUntil: string | null;
+  idempotencyKey: string;
+  lastErrorCode: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Campaign {
+  id: string;
+  name: string;
+  niche: string;
+  status: string;
+  approvalMode: 'automatic' | 'required';
+  platforms: string[];
+  createdAt: string;
+}
+
+export interface ContentItem {
+  id: string;
+  campaignId: string;
+  version: number;
+  topic: string;
+  prompt: unknown;
+  caption: unknown;
+  approvalStatus: 'pending' | 'approved' | 'rejected' | 'not_required';
+}
+
+export interface AccountSummary {
+  id: string;
+  platform: string;
+  label: string;
+  connectionStatus: 'connected' | 'reauth_required' | 'disconnected';
+}
+
+export interface ListResponse<T> {
+  items: T[];
+  nextCursor?: string | null;
+}
+
+export interface CampaignDetail {
+  campaign: Campaign;
+  content: ContentItem[];
+}

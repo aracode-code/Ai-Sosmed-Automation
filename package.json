@@ -11,6 +11,7 @@
     "test": "vitest run",
     "dev": "corepack pnpm --filter @saa/local-api dev",
     "start": "corepack pnpm --filter @saa/local-api start",
+    "ui": "corepack pnpm --filter @saa/dashboard dev",
     "migrate": "corepack pnpm --filter @saa/database migrate"
   },
   "devDependencies": {
