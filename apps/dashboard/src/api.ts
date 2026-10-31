@@ -17,24 +17,36 @@ export class ApiError extends Error {
 
 export async function getJson<T>(path: string, signal?: AbortSignal): Promise<T> {
   const response = await fetch(path, { signal, headers: { accept: 'application/json' } });
-  if (!response.ok) {
-    let code = `HTTP_${response.status}`;
-    let message = response.statusText === '' ? 'permintaan gagal' : response.statusText;
-    let parsed = false;
-    try {
-      const body = (await response.json()) as ErrorEnvelope;
-      parsed = true;
-      if (body.error?.code !== undefined) code = body.error.code;
-      if (body.error?.message !== undefined) message = body.error.message;
-    } catch {
-      // respons bukan envelope JSON — biasanya proxy Vite saat Local API mati
-    }
-    if (!parsed && response.status >= 500) {
-      message = 'Local API tidak merespons — jalankan corepack pnpm start';
-    }
-    throw new ApiError(response.status, code, message);
-  }
+  if (!response.ok) throw await toApiError(response);
   return (await response.json()) as T;
+}
+
+export async function sendJson<T>(path: string, body: unknown): Promise<T> {
+  const response = await fetch(path, {
+    method: 'POST',
+    headers: { accept: 'application/json', 'content-type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  if (!response.ok) throw await toApiError(response);
+  return (await response.json()) as T;
+}
+
+async function toApiError(response: Response): Promise<ApiError> {
+  let code = `HTTP_${response.status}`;
+  let message = response.statusText === '' ? 'permintaan gagal' : response.statusText;
+  let parsed = false;
+  try {
+    const body = (await response.json()) as ErrorEnvelope;
+    parsed = true;
+    if (body.error?.code !== undefined) code = body.error.code;
+    if (body.error?.message !== undefined) message = body.error.message;
+  } catch {
+    // respons bukan envelope JSON — biasanya proxy Vite saat Local API mati
+  }
+  if (!parsed && response.status >= 500) {
+    message = 'Local API tidak merespons — jalankan corepack pnpm start';
+  }
+  return new ApiError(response.status, code, message);
 }
 
 export interface ApiState<T> {

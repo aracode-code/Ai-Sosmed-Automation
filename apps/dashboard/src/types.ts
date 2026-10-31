@@ -61,3 +61,32 @@ export interface CampaignDetail {
   campaign: Campaign;
   content: ContentItem[];
 }
+
+export interface AssetSummary {
+  id: string;
+  sha256: string;
+  mimeType: string;
+  sizeBytes: number;
+  durationMs: number | null;
+  validationStatus: 'pending' | 'valid' | 'invalid';
+}
+
+/** Respons GET /api/v1/content/:id — bahan dialog approval. */
+export interface ContentDetail {
+  content: ContentItem;
+  campaign: {
+    id: string;
+    name: string;
+    platforms: string[];
+    approvalMode: string;
+    status: string;
+  };
+  assets: AssetSummary[];
+  captionHash: string;
+  accounts: AccountSummary[];
+}
+
+export interface ApprovalRecord {
+  id: string;
+  decision: 'approved' | 'rejected';
+}
