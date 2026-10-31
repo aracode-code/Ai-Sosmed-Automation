@@ -3,10 +3,11 @@
   "mode": "LIGHTWEIGHT_GREP",
   "status": "DEGRADED",
   "reason": "Tidak ada tool SQLite index di runtime ini (`sqlite_query_tool` missing). Pencarian memakai ripgrep terhadap source aktual; tidak ada code.db.",
-  "indexed_commit": "365643d228429be79639c20ee1f49015d9bb9a67",
-  "indexed_at": "2026-10-31T23:45:00+07:00",
+  "indexed_commit": "04c5c238f84de89714b69801f6273587f0de4282",
+  "indexed_at": "2026-10-31T23:58:00+07:00",
   "scope": [
     "apps/local-api/src/**",
+    "apps/dashboard/src/**",
     "packages/agent-core/src/**",
     "packages/browser-engine/src/**",
     "packages/database/src/**",
@@ -19,7 +20,7 @@
     "docs/**"
   ],
   "counts": {
-    "files": 123,
+    "files": 133,
     "test_files": 42,
     "symbols": null,
     "imports": null,
@@ -28,9 +29,9 @@
     "tests": 340
   },
   "validation": {
-    "last_validated_at": "2026-10-31T23:45:00+07:00",
+    "last_validated_at": "2026-10-31T23:58:00+07:00",
     "result": "partial",
-    "note": "Scope = daftar `git ls-files '*.ts'` pada commit 365643d (123 file, 42 test) + docs/. Metadata simbol/import tidak dapat dihitung tanpa index SQLite — nilai null, bukan 0. Endpoint tetap 16 (tidak ada route baru). Perubahan sesi: apps/local-api/src/preflight.ts + preflight-youtube.ts + preflight.test.ts (CLI preflight:youtube), docs/runbook.md dan docs/security.md; counts diperbarui manual dari `git ls-files` dan hasil vitest aktual (340 test, 42 file)."
+    "note": "Scope = daftar `git ls-files '*.ts' '*.tsx'` pada commit 04c5c23 (133 file, 42 test) + docs/. Metadata simbol/import tidak dapat dihitung tanpa index SQLite — nilai null, bukan 0. Endpoint tetap 16 (dashboard tidak menambah route). Perubahan sesi: apps/dashboard (10 berkas ts/tsx) dengan halaman baca-saja; counts diperbarui manual dari `git ls-files` dan hasil vitest aktual (340 test, 42 file; belum ada test UI)."
   },
   "fallback": {
     "engine": "LIGHTWEIGHT_GREP",

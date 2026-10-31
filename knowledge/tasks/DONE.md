@@ -1,5 +1,14 @@
 # DONE
 
+## 2026-10-31 — SESSION-2026-10-31-2
+
+- **Dashboard baca-saja `apps/dashboard`** (`8e27b27`, `04c5c23`).
+  - React 18 + Vite 6 + TS strict; proxy `/api` + `/health` → `127.0.0.1:4317`; script root `pnpm ui`.
+  - Halaman: Jobs (filter status + detail payload/lease/kunci idempoten), Campaigns (daftar + konten per versi), Approvals (agregasi `pending`, baca-saja), Accounts (status koneksi).
+  - Keputusan D7 sebagian (ADR-0009 U6): build `vite build`, typecheck `tsc`, lint belum dipilih; Tailwind & router ditunda; tanpa test UI otomatis.
+  - Bukti: typecheck 10 paket exit 0 · build exit 0 (157,94 kB JS) · **42 file, 340 test** tetap hijau · verifikasi browser 5 keadaan (4 halaman + API mati, tanpa error konsol) · port 5174/4317 dibebaskan termasuk dua proses anak yatim.
+  - Tidak dikerjakan: aksi approve/reject (butuh endpoint binding), pairing di UI, `GET /dashboard/summary`, smoke live YouTube.
+
 ## 2026-10-31 — SESSION-2026-10-31-1
 
 - **B + C — opsi non-kredensial sebelum smoke live** (`bbfe83a`, `365643d`).

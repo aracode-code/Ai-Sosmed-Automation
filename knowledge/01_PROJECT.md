@@ -37,7 +37,7 @@ Mengotomatisasi alur produksi video dari perencanaan sampai publikasi lintas pla
 |---|---|---|
 | Monorepo | pnpm workspace | lockfile wajib dikomit (LLD §2) |
 | Runtime | Node.js LTS dipatok + TypeScript strict | shell saat ini: Node v22.15.0 |
-| UI | React + Vite + Tailwind | tidak mengakses DB langsung |
+| UI | React 18 + Vite 6 (Tailwind ditunda — ADR-0009 U4) | tidak mengakses DB langsung; lewat proxy `/api` ke Local API |
 | API | Fastify + Zod | bind `127.0.0.1` default |
 | DB | SQLite + Drizzle, WAL, foreign_keys ON, migrasi versioned | waktu disimpan UTC ISO-8601 |
 | Queue | SQLite persistent queue | satu sumber kebenaran status job |
@@ -52,6 +52,7 @@ Mengotomatisasi alur produksi video dari perencanaan sampai publikasi lintas pla
 
 ```text
 apps/local-api            # Fastify + composition root: health, jobs, campaigns, approvals, schedules, accounts; worker loop
+apps/dashboard            # React 18 + Vite: shell + halaman Jobs/Campaigns/Approvals/Accounts (baca-saja), proxy ke API
 packages/domain           # entitas, JobType/JobStatus, error class, state machine, approval binding, schedule config, kontrak SocialAdapter
 packages/database         # schema Drizzle 12 tabel, client, migrator SQL, repository (termasuk publish_attempts)
 packages/workflow         # dispatcher, worker loop, retry, recovery, handler PLAN_CONTENT + GENERATE_VIDEO + PUBLISH
@@ -64,7 +65,7 @@ tests/integration         # migrasi, restart recovery, klaim lintas koneksi, env
 docs                      # runbook operasional + security checklist (merujuk LLD §13, tidak menduplikasi)
 ```
 
-Belum dibuat (P3 penuh–P7): `apps/desktop-ui`, adapter Flow nyata, `packages/integrations/*`.
+Belum dibuat (P3 penuh–P7): adapter Flow nyata, `packages/integrations/*`, aksi approval/pairing di UI.
 
 > Catatan: HLD/LLD berada di root repo (bukan `docs/`). Pindahkan hanya bila diputuskan di ADR — jangan memindahkan dokumen canonical tanpa jejak.
 
@@ -108,6 +109,8 @@ Belum dibuat (P3 penuh–P7): `apps/desktop-ui`, adapter Flow nyata, `packages/i
 - Kesiapan uji live (`bbfe83a`): `corepack pnpm --filter @saa/local-api preflight:youtube` memeriksa platform, adapter, kredensial OAuth (status ada/tidak), `YOUTUBE_APP_STATUS`, privasi, database, akun + blob DPAPI, dan aset media; exit 0 lulus/peringatan, 1 ada FAIL, 2 konfigurasi/pemakaian. Tidak memanggil Google dan tidak mencetak rahasia.
 - Dokumen operasional (`365643d`): `docs/runbook.md` (perintah, env, prosedur smoke live + bukti, troubleshooting kode galat adapter, backup) dan `docs/security.md` (status kontrol aktual, celah auth/`Origin` local API, insiden, checklist P7). LLD §13 tetap kanonik.
 - Aplikasi tidak membaca `.env`; semua konfigurasi dari environment proses. Perintah script pakai `pnpm run <script> <flag>` tanpa `--` pemisah (argumen `--` ikut diteruskan dan ditolak CLI).
+- Dashboard (ADR-0009): `apps/dashboard` React 18 + Vite, dev di `localhost:5174` dengan proxy `/api` dan `/health` ke `127.0.0.1:4317`; **baca-saja** (tanpa aksi approve/pairing); tanpa router dan tanpa Tailwind pada iterasi ini; tidak ada test UI otomatis.
+- D7 dijawab sebagian oleh ADR-0009 U6: artefak build dashboard = `vite build` (`apps/dashboard/dist`, gitignored), typecheck = `tsc`, **lint belum dipilih**.
 - Dispatch jadwal: `ScheduleDispatchLoop` (default 5 s) hanya membuat job `PUBLISH` untuk **konten terbaru** campaign aktif dengan aset valid, akun terhubung, caption platform tersedia, dan approval terikat valid; kunci idempoten `publish:<contentId>:v<version>:<accountId>:<platform>` (ADR-0006).
 - Dispatch hanya berjalan bila `SCHEDULER_ENABLED=true`, worker aktif, dan adapter publikasi terdaftar; slot jadwal tetap maju walau tidak ada job terbuat (ADR-0006 S7).
 - Produksi konten: satu `PLAN_CONTENT` per slot dengan pipeline **kedalaman satu** — perencanaan berjalan atau konten terbaru tanpa job `PUBLISH` menahan slot berikutnya; publikasi dijalankan lebih dulu dalam tick yang sama (ADR-0007).
@@ -121,7 +124,7 @@ Belum dibuat (P3 penuh–P7): `apps/desktop-ui`, adapter Flow nyata, `packages/i
 | P1 Foundation (workspace, DB, API, logs, state machine, queue) | **COMPLETED (2026-10-30, commit `debdaaf`)** |
 | P2 Agent core (kontrak planner, adapter DeepSeek, tool allowlist) | **COMPLETED (2026-10-30, commits `7d02a06`,`9cd360c`)** |
 | P3 Flow (mock adapter + validasi media + handler GENERATE_VIDEO) | **PARTIAL (2026-10-30, commits `013531a`,`b8c85e0`)** — Flow nyata tertahan OD-1 |
-| P4 Approval & Scheduler (backend + engine + worker loop) | **PARTIAL (2026-10-30, commits `4b513ab`,`6ad9547`)** — UI approval belum ada; dispatch jadwal periodik selesai di P4b |
+| P4 Approval & Scheduler (backend + engine + worker loop) | **PARTIAL (2026-10-30, commits `4b513ab`,`6ad9547`)** — UI baca-saja ada (ADR-0009, 2026-10-31); aksi approve/reject di UI belum |
 | P4b Dispatch jadwal → job `PUBLISH` otomatis (milestone turunan P4/P5) | **COMPLETED (2026-10-30, commit `bfc7c72`)** |
 | P4c Produksi konten per slot (milestone turunan P4/P5) | **COMPLETED (2026-10-30, commit `77fbb9c`)** — pipeline kedalaman satu |
 | P5 YouTube (adapter mock + PUBLISH handler + verify/reconcile) | **PARTIAL (2026-10-30, commit `7d13431`)** — upload nyata UNVERIFIED; OD-2/OD-5 dijawab (ADR-0008) dan slice **A1 credential store** (`442d3be`) + **A2 OAuth client** (`5cbe70b`) + **A3 adapter API** (`26e557a`) + **A4 wiring/onboarding** (`0b4194f`) + **A5 uji lintas lapisan** (`df9a2b7`, diperkuat `8b8a698`) + **A6 resume 308** (`c310d1f`) + **A7 rekonsiliasi lintas restart** (`a6dde05`, `bb1ba57`) DONE, ditambah **CLI `preflight:youtube`** (`bbfe83a`) dan **runbook/security docs** (`365643d`); smoke live belum |
