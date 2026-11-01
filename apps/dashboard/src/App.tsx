@@ -160,7 +160,12 @@ export function App(): JSX.Element {
             />
           ) : null}
           {tab === 'accounts' ? <AccountsPage refreshToken={refreshToken} /> : null}
-          {tab === 'connections' ? <ConnectionsPage refreshToken={refreshToken} /> : null}
+          {tab === 'connections' ? (
+            <ConnectionsPage
+              refreshToken={refreshToken}
+              onChanged={() => setRefreshToken((value) => value + 1)}
+            />
+          ) : null}
         </div>
       </main>
     </div>

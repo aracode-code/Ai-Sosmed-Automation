@@ -142,6 +142,34 @@ export interface ConnectionsPayload {
   platforms: { id: string; supported: boolean; adapter: string; generator: string | null }[];
 }
 
+export type ConnectActionKind = 'flow-login' | 'youtube-pair';
+
+export type ConnectActionPhase =
+  | 'idle'
+  | 'running'
+  | 'waiting'
+  | 'succeeded'
+  | 'failed'
+  | 'timed_out'
+  | 'cancelled';
+
+/** Status proses connect yang dijalankan dari UI (tanpa kredensial). */
+export interface ConnectActionState {
+  kind: ConnectActionKind;
+  phase: ConnectActionPhase;
+  startedAt: string | null;
+  endedAt: string | null;
+  exitCode: number | null;
+  waitingFor: string | null;
+  error: string | null;
+  lines: string[];
+}
+
+export interface ConnectActionsPayload {
+  generatedAt: string;
+  actions: { flowLogin: ConnectActionState; youtubePair: ConnectActionState };
+}
+
 export interface JobTimeline {
   job: { id: string; status: string; jobType: string };
   events: {

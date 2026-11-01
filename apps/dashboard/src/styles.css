@@ -435,6 +435,85 @@ body {
   font-size: 11.5px;
 }
 
+/* Aksi connect dari UI */
+
+.action-box {
+  margin-top: 14px;
+  padding: 11px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #10141b;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.action-ok {
+  border-color: rgba(61, 220, 151, 0.3);
+}
+
+.action-warn {
+  border-color: rgba(240, 183, 90, 0.35);
+}
+
+.action-danger {
+  border-color: rgba(239, 107, 107, 0.35);
+}
+
+.action-info {
+  border-color: rgba(90, 150, 240, 0.3);
+}
+
+.action-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.action-head .btn {
+  margin-left: auto;
+}
+
+.action-wait {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+
+.action-log {
+  margin: 0;
+  max-height: 180px;
+  overflow: auto;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #0c1016;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11.5px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.pair-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.pair-form .field {
+  flex: 1 1 220px;
+  min-width: 200px;
+}
+
+.pair-form .btn {
+  flex: 0 0 auto;
+}
+
 /* Detail */
 
 .detail-actions {
