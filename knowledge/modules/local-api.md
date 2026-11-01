@@ -35,7 +35,7 @@ loadConfig → createLogger → openDatabase → runMigrations → runStartupRec
 - Shutdown (`SIGINT`/`SIGTERM`): `dispatchLoop.stop()` → `worker.stop()` → `app.close()` → `db.close()` (dispatch lebih dulu agar tidak ada job baru).
 - `workerId = worker_<pid>`; satu worker per proses, satu job per siklus (ADR-0004 W8).
 
-## Route Terdaftar (21)
+## Route Terdaftar (22)
 
 | Area | Route |
 |---|---|
@@ -51,6 +51,7 @@ loadConfig → createLogger → openDatabase → runMigrations → runStartupRec
 | Jobs retry | `POST /api/v1/jobs/:id/retry` — hanya `NEEDS_ATTENTION` → `QUEUED` via `RECOVER_REQUEUE`; reset `attempts`/`lastErrorCode`/lease, `runAt = now`, audit `job.retry`; 202 `{jobId, status:"queued"}`, 409 `NOT_RETRYABLE`/`CONCURRENT_UPDATE`, 404 |
 | Jobs cancel | `POST /api/v1/jobs/:id/cancel` — status terminal & `PUBLISHING`/`VERIFYING` ditolak; `CANCELLED` lewat state machine, `lastErrorCode="CANCELLED_BY_USER"`, `runAt`/lease dikosongkan, audit `job.cancel`; 202, 409 `NOT_CANCELLABLE`/`CONCURRENT_UPDATE`, 404 |
 | Connections | `GET /api/v1/connections` — status CDP/Flow (terjangkau, tab project, prompt, tantangan), `adapter`/`privacy`/`appStatus`, kuota harian dari `data/flow-usage.json`, akun + `hasSecretRef` (boolean), dukungan platform; read-only, tanpa kredensial |
+| Jobs timeline | `GET /api/v1/jobs/:id/events` — `job` ringkas, `events` (audit_logs resource job), `attempts` (publish_attempts terurut `attempted_at`); 404 bila job tidak ada |
 
 ## Konfigurasi Penting
 
