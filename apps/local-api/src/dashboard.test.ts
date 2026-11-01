@@ -211,3 +211,14 @@ describe('tren 7 hari pada ringkasan', () => {
     expect(payload.trend[2]).toEqual({ date: '2026-11-01', jobs: 3, published: 1, failed: 1 });
   });
 });
+
+describe('batas trendDays', () => {
+  it('mendukung hingga 30 hari dan menolak di atasnya', async () => {
+    const ok = await app.inject({ method: 'GET', url: '/api/v1/dashboard/summary?trendDays=30' });
+    expect(ok.statusCode).toBe(200);
+    expect(ok.json<{ trend: unknown[] }>().trend).toHaveLength(30);
+
+    const bad = await app.inject({ method: 'GET', url: '/api/v1/dashboard/summary?trendDays=31' });
+    expect(bad.statusCode).toBe(400);
+  });
+});

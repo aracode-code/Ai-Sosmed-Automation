@@ -531,6 +531,29 @@ body {
   background: var(--danger);
 }
 
+.trend-compact {
+  gap: 3px;
+  padding-top: 10px;
+}
+
+.trend-compact .trend-row {
+  grid-template-columns: 44px minmax(0, 1fr) 64px;
+  gap: 8px;
+}
+
+.trend-compact .trend-bars {
+  gap: 1px;
+}
+
+.trend-compact .trend-bar {
+  height: 4px;
+}
+
+.trend-compact .trend-date,
+.trend-compact .trend-value {
+  font-size: 10.5px;
+}
+
 .trend-row {
   display: grid;
   grid-template-columns: 52px minmax(0, 1fr) 76px;

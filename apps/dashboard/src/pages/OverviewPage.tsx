@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useApi } from '../api';
 import {
   EmptyState,
@@ -14,8 +15,13 @@ import type { Campaign, DashboardSummary, ListResponse } from '../types';
 const ACTIVE_JOB_STATUSES = ['QUEUED', 'RETRY_WAIT', 'SCHEDULED', 'PUBLISHING', 'VERIFYING'];
 const ATTENTION_STATUSES = ['NEEDS_ATTENTION', 'FAILED', 'PERMANENT_FAILURE'];
 
+const TREND_PERIODS = [7, 14, 30] as const;
+
 export function OverviewPage({ refreshToken }: { refreshToken: number }): JSX.Element {
-  const summary = useApi<DashboardSummary>(`/api/v1/dashboard/summary?t=${refreshToken}`);
+  const [trendDays, setTrendDays] = useState<(typeof TREND_PERIODS)[number]>(7);
+  const summary = useApi<DashboardSummary>(
+    `/api/v1/dashboard/summary?trendDays=${trendDays}&t=${refreshToken}`
+  );
   const campaigns = useApi<ListResponse<Campaign>>(`/api/v1/campaigns?t=${refreshToken}`);
 
   const byJobStatus = summary.data?.jobs.byStatus ?? {};
@@ -27,6 +33,7 @@ export function OverviewPage({ refreshToken }: { refreshToken: number }): JSX.El
   const recentCampaigns = campaigns.data?.items.slice(0, 5) ?? [];
   const trend = summary.data?.trend ?? [];
   const maxTrend = Math.max(1, ...trend.map((point) => Math.max(point.jobs, point.published, point.failed)));
+  const trendEmpty = trend.every((point) => point.jobs + point.published + point.failed === 0);
   const barWidth = (value: number): string => (value === 0 ? '0%' : `${Math.max(3, (value / maxTrend) * 100)}%`);
 
   return (
@@ -56,10 +63,32 @@ export function OverviewPage({ refreshToken }: { refreshToken: number }): JSX.El
         </div>
       ) : null}
 
-      <Section title="Tren 7 hari">
+      <Section
+        title={`Tren ${trendDays} hari`}
+        actions={
+          <div className="filters">
+            {TREND_PERIODS.map((period) => (
+              <button
+                key={period}
+                type="button"
+                className={period === trendDays ? 'chip chip-active' : 'chip'}
+                onClick={() => setTrendDays(period)}
+              >
+                {period} hari
+              </button>
+            ))}
+          </div>
+        }
+      >
         {summary.loading ? <Loading /> : null}
-        {trend.length > 0 ? (
-          <div className="trend">
+        {trend.length > 0 && trendEmpty ? (
+          <EmptyState
+            title="Belum ada aktivitas"
+            hint={`Tidak ada job atau publikasi pada ${trendDays} hari terakhir.`}
+          />
+        ) : null}
+        {trend.length > 0 && !trendEmpty ? (
+          <div className={trendDays > 14 ? 'trend trend-compact' : 'trend'}>
             <div className="trend-legend">
               <span className="legend legend-jobs">Job dibuat</span>
               <span className="legend legend-pub">Terbit</span>
