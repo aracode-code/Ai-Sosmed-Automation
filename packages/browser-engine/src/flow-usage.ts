@@ -22,6 +22,8 @@ export interface UsageEntry {
   promptHash: string;
   status: UsageStatus;
   dryRun: boolean;
+  /** False bila proses berhenti sebelum tombol kirim ditekan (tidak memotong kredit). */
+  submitted: boolean;
 }
 
 export interface UsageLedger {
@@ -71,7 +73,7 @@ export function dayOf(iso: string, timeZone: string = DEFAULT_TIME_ZONE): string
   }).format(date);
 }
 
-/** Entri dry-run tidak dihitung; kegagalan setelah submit tetap dihitung. */
+/** Entri dry-run dan entri yang tidak pernah submit tidak dihitung. */
 export function countUsageOn(
   ledger: UsageLedger,
   iso: string,
@@ -79,7 +81,7 @@ export function countUsageOn(
 ): number {
   const day = dayOf(iso, timeZone);
   return ledger.entries.filter(
-    (entry) => !entry.dryRun && dayOf(entry.at, timeZone) === day
+    (entry) => !entry.dryRun && entry.submitted && dayOf(entry.at, timeZone) === day
   ).length;
 }
 
@@ -132,7 +134,8 @@ export function parseLedger({ raw }: ParseLedgerOptions): UsageLedger {
         (candidate.status === 'started' ||
           candidate.status === 'succeeded' ||
           candidate.status === 'failed') &&
-        typeof candidate.dryRun === 'boolean'
+        typeof candidate.dryRun === 'boolean' &&
+        typeof candidate.submitted === 'boolean'
       );
     });
     return { entries };

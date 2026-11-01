@@ -19,6 +19,7 @@ function entry(overrides: Partial<UsageEntry> = {}): UsageEntry {
     promptHash: 'hash',
     status: 'succeeded',
     dryRun: false,
+    submitted: true,
     ...overrides
   };
 }
@@ -52,7 +53,8 @@ describe('countUsageOn', () => {
         entry({ at: '2026-11-01T16:59:00.000Z' }), // 23.59 WIB — hari sama
         entry({ at: '2026-11-01T17:00:00.000Z' }), // 00.00 WIB besok — tidak dihitung
         entry({ at: '2026-10-31T23:00:00.000Z' }), // 06.00 WIB 1 Nov — dihitung
-        entry({ dryRun: true })
+        entry({ dryRun: true }),
+        entry({ submitted: false }) // gagal sebelum submit — tidak dihitung
       ]
     };
     expect(countUsageOn(ledger, NOW)).toBe(3);
@@ -102,7 +104,8 @@ describe('parseLedger', () => {
       entries: [
         entry(),
         { at: 'x' },
-        { at: NOW, kind: 'audio', promptHash: 'h', status: 'succeeded', dryRun: false }
+        { at: NOW, kind: 'audio', promptHash: 'h', status: 'succeeded', dryRun: false },
+        { at: NOW, kind: 'image', promptHash: 'h', status: 'succeeded', dryRun: false }
       ]
     });
     expect(parseLedger({ raw }).entries).toHaveLength(1);

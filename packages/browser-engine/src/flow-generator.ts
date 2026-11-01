@@ -20,6 +20,7 @@ interface LocatorLike {
   first(): LocatorLike;
   click(options?: { timeout?: number }): Promise<void>;
   isEnabled(): Promise<boolean>;
+  waitFor(options?: { state?: 'visible' | 'attached'; timeout?: number }): Promise<void>;
 }
 
 interface DownloadLike {
@@ -29,7 +30,7 @@ interface DownloadLike {
 
 interface PageLike {
   locator(selector: string): LocatorLike;
-  keyboard: { insertText(text: string): Promise<void> };
+  keyboard: { insertText(text: string): Promise<void>; press(key: string): Promise<void> };
   waitForEvent(event: 'download', options?: { timeout?: number }): Promise<DownloadLike>;
   waitForTimeout(ms: number): Promise<void>;
   evaluate<T>(expression: string): Promise<T>;
@@ -42,6 +43,8 @@ export interface FlowGenerateOptions {
   outputDirectory: string;
   /** Batas tunggu hasil (video bisa beberapa menit). Default 15 menit. */
   renderTimeoutMs?: number;
+  /** Dipanggil tepat setelah tombol kirim berhasil ditekan (kredit mulai terpakai). */
+  onSubmit?: () => Promise<void> | void;
 }
 
 export interface FlowGenerateResult {
@@ -60,14 +63,16 @@ export function promptForKind(prompt: string, kind: FlowMediaKind): string {
 }
 
 const MEDIA_PROBE = `(() => {
+  const isMedia = (src) => typeof src === 'string' && (src.includes('/asb/') || src.includes('googleusercontent') || src.includes('storage.googleapis'));
   const video = document.querySelector('video');
   if (video && video.currentSrc) return video.currentSrc;
-  const img = [...document.querySelectorAll('img')].find((el) => /googleusercontent|blob:/.test(el.src) && el.naturalWidth > 200);
+  const img = [...document.querySelectorAll('img')].find((el) => el.naturalWidth > 200 && isMedia(el.src));
   return img ? img.src : null;
 })()`;
 
 const OPEN_CARD_MENU = `(() => {
-  const media = document.querySelector('video') || [...document.querySelectorAll('img')].find((el) => /googleusercontent|blob:/.test(el.src) && el.naturalWidth > 200);
+  const isMedia = (src) => typeof src === 'string' && (src.includes('/asb/') || src.includes('googleusercontent') || src.includes('storage.googleapis'));
+  const media = document.querySelector('video') || [...document.querySelectorAll('img')].find((el) => el.naturalWidth > 200 && isMedia(el.src));
   if (!media) return 'media-tidak-ada';
   let card = media;
   for (let i = 0; i < 8 && card.parentElement; i++) card = card.parentElement;
@@ -105,7 +110,32 @@ export async function generateFlowMedia(options: FlowGenerateOptions): Promise<F
 
   await assertNoChallenge(page);
 
+  // Panel Setelan yang terbuka menutupi komposer; tutup lalu pilih tab mode.
+  await page.keyboard.press('Escape').catch(() => undefined);
+  await page.waitForTimeout(400);
+  await page.evaluate<string>(
+    `(() => {
+      const re = ${options.kind === 'video' ? '/video/i' : '/gambar|image/i'};
+      const tab = [...document.querySelectorAll('button')].find((el) => {
+        const text = (el.textContent || '').trim();
+        return text.length < 20 && re.test(text) && !(el.getAttribute('aria-label') || '').includes('Model');
+      });
+      if (!tab) return 'tab-tidak-ada';
+      tab.click();
+      return 'ok';
+    })()`
+  );
+  await page.waitForTimeout(800);
+
   const promptBox = page.locator(PROMPT_SELECTOR).first();
+  try {
+    await promptBox.waitFor({ state: 'visible', timeout: 10_000 });
+  } catch {
+    throw new AppError(
+      'UI_CHANGED',
+      'kotak prompt tidak terlihat; tutup panel/overlay lalu pastikan tab Gambar/Video aktif'
+    );
+  }
   await promptBox.click({ timeout: 15_000 });
   await page.keyboard.insertText(prompt);
   await page.waitForTimeout(1_200);
@@ -117,6 +147,7 @@ export async function generateFlowMedia(options: FlowGenerateOptions): Promise<F
     throw new AppError('UI_CHANGED', 'tombol "Mulai pembuatan" tidak aktif setelah prompt diisi');
   }
   await submitLocator.click({ timeout: 15_000 });
+  await options.onSubmit?.();
 
   const deadline = Date.now() + (options.renderTimeoutMs ?? 15 * 60 * 1000);
   let media: string | null = null;

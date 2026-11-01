@@ -125,10 +125,6 @@ async function main(): Promise<void> {
   }
 
   const promptHash = createHash('sha256').update(args.prompt).digest('hex').slice(0, 16);
-  writeLedger(
-    path,
-    appendUsage(ledger, { at: now, kind: args.kind, promptHash, status: 'started', dryRun: false })
-  );
 
   try {
     const result = await generateFlowMedia({
@@ -136,13 +132,32 @@ async function main(): Promise<void> {
       prompt: args.prompt,
       kind: args.kind,
       outputDirectory: resolve(process.env.INIT_CWD ?? process.cwd(), 'data', 'media', 'flow'),
-      renderTimeoutMs: args.kind === 'video' ? 15 * 60 * 1000 : 5 * 60 * 1000
+      renderTimeoutMs: args.kind === 'video' ? 15 * 60 * 1000 : 5 * 60 * 1000,
+      onSubmit: () => {
+        // Dicatat hanya setelah tombol kirim ditekan: kegagalan sebelumnya tidak
+        // memotong kredit dan tidak boleh mengurangi kuota harian.
+        writeLedger(
+          path,
+          appendUsage(readLedger(path), {
+            at: now,
+            kind: args.kind,
+            promptHash,
+            status: 'started',
+            dryRun: false,
+            submitted: true
+          })
+        );
+      }
     });
     writeLedger(path, updateLastStatus(readLedger(path), 'succeeded'));
     console.log(`Berkas      : ${result.filePath}`);
     console.log(`Nama asli   : ${result.suggestedName}`);
   } catch (error) {
-    writeLedger(path, updateLastStatus(readLedger(path), 'failed'));
+    const ledgerNow = readLedger(path);
+    const last = ledgerNow.entries[ledgerNow.entries.length - 1];
+    if (last !== undefined && last.status === 'started' && last.submitted) {
+      writeLedger(path, updateLastStatus(ledgerNow, 'failed'));
+    }
     throw error;
   }
 }
