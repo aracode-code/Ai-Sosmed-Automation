@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { useApi } from './api';
 import type { Health } from './types';
+import { OverviewPage } from './pages/OverviewPage';
 import { JobsPage } from './pages/JobsPage';
 import { CampaignsPage } from './pages/CampaignsPage';
 import { ApprovalsPage } from './pages/ApprovalsPage';
 import { AccountsPage } from './pages/AccountsPage';
 
-type Tab = 'jobs' | 'campaigns' | 'approvals' | 'accounts';
+type Tab = 'overview' | 'jobs' | 'campaigns' | 'approvals' | 'accounts';
 
 interface TabDef {
   id: Tab;
@@ -15,6 +16,18 @@ interface TabDef {
 }
 
 const TABS: TabDef[] = [
+  {
+    id: 'overview',
+    label: 'Overview',
+    icon: (
+      <svg viewBox="0 0 16 16" aria-hidden="true">
+        <rect x="2" y="2" width="5" height="7" rx="1" />
+        <rect x="9" y="2" width="5" height="4" rx="1" />
+        <rect x="9" y="8" width="5" height="6" rx="1" />
+        <rect x="2" y="11" width="5" height="3" rx="1" />
+      </svg>
+    )
+  },
   {
     id: 'jobs',
     label: 'Jobs',
@@ -58,7 +71,7 @@ const TABS: TabDef[] = [
 ];
 
 export function App(): JSX.Element {
-  const [tab, setTab] = useState<Tab>('jobs');
+  const [tab, setTab] = useState<Tab>('overview');
   const [refreshToken, setRefreshToken] = useState(0);
   const health = useApi<Health>(`/health?t=${refreshToken}`);
 
@@ -125,6 +138,7 @@ export function App(): JSX.Element {
         </header>
 
         <div className="content">
+          {tab === 'overview' ? <OverviewPage refreshToken={refreshToken} /> : null}
           {tab === 'jobs' ? <JobsPage refreshToken={refreshToken} /> : null}
           {tab === 'campaigns' ? <CampaignsPage refreshToken={refreshToken} /> : null}
           {tab === 'approvals' ? (

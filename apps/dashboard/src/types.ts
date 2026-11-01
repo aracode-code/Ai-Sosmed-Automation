@@ -99,5 +99,11 @@ export interface DashboardSummary {
   campaigns: { total: number; byStatus: Record<string, number> };
   content: { total: number; byApprovalStatus: Record<string, number>; pendingApproval: number };
   accounts: { total: number; byConnectionStatus: Record<string, number> };
-  recentFailures: { id: string; jobType: string; status: string; lastErrorCode: string | null }[];
+  recentFailures: {
+    id: string;
+    jobType: string;
+    status: string;
+    lastErrorCode: string | null;
+    updatedAt: string;
+  }[];
 }

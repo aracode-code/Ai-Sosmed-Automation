@@ -85,6 +85,35 @@ export function JobsPage({ refreshToken }: { refreshToken: number }): JSX.Elemen
           />
         </div>
       ) : null}
+      {summary.data !== null && summary.data.recentFailures.length > 0 ? (
+        <Section title="Kegagalan terbaru">
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Job</th>
+                <th>Status</th>
+                <th>Error</th>
+                <th>Diperbarui</th>
+              </tr>
+            </thead>
+            <tbody>
+              {summary.data.recentFailures.map((failure) => (
+                <tr key={failure.id} className="row" onClick={() => setSelectedId(failure.id)}>
+                  <td>
+                    <div className="cell-main">{failure.jobType}</div>
+                    <div className="cell-sub mono">{shortId(failure.id)}</div>
+                  </td>
+                  <td>
+                    <StatusPill value={failure.status} />
+                  </td>
+                  <td className="mono">{failure.lastErrorCode ?? '—'}</td>
+                  <td>{formatTime(failure.updatedAt)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Section>
+      ) : null}
       <div className="filters">
         {FILTERS.map((value) => (
           <button
