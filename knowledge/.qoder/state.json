@@ -3,7 +3,7 @@
   "project": "AI Social Media Automation Agent",
   "project_root": "F:/AiSosmedAutomation",
   "branch": "main",
-  "commit": "70d7e49",
+  "commit": "100af90",
   "status": "PARTIAL",
   "autonomy": "L1",
   "runtime": {
@@ -34,19 +34,19 @@
   "memory_version": 20,
   "context_version": 20,
   "skill_registry_version": 0,
-  "current_task": "NONE — policy rasio per platform + penerapan di adapter DONE (tanpa kredit)",
+  "current_task": "NONE — perbaikan cakupan rasio + verifikasi setelah simpan DONE; smoke video end-to-end belum",
   "last_task": "F: sesi profil Flow persisten + CLI flow:login (ADR-0010)",
   "last_session_id": "SESSION-2026-11-01-2",
   "last_scan": "2026-11-01T00:40:00+07:00",
   "last_index": "2026-11-01T00:40:00+07:00",
-  "last_updated": "2026-11-01T07:16:00+07:00",
-  "last_validation": "2026-11-01 (70d7e49) — typecheck 10 paket exit 0; suite 390 test hijau; 5 test policy rasio; generator meneruskan aspectRatio; PLAN_CONTENT memakai policy rasio",
-  "last_test_status": "390 passed / 0 failed (tanpa paralelisme)",
+  "last_updated": "2026-11-01T07:30:00+07:00",
+  "last_validation": "2026-11-01 (100af90) — typecheck 10 paket exit 0; suite 400 test hijau; 10 test rasio baru; aturan cakupan diverifikasi pada DOM nyata (video depth 1, 6 radio; gambar depth 1, 9 radio; Simpan global)",
+  "last_test_status": "400 passed / 0 failed (tanpa paralelisme)",
   "last_command": "coba jalankan lagi",
   "last_command_status": "PARTIAL",
   "open_wave": null,
   "dirty": true,
   "dirty_reason": "AGENTS.md masih untracked (keputusan owner belum diambil)",
   "drift_detected": false,
-  "next_step": "Smoke video end-to-end via aplikasi (butuh izin kredit video) atau lanjut pekerjaan lain; rasio otomatis sudah diterapkan."
+  "next_step": "Smoke video end-to-end via aplikasi (butuh izin kredit) atau lanjut pekerjaan lain; P4/P5/P3 tetap PARTIAL."
 }
