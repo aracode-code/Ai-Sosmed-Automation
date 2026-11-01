@@ -35,7 +35,7 @@ loadConfig → createLogger → openDatabase → runMigrations → runStartupRec
 - Shutdown (`SIGINT`/`SIGTERM`): `dispatchLoop.stop()` → `worker.stop()` → `app.close()` → `db.close()` (dispatch lebih dulu agar tidak ada job baru).
 - `workerId = worker_<pid>`; satu worker per proses, satu job per siklus (ADR-0004 W8).
 
-## Route Terdaftar (18)
+## Route Terdaftar (19)
 
 | Area | Route |
 |---|---|
@@ -48,6 +48,7 @@ loadConfig → createLogger → openDatabase → runMigrations → runStartupRec
 | Content | `POST /api/v1/content` — 202 `{jobId, status:'queued'|'duplicate'}`; key `plan:manual:<campaignId>:<requestId|uuid>`; 404 campaign, 409 `CAMPAIGN_INACTIVE`/`CAMPAIGN_NO_PLATFORM`/`PLAN_IN_PROGRESS`/`PIPELINE_BUSY` |
 | Content detail | `GET /api/v1/content/:id?version=n` — konten (default versi tertinggi pada baris id itu), `campaign {platforms, approvalMode}`, `assets` tanpa `path`, `captionHash` dihitung server, `accounts` kandidat sesuai platform campaign; 404 konten/versi, 400 versi invalid |
 | Dashboard | `GET /api/v1/dashboard/summary?recentFailures=n` — hitungan job/attempt/campaign/konten/akun + `recentFailures` (`FAILED`/`PERMANENT_FAILURE`/`NEEDS_ATTENTION`, default 5, maks 20); 400 bila parameter di luar rentang |
+| Jobs retry | `POST /api/v1/jobs/:id/retry` — hanya `NEEDS_ATTENTION` → `QUEUED` via `RECOVER_REQUEUE`; reset `attempts`/`lastErrorCode`/lease, `runAt = now`, audit `job.retry`; 202 `{jobId, status:"queued"}`, 409 `NOT_RETRYABLE`/`CONCURRENT_UPDATE`, 404 |
 
 ## Konfigurasi Penting
 
