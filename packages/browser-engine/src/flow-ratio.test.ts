@@ -3,10 +3,11 @@ import { AppError } from '@saa/domain';
 import {
   applyAspectRatio,
   buildSetRatioExpression,
-  buildVerifyRatioExpression
+  buildVerifyRatioExpression,
+  PANEL_OPEN_EXPRESSION
 } from './flow-generator';
 
-function fakePage(responses: string[]): {
+function fakePage(responses: unknown[]): {
   page: Parameters<typeof applyAspectRatio>[0];
   calls: { evaluate: string[]; escaped: number; waited: number };
 } {
@@ -16,7 +17,7 @@ function fakePage(responses: string[]): {
       calls.evaluate.push(expression);
       const next = responses.shift();
       if (next === undefined) throw new Error('tidak ada respons tersisa');
-      return next as unknown as T;
+      return next as T;
     },
     keyboard: {
       async press(key: string): Promise<void> {
@@ -67,41 +68,49 @@ describe('buildVerifyRatioExpression', () => {
 });
 
 describe('applyAspectRatio', () => {
-  it('berhasil bila set dan verifikasi ok', async () => {
-    const { page, calls } = fakePage(['ok', 'ok']);
+  it('berhasil bila set dan verifikasi ok, menutup panel sekali', async () => {
+    const { page, calls } = fakePage(['ok', 'ok', true]);
     await expect(applyAspectRatio(page, 'video', '9:16')).resolves.toBeUndefined();
 
-    expect(calls.evaluate).toHaveLength(2);
+    expect(calls.evaluate).toHaveLength(3);
     expect(calls.evaluate[0]).toContain("=== 'Simpan'");
     expect(calls.evaluate[1]).toContain('aria-checked');
+    expect(calls.evaluate[2]).toBe(PANEL_OPEN_EXPRESSION);
     expect(calls.escaped).toBe(1);
   });
 
-  it('gagal eksplisit bila panel/rasio tidak ditemukan dan tidak lanjut verifikasi', async () => {
-    const { page, calls } = fakePage(['rasio-tidak-ada']);
+  it('tidak menekan Escape bila panel sudah tertutup setelah verifikasi', async () => {
+    const { page, calls } = fakePage(['ok', 'ok', false]);
+    await expect(applyAspectRatio(page, 'video', '9:16')).resolves.toBeUndefined();
+    expect(calls.escaped).toBe(0);
+  });
+
+  it('gagal eksplisit bila rasio tidak ditemukan dan menutup panel yang masih terbuka', async () => {
+    const { page, calls } = fakePage(['rasio-tidak-ada', true]);
 
     await expect(applyAspectRatio(page, 'video', '9:16')).rejects.toMatchObject({
       errorClass: 'UI_CHANGED'
     });
-    expect(calls.evaluate).toHaveLength(1);
+    expect(calls.evaluate).toHaveLength(2);
     expect(calls.escaped).toBe(1);
+  });
+
+  it('tidak menekan Escape bila panel sudah tertutup pada jalur gagal', async () => {
+    const { page, calls } = fakePage(['model-tidak-ada', false]);
+    await expect(applyAspectRatio(page, 'video', '9:16')).rejects.toBeInstanceOf(AppError);
+    expect(calls.escaped).toBe(0);
   });
 
   it('gagal bila setelan tidak tersimpan (verifikasi menolak)', async () => {
-    const { page } = fakePage(['ok', 'rasio-belum-aktif']);
+    const { page, calls } = fakePage(['ok', 'rasio-belum-aktif', true]);
 
     await expect(applyAspectRatio(page, 'video', '9:16')).rejects.toThrow(/verifikasi rasio/);
+    expect(calls.escaped).toBe(1);
   });
 
   it('gagal bila cakupan section tidak dapat ditentukan', async () => {
-    const { page } = fakePage(['scope-tidak-ditemukan']);
+    const { page } = fakePage(['scope-tidak-ditemukan', false]);
 
     await expect(applyAspectRatio(page, 'image', '1:1')).rejects.toBeInstanceOf(AppError);
-  });
-
-  it('menutup panel (Escape) juga pada jalur gagal verifikasi', async () => {
-    const { page, calls } = fakePage(['ok', 'panel-tidak-ada']);
-    await expect(applyAspectRatio(page, 'video', '16:9')).rejects.toThrow();
-    expect(calls.escaped).toBe(1);
   });
 });

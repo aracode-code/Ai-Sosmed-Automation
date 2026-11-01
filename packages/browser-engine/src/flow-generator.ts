@@ -163,6 +163,19 @@ export interface RatioPage {
   waitForTimeout(ms: number): Promise<void>;
 }
 
+/** Panel Setelan dianggap terbuka bila tombol `Simpan` masih ada di DOM. */
+export const PANEL_OPEN_EXPRESSION = `(() => [...document.querySelectorAll('button')].some((el) => (el.textContent || '').trim() === 'Simpan'))()`;
+
+/**
+ * Menutup panel hanya bila benar-benar terbuka. `Escape` tidak ditekan refleks
+ * karena dapat menutup konteks lain (mis. panel sesi).
+ */
+async function closeSettingsPanelIfOpen(page: RatioPage): Promise<boolean> {
+  const open = await page.evaluate<boolean>(PANEL_OPEN_EXPRESSION);
+  if (open) await page.keyboard.press('Escape').catch(() => undefined);
+  return open;
+}
+
 export async function applyAspectRatio(
   page: RatioPage,
   kind: FlowMediaKind,
@@ -171,13 +184,13 @@ export async function applyAspectRatio(
   const setState = await page.evaluate<string>(buildSetRatioExpression(kind, ratio));
   await page.waitForTimeout(800);
   if (setState !== 'ok') {
-    await page.keyboard.press('Escape').catch(() => undefined);
+    await closeSettingsPanelIfOpen(page);
     throw new AppError('UI_CHANGED', `rasio ${ratio} tidak dapat diterapkan (${setState})`);
   }
 
   const verifyState = await page.evaluate<string>(buildVerifyRatioExpression(kind, ratio));
   await page.waitForTimeout(400);
-  await page.keyboard.press('Escape').catch(() => undefined);
+  await closeSettingsPanelIfOpen(page);
   if (verifyState !== 'ok') {
     throw new AppError('UI_CHANGED', `verifikasi rasio ${ratio} gagal (${verifyState})`);
   }
