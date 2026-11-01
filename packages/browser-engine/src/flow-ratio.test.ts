@@ -68,43 +68,53 @@ describe('buildVerifyRatioExpression', () => {
 });
 
 describe('applyAspectRatio', () => {
-  it('berhasil bila set dan verifikasi ok, menutup panel sekali', async () => {
-    const { page, calls } = fakePage(['ok', 'ok', true]);
+  it('berhasil bila set dan verifikasi ok, menutup panel via toggle', async () => {
+    const { page, calls } = fakePage(['ok', 'ok', true, 'ok', false]);
     await expect(applyAspectRatio(page, 'video', '9:16')).resolves.toBeUndefined();
 
-    expect(calls.evaluate).toHaveLength(3);
+    expect(calls.evaluate).toHaveLength(5);
     expect(calls.evaluate[0]).toContain("=== 'Simpan'");
     expect(calls.evaluate[1]).toContain('aria-checked');
     expect(calls.evaluate[2]).toBe(PANEL_OPEN_EXPRESSION);
-    expect(calls.escaped).toBe(1);
-  });
-
-  it('tidak menekan Escape bila panel sudah tertutup setelah verifikasi', async () => {
-    const { page, calls } = fakePage(['ok', 'ok', false]);
-    await expect(applyAspectRatio(page, 'video', '9:16')).resolves.toBeUndefined();
+    expect(calls.evaluate[3]).toContain("trim() === 'tune'");
     expect(calls.escaped).toBe(0);
   });
 
-  it('gagal eksplisit bila rasio tidak ditemukan dan menutup panel yang masih terbuka', async () => {
-    const { page, calls } = fakePage(['rasio-tidak-ada', true]);
+  it('tidak menyentuh panel bila sudah tertutup setelah verifikasi', async () => {
+    const { page, calls } = fakePage(['ok', 'ok', false]);
+    await expect(applyAspectRatio(page, 'video', '9:16')).resolves.toBeUndefined();
+    expect(calls.evaluate).toHaveLength(3);
+    expect(calls.escaped).toBe(0);
+  });
+
+  it('gagal eksplisit bila rasio tidak ditemukan lalu menutup panel', async () => {
+    const { page, calls } = fakePage(['rasio-tidak-ada', true, 'ok', false]);
 
     await expect(applyAspectRatio(page, 'video', '9:16')).rejects.toMatchObject({
       errorClass: 'UI_CHANGED'
     });
-    expect(calls.evaluate).toHaveLength(2);
-    expect(calls.escaped).toBe(1);
+    expect(calls.evaluate).toHaveLength(4);
+    expect(calls.escaped).toBe(0);
   });
 
-  it('tidak menekan Escape bila panel sudah tertutup pada jalur gagal', async () => {
+  it('tidak menyentuh panel bila sudah tertutup pada jalur gagal', async () => {
     const { page, calls } = fakePage(['model-tidak-ada', false]);
     await expect(applyAspectRatio(page, 'video', '9:16')).rejects.toBeInstanceOf(AppError);
+    expect(calls.evaluate).toHaveLength(2);
     expect(calls.escaped).toBe(0);
   });
 
   it('gagal bila setelan tidak tersimpan (verifikasi menolak)', async () => {
-    const { page, calls } = fakePage(['ok', 'rasio-belum-aktif', true]);
+    const { page, calls } = fakePage(['ok', 'rasio-belum-aktif', true, 'ok', false]);
 
     await expect(applyAspectRatio(page, 'video', '9:16')).rejects.toThrow(/verifikasi rasio/);
+    expect(calls.escaped).toBe(0);
+  });
+
+  it('memakai Escape sebagai fallback bila toggle gagal menutup panel', async () => {
+    const { page, calls } = fakePage(['ok', 'ok', true, 'ok', true]);
+
+    await expect(applyAspectRatio(page, 'video', '9:16')).resolves.toBeUndefined();
     expect(calls.escaped).toBe(1);
   });
 

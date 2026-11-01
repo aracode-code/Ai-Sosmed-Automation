@@ -167,13 +167,27 @@ export interface RatioPage {
 export const PANEL_OPEN_EXPRESSION = `(() => [...document.querySelectorAll('button')].some((el) => (el.textContent || '').trim() === 'Simpan'))()`;
 
 /**
- * Menutup panel hanya bila benar-benar terbuka. `Escape` tidak ditekan refleks
- * karena dapat menutup konteks lain (mis. panel sesi).
+ * Panel Setelan ditutup lewat tombol `tune` (toggle). `Escape` tidak menutup
+ * panel ini — hanya dipakai sebagai fallback bila toggle gagal.
  */
 async function closeSettingsPanelIfOpen(page: RatioPage): Promise<boolean> {
   const open = await page.evaluate<boolean>(PANEL_OPEN_EXPRESSION);
-  if (open) await page.keyboard.press('Escape').catch(() => undefined);
-  return open;
+  if (!open) return false;
+
+  await page.evaluate<string>(
+    `(() => {
+      const tune = [...document.querySelectorAll('button')].find((el) => (el.textContent || '').trim() === 'tune');
+      if (!tune) return 'tune-tidak-ada';
+      tune.click();
+      return 'ok';
+    })()`
+  );
+  await page.waitForTimeout(500);
+
+  if (await page.evaluate<boolean>(PANEL_OPEN_EXPRESSION)) {
+    await page.keyboard.press('Escape').catch(() => undefined);
+  }
+  return true;
 }
 
 export async function applyAspectRatio(
@@ -214,22 +228,43 @@ export async function generateFlowMedia(options: FlowGenerateOptions): Promise<F
 
   await assertNoChallenge(page);
 
-  // Panel Setelan yang terbuka menutupi komposer; tutup lalu pilih tab mode.
-  await page.keyboard.press('Escape').catch(() => undefined);
-  await page.waitForTimeout(400);
-  await page.evaluate<string>(
-    `(() => {
-      const re = ${options.kind === 'video' ? '/video/i' : '/gambar|image/i'};
-      const tab = [...document.querySelectorAll('button')].find((el) => {
-        const text = (el.textContent || '').trim();
-        return text.length < 20 && re.test(text) && !(el.getAttribute('aria-label') || '').includes('Model');
-      });
-      if (!tab) return 'tab-tidak-ada';
-      tab.click();
-      return 'ok';
-    })()`
-  );
-  await page.waitForTimeout(800);
+  const composerVisible = async (): Promise<boolean> =>
+    page.evaluate<boolean>(
+      `(() => {
+        const el = document.querySelector(${JSON.stringify(PROMPT_SELECTOR)});
+        if (!el) return false;
+        const rect = el.getBoundingClientRect();
+        return rect.width > 0 && rect.height > 0;
+      })()`
+    );
+
+  // Panel Setelan/overlay menutupi komposer (prompt menjadi 0x0). Tutup dulu;
+  // klik tab mode hanya bila komposer masih tersembunyi, karena klik itu justru
+  // membuka panel dan menyembunyikan komposer lagi.
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    if (await composerVisible()) break;
+    await closeSettingsPanelIfOpen(page);
+    await page.keyboard.press('Escape').catch(() => undefined);
+    await page.waitForTimeout(500);
+    if (await composerVisible()) break;
+    await page.evaluate<string>(
+      `(() => {
+        const re = ${options.kind === 'video' ? '/video/i' : '/gambar|image/i'};
+        const tab = [...document.querySelectorAll('button')].find((el) => {
+          const text = (el.textContent || '').trim();
+          return text.length < 20 && re.test(text) && !(el.getAttribute('aria-label') || '').includes('Model');
+        });
+        if (!tab) return 'tab-tidak-ada';
+        tab.click();
+        return 'ok';
+      })()`
+    );
+    await page.waitForTimeout(700);
+    await closeSettingsPanelIfOpen(page);
+    await page.keyboard.press('Escape').catch(() => undefined);
+    await page.waitForTimeout(500);
+  }
+
   if (options.aspectRatio !== undefined) {
     await applyAspectRatio(page, options.kind, options.aspectRatio);
   }
