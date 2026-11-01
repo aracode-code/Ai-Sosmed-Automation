@@ -62,6 +62,8 @@ loadConfig → createLogger → openDatabase → runMigrations → runStartupRec
 | `YOUTUBE_ADAPTER` | `off` | `mock` = adapter palsu (tanpa unggahan nyata); `api` = adapter YouTube Data API v3 (ADR-0008), hanya aktif bila `GOOGLE_OAUTH_CLIENT_ID` ada |
 | `YOUTUBE_UPLOAD_PRIVACY` | `private` | `private`/`unlisted`/`public`; hasil diverifikasi `videos.list` |
 | `YOUTUBE_APP_STATUS` | `unknown` | `testing`/`production`/`unknown`; `testing` dicatat `error` saat boot (ADR-0008 O3) |
+| `FLOW_ADAPTER` | `mock` | `real` = `FlowPlaywrightGenerator` (tab Video) via CDP; default mock tidak memakai kredit |
+| `FLOW_CDP_ENDPOINT` | `http://127.0.0.1:9222` | **Wajib loopback**; endpoint non-loopback ditolak config |
 | `DEEPSEEK_API_KEY` | — | Hanya lewat env; tidak pernah dilog/dipersistensi |
 
 ## Perintah

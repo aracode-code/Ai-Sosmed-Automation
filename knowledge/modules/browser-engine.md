@@ -18,6 +18,7 @@
 | `packages/browser-engine/src/flow-readiness.ts` | `inspectFlowReady(endpoint)` — cek prompt/kirim/tantangan tanpa mengubah apa pun |
 | `packages/browser-engine/src/flow-generator.ts` | `generateFlowMedia` — isi prompt ProseMirror → kirim → tunggu hasil → unduh via menu `Opsi lainnya → Download → Ukuran asli` |
 | `packages/browser-engine/src/flow-usage.ts` | Guard hitungan: `parseFlowGuard`, `decideGeneration`, ledger `parseLedger`/`appendUsage`/`updateLastStatus`, `dayOf` (Asia/Jakarta) |
+| `packages/browser-engine/src/flow-playwright-generator.ts` | `FlowPlaywrightGenerator` (`VideoGenerator`) — memanggil `generateFlowMedia` (tab Video), menghitung sha256/ukuran/mime; `checkAvailability` dari `inspectFlowReady` |
 
 Dependensi: `@saa/domain` + `playwright` (Chromium di `%LOCALAPPDATA%\ms-playwright`; ADR-0010 F1).
 
