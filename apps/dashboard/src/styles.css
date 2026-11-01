@@ -655,6 +655,64 @@ body {
   cursor: not-allowed;
 }
 
+/* Ringkasan dashboard */
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 12px;
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 16px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+.stat-label {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.stat-value {
+  font-size: 26px;
+  font-weight: 600;
+  line-height: 1.15;
+}
+
+.stat-hint {
+  color: var(--muted);
+  font-size: 11.5px;
+}
+
+.stat-ok {
+  border-color: rgba(61, 220, 151, 0.25);
+}
+
+.stat-ok .stat-value {
+  color: var(--ok);
+}
+
+.stat-warn {
+  border-color: rgba(242, 184, 96, 0.3);
+}
+
+.stat-warn .stat-value {
+  color: var(--warn);
+}
+
+.stat-danger {
+  border-color: rgba(239, 107, 107, 0.35);
+}
+
+.stat-danger .stat-value {
+  color: var(--danger);
+}
+
 @media (max-width: 720px) {
   .layout {
     grid-template-columns: 1fr;

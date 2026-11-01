@@ -55,6 +55,26 @@ export function ErrorBox({ message, onRetry }: { message: string; onRetry?: () =
   );
 }
 
+export function StatCard({
+  label,
+  value,
+  hint,
+  tone = 'neutral'
+}: {
+  label: string;
+  value: number | string;
+  hint?: string;
+  tone?: 'neutral' | 'ok' | 'warn' | 'danger';
+}): JSX.Element {
+  return (
+    <div className={`stat stat-${tone}`}>
+      <span className="stat-label">{label}</span>
+      <span className="stat-value">{value}</span>
+      {hint === undefined ? null : <span className="stat-hint">{hint}</span>}
+    </div>
+  );
+}
+
 export function Loading(): JSX.Element {
   return <div className="loading">Memuat…</div>;
 }

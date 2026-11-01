@@ -5,11 +5,12 @@ import {
   ErrorBox,
   Loading,
   Section,
+  StatCard,
   StatusPill,
   formatTime,
   shortId
 } from '../components';
-import type { Job, ListResponse } from '../types';
+import type { DashboardSummary, Job, ListResponse } from '../types';
 
 const FILTERS = [
   'ALL',
@@ -30,10 +31,60 @@ export function JobsPage({ refreshToken }: { refreshToken: number }): JSX.Elemen
 
   const query = status === 'ALL' ? '?limit=50' : `?status=${status}&limit=50`;
   const list = useApi<ListResponse<Job>>(`/api/v1/jobs${query}&t=${refreshToken}`);
+  const summary = useApi<DashboardSummary>(`/api/v1/dashboard/summary?t=${refreshToken}`);
   const detail = useApi<Job>(selectedId === null ? null : `/api/v1/jobs/${selectedId}`);
+
+  const byJobStatus = summary.data?.jobs.byStatus ?? {};
+  const activeJobs =
+    (byJobStatus.QUEUED ?? 0) +
+    (byJobStatus.RETRY_WAIT ?? 0) +
+    (byJobStatus.SCHEDULED ?? 0) +
+    (byJobStatus.PUBLISHING ?? 0) +
+    (byJobStatus.VERIFYING ?? 0);
+  const attentionJobs =
+    (byJobStatus.NEEDS_ATTENTION ?? 0) +
+    (byJobStatus.FAILED ?? 0) +
+    (byJobStatus.PERMANENT_FAILURE ?? 0);
+  const published = summary.data?.publishAttempts.byStatus.published ?? 0;
+  const publishTrouble =
+    (summary.data?.publishAttempts.byStatus.failed ?? 0) +
+    (summary.data?.publishAttempts.byStatus.unknown ?? 0);
+  const connected = summary.data?.accounts.byConnectionStatus.connected ?? 0;
+  const reauth = summary.data?.accounts.byConnectionStatus.reauth_required ?? 0;
+  const pendingApproval = summary.data?.content.pendingApproval ?? 0;
 
   return (
     <div className="stack">
+      {summary.error !== null ? <ErrorBox message={summary.error} /> : null}
+      {summary.data !== null ? (
+        <div className="stats">
+          <StatCard label="Job aktif" value={activeJobs} hint="queued · retry · dijalankan" />
+          <StatCard
+            label="Perlu perhatian"
+            value={attentionJobs}
+            hint="NEEDS_ATTENTION / FAILED"
+            tone={attentionJobs > 0 ? 'danger' : 'neutral'}
+          />
+          <StatCard
+            label="Menunggu approval"
+            value={pendingApproval}
+            hint="konten pending"
+            tone={pendingApproval > 0 ? 'warn' : 'neutral'}
+          />
+          <StatCard
+            label="Publikasi terbit"
+            value={published}
+            hint={publishTrouble > 0 ? `${publishTrouble} gagal/unknown` : 'tanpa kegagalan'}
+            tone="ok"
+          />
+          <StatCard
+            label="Akun terhubung"
+            value={connected}
+            hint={reauth > 0 ? `${reauth} perlu reauth` : 'semua siap'}
+            tone={reauth > 0 ? 'warn' : 'neutral'}
+          />
+        </div>
+      ) : null}
       <div className="filters">
         {FILTERS.map((value) => (
           <button

@@ -90,3 +90,14 @@ export interface ApprovalRecord {
   id: string;
   decision: 'approved' | 'rejected';
 }
+
+/** Respons GET /api/v1/dashboard/summary. */
+export interface DashboardSummary {
+  generatedAt: string;
+  jobs: { total: number; byStatus: Record<string, number> };
+  publishAttempts: { total: number; byStatus: Record<string, number> };
+  campaigns: { total: number; byStatus: Record<string, number> };
+  content: { total: number; byApprovalStatus: Record<string, number>; pendingApproval: number };
+  accounts: { total: number; byConnectionStatus: Record<string, number> };
+  recentFailures: { id: string; jobType: string; status: string; lastErrorCode: string | null }[];
+}
