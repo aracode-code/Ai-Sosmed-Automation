@@ -35,7 +35,7 @@ loadConfig → createLogger → openDatabase → runMigrations → runStartupRec
 - Shutdown (`SIGINT`/`SIGTERM`): `dispatchLoop.stop()` → `worker.stop()` → `app.close()` → `db.close()` (dispatch lebih dulu agar tidak ada job baru).
 - `workerId = worker_<pid>`; satu worker per proses, satu job per siklus (ADR-0004 W8).
 
-## Route Terdaftar (19)
+## Route Terdaftar (20)
 
 | Area | Route |
 |---|---|
@@ -49,6 +49,7 @@ loadConfig → createLogger → openDatabase → runMigrations → runStartupRec
 | Content detail | `GET /api/v1/content/:id?version=n` — konten (default versi tertinggi pada baris id itu), `campaign {platforms, approvalMode}`, `assets` tanpa `path`, `captionHash` dihitung server, `accounts` kandidat sesuai platform campaign; 404 konten/versi, 400 versi invalid |
 | Dashboard | `GET /api/v1/dashboard/summary?recentFailures=n` — hitungan job/attempt/campaign/konten/akun + `recentFailures` (`FAILED`/`PERMANENT_FAILURE`/`NEEDS_ATTENTION`, default 5, maks 20); 400 bila parameter di luar rentang |
 | Jobs retry | `POST /api/v1/jobs/:id/retry` — hanya `NEEDS_ATTENTION` → `QUEUED` via `RECOVER_REQUEUE`; reset `attempts`/`lastErrorCode`/lease, `runAt = now`, audit `job.retry`; 202 `{jobId, status:"queued"}`, 409 `NOT_RETRYABLE`/`CONCURRENT_UPDATE`, 404 |
+| Jobs cancel | `POST /api/v1/jobs/:id/cancel` — status terminal & `PUBLISHING`/`VERIFYING` ditolak; `CANCELLED` lewat state machine, `lastErrorCode="CANCELLED_BY_USER"`, `runAt`/lease dikosongkan, audit `job.cancel`; 202, 409 `NOT_CANCELLABLE`/`CONCURRENT_UPDATE`, 404 |
 
 ## Konfigurasi Penting
 

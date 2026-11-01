@@ -14,7 +14,7 @@
 | `apps/dashboard/src/components.tsx` | `StatusPill`, `EmptyState`, `ErrorBox`, `Loading`, `Section`, formatter |
 | `apps/dashboard/src/ApprovalDialog.tsx` | Dialog tinjau: detail konten, pilih aset `valid`, pilih akun `connected`, alasan, kirim approve/reject |
 | `apps/dashboard/src/pages/OverviewPage.tsx` | Halaman awal: kartu ringkasan, maks. 5 campaign terbaru, dan kegagalan terbaru |
-| `apps/dashboard/src/pages/JobsPage.tsx` | Kartu ringkasan + panel kegagalan + daftar job + filter status + panel detail dengan tombol **Retry job** (hanya untuk `NEEDS_ATTENTION`) |
+| `apps/dashboard/src/pages/JobsPage.tsx` | Kartu ringkasan + panel kegagalan + daftar job + filter status + panel detail dengan tombol **Retry job** (`NEEDS_ATTENTION`) dan **Batalkan** (bukan terminal, bukan `PUBLISHING`/`VERIFYING`) |
 | `apps/dashboard/src/pages/CampaignsPage.tsx` | Daftar campaign + detail konten per versi |
 | `apps/dashboard/src/pages/ApprovalsPage.tsx` | Konten `pending` dari seluruh campaign + tombol *Tinjau* |
 | `apps/dashboard/src/pages/AccountsPage.tsx` | Akun + `connectionStatus` (tanpa `secretRef`) |
