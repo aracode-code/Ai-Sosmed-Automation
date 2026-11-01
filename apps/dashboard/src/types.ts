@@ -141,3 +141,27 @@ export interface ConnectionsPayload {
   }[];
   platforms: { id: string; supported: boolean; adapter: string; generator: string | null }[];
 }
+
+export interface JobTimeline {
+  job: { id: string; status: string; jobType: string };
+  events: {
+    id: string;
+    actorType: string;
+    actorId: string | null;
+    action: string;
+    result: string;
+    metadata: unknown;
+    createdAt: string;
+  }[];
+  attempts: {
+    id: string;
+    accountId: string;
+    platform: string;
+    status: string;
+    externalPostId: string | null;
+    permalink: string | null;
+    attemptedAt: string;
+    verifiedAt: string | null;
+    errorCode: string | null;
+  }[];
+}

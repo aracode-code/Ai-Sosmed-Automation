@@ -10,7 +10,7 @@ import {
   formatTime,
   shortId
 } from '../components';
-import type { DashboardSummary, Job, ListResponse } from '../types';
+import type { DashboardSummary, Job, JobTimeline, ListResponse } from '../types';
 
 const FILTERS = [
   'ALL',
@@ -38,6 +38,9 @@ export function JobsPage({ refreshToken }: { refreshToken: number }): JSX.Elemen
   const list = useApi<ListResponse<Job>>(`/api/v1/jobs${query}&t=${token}`);
   const summary = useApi<DashboardSummary>(`/api/v1/dashboard/summary?t=${token}`);
   const detail = useApi<Job>(selectedId === null ? null : `/api/v1/jobs/${selectedId}?t=${token}`);
+  const timeline = useApi<JobTimeline>(
+    selectedId === null ? null : `/api/v1/jobs/${selectedId}/events?t=${token}`
+  );
 
   const byJobStatus = summary.data?.jobs.byStatus ?? {};
   const activeJobs =
@@ -273,6 +276,62 @@ export function JobsPage({ refreshToken }: { refreshToken: number }): JSX.Elemen
           {detail.error !== null ? <ErrorBox message={detail.error} /> : null}
           {actionError !== null ? <ErrorBox message={actionError} /> : null}
           {detail.data !== null ? <JobDetail job={detail.data} /> : null}
+          {timeline.loading ? <Loading /> : null}
+          {timeline.error !== null ? <ErrorBox message={timeline.error} /> : null}
+          {timeline.data !== null && timeline.data.attempts.length > 0 ? (
+            <div className="panel-pad">
+              <p className="detail-label">Percobaan publikasi</p>
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Status</th>
+                    <th>Platform</th>
+                    <th>Error</th>
+                    <th>External ID</th>
+                    <th>Waktu</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {timeline.data.attempts.map((attempt) => (
+                    <tr key={attempt.id} className="row row-static">
+                      <td>
+                        <StatusPill value={attempt.status} />
+                      </td>
+                      <td className="mono">{attempt.platform}</td>
+                      <td className="mono">{attempt.errorCode ?? '—'}</td>
+                      <td className="mono">{attempt.externalPostId ?? '—'}</td>
+                      <td>{formatTime(attempt.attemptedAt)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : null}
+          {timeline.data !== null && timeline.data.events.length > 0 ? (
+            <div className="panel-pad">
+              <p className="detail-label">Riwayat aksi</p>
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Waktu</th>
+                    <th>Aksi</th>
+                    <th>Hasil</th>
+                    <th>Aktor</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {timeline.data.events.map((event) => (
+                    <tr key={event.id} className="row row-static">
+                      <td>{formatTime(event.createdAt)}</td>
+                      <td className="mono">{event.action}</td>
+                      <td>{event.result}</td>
+                      <td className="mono">{event.actorId ?? event.actorType}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : null}
         </Section>
       ) : null}
     </div>

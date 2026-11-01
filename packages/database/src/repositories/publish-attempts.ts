@@ -124,3 +124,10 @@ export function updatePublishAttempt(
   raw.prepare(`UPDATE publish_attempts SET ${sets.join(', ')} WHERE id = @id`).run(values);
   return getPublishAttempt(raw, input.id);
 }
+
+export function listPublishAttemptsByJob(raw: SqliteDatabase, jobId: string): PublishAttempt[] {
+  const rows = raw
+    .prepare('SELECT * FROM publish_attempts WHERE job_id = ? ORDER BY attempted_at ASC, id ASC')
+    .all(jobId) as PublishAttemptRow[];
+  return rows.map(toAttempt);
+}

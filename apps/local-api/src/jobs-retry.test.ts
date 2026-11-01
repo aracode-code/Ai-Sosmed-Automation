@@ -4,7 +4,10 @@ import { join } from 'node:path';
 import type { FastifyInstance } from 'fastify';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
+  appendAudit,
   getJob,
+  insertPublishAttempt,
+  insertSocialAccount,
   insertCampaign,
   insertJob,
   listAuditByResource,
@@ -161,6 +164,57 @@ describe('POST /api/v1/jobs/:id/cancel', () => {
 
   it('404 untuk job yang tidak ada', async () => {
     const response = await app.inject({ method: 'POST', url: '/api/v1/jobs/job_hilang/cancel' });
+    expect(response.statusCode).toBe(404);
+  });
+});
+
+describe('GET /api/v1/jobs/:id/events', () => {
+  it('mengembalikan audit dan percobaan publikasi berurutan', async () => {
+    const job = insertJob(db.raw, {
+      jobType: 'PUBLISH',
+      idempotencyKey: 'events-1',
+      payload: {},
+      campaignId,
+      status: 'NEEDS_ATTENTION'
+    });
+    appendAudit(db.raw, {
+      actorType: 'user',
+      actorId: 'local-user',
+      action: 'job.retry',
+      resourceType: 'job',
+      resourceId: job.id,
+      result: 'success',
+      metadata: { from: 'NEEDS_ATTENTION', to: 'QUEUED' }
+    });
+    const account = insertSocialAccount(db.raw, { platform: 'youtube', label: 'Kanal' });
+    insertPublishAttempt(
+      db.raw,
+      {
+        jobId: job.id,
+        accountId: account.id,
+        platform: 'youtube',
+        idempotencyKey: 'events-attempt-1',
+        status: 'unknown'
+      },
+      '2026-11-01T09:00:00.000Z'
+    );
+
+    const response = await app.inject({ method: 'GET', url: `/api/v1/jobs/${job.id}/events` });
+
+    expect(response.statusCode).toBe(200);
+    const payload = response.json<{
+      job: { id: string; status: string };
+      events: { action: string; result: string }[];
+      attempts: { status: string; idempotencyKey: string }[];
+    }>();
+    expect(payload.job).toEqual({ id: job.id, status: 'NEEDS_ATTENTION', jobType: 'PUBLISH' });
+    expect(payload.events.map((event) => event.action)).toContain('job.retry');
+    expect(payload.attempts).toHaveLength(1);
+    expect(payload.attempts[0]).toMatchObject({ status: 'unknown', idempotencyKey: 'events-attempt-1' });
+  });
+
+  it('404 untuk job yang tidak ada', async () => {
+    const response = await app.inject({ method: 'GET', url: '/api/v1/jobs/job_hilang/events' });
     expect(response.statusCode).toBe(404);
   });
 });

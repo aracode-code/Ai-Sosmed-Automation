@@ -3,7 +3,9 @@ import { JOB_STATUSES, transitionJob, type JobStatus } from '@saa/domain';import
   appendAudit,
   applyTransition,
   getJob,
+  listAuditByResource,
   listJobs,
+  listPublishAttemptsByJob,
   type DatabaseHandle
 } from '@saa/database';
 import { z } from 'zod';
@@ -49,6 +51,23 @@ export const jobRoutes: FastifyPluginAsync<JobRoutesDeps> = async (app, deps) =>
       });
     }
     return job;
+  });
+
+  /** Timeline job: audit (aksi) + percobaan publikasi, read-only. */
+  app.get('/api/v1/jobs/:id/events', async (request, reply) => {
+    const { id } = idParamsSchema.parse(request.params);
+    const job = getJob(deps.db.raw, id);
+    if (job === null) {
+      return reply
+        .status(404)
+        .send(errorEnvelope('NOT_FOUND', `job ${id} tidak ditemukan`, String(request.id)));
+    }
+
+    return {
+      job: { id: job.id, status: job.status, jobType: job.jobType },
+      events: listAuditByResource(deps.db.raw, 'job', id),
+      attempts: listPublishAttemptsByJob(deps.db.raw, id)
+    };
   });
 
   /**
