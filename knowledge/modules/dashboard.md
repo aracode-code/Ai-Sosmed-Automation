@@ -40,7 +40,7 @@ corepack pnpm --filter @saa/dashboard typecheck
 ## Batas / Belum Ada
 
 - Alur pairing/reauth akun belum ada di UI (token tidak boleh melewati browser); tetap CLI.
-- `GET /dashboard/summary` (LLD §6) belum dibuat; ringkasan dihitung dari daftar job.
+- `GET /api/v1/dashboard/summary` tersedia (2026-11-01); UI belum memakai endpoint ini — kartu ringkasan masih dihitung dari daftar job di klien.
 - Belum ada test UI otomatis; verifikasi manual di browser (ADR-0009 U8) — alur approve dan reject sudah diuji end-to-end pada DB demo.
 - Tailwind belum dipakai (ADR-0009 U4); router belum ada (U3).
 - Belum ada autentikasi/`Origin` check pada Local API yang dilayani UI (celah P7, `docs/security.md`).

@@ -28,6 +28,7 @@ _Tidak ada task aktif._ Owner meminta akses & menjalankan Google Flow; dipilih *
 | Generasi uji 2 | Prompt "Buat video 5 detik …" → **1 video Veo 3.1 Lite**, durasi 9,96 s |
 | Unduhan | Kartu ⋮ → Download → **Ukuran asli** → `Red_apple_on_wooden_table_6cc18a29.mp4`, **2.923.700 byte**, `ftyp mp42` (tersimpan di `data/media/flow-smoke/`) |
 | Bukti JSON | `data/flow-studio-*.json`, `data/flow-generate-*.json`, `data/flow-video-run-*.json` + PNG |
+| Endpoint summary | `GET /api/v1/dashboard/summary` → 200 (campaign 1 active, content 1 rejected, account 1 connected, jobs 0); `?recentFailures=99` → 400; 3 test |
 
 ## Temuan yang Mengikat
 
