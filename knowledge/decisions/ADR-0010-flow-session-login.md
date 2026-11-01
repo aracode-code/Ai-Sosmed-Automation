@@ -22,6 +22,8 @@
 | F11 | **Guard pemakaian berbasis hitungan**: `FLOW_MAX_GENERATIONS_PER_DAY` (default 1), `FLOW_REQUIRE_CONFIRM` (default true → wajib `--yes`), `FLOW_DRY_RUN`, ledger `data/flow-usage.json`; hari dihitung pada `Asia/Jakarta` | Tidak ada API saldo kredit, dan setelan "Konfirmasi sebelum membuat" milik agen Flow **tidak** melindungi pembuatan langsung dari kotak prompt | Ada sumber saldo kredit resmi |
 | F12 | CLI `flow:generate [--kind image|video] [--prompt …] [--dry-run] [--yes] [--endpoint]` memasang guard lalu menjalankan generator | Membuat jalur uji berbiaya terkendali sebelum menyambungkannya ke handler `GENERATE_VIDEO` | Adapter disambungkan ke workflow |
 | F13 | Attach CDP tidak punya "disconnect" tanpa menutup browser → proses CLI keluar eksplisit setelah selesai | Chrome milik pengguna harus tetap terbuka | Playwright menyediakan detach murni |
+| F14 | Mode media dipilih lewat **tab `Gambar` / `Video`** di sisi kiri studio; panel Setelan harus **ditutup** (Escape) karena menutupi komposer (ukuran prompt menjadi 0×0) | Terverifikasi saat smoke: komposer tidak terlihat saat panel terbuka | UI Flow berubah |
+| F15 | Hasil media memakai URL `https://flow.google.com/asb/…` (gambar 1376×768) dan `storage.googleapis.com/ai-sandbox-videofx/…` — **bukan** hanya `googleusercontent`; probe harus mencakup ketiganya | Probe lama melewatkan hasil sehingga CLI menunggu sampai timeout walau pembuatan sukses | URL hasil berubah |
 
 ## Konsekuensi
 
@@ -39,6 +41,8 @@
 - Commit `5093c28`: `flow:inspect` (outline DOM + screenshot, read-only) dan koreksi `DEFAULT_FLOW_URL` ke `https://flow.google.com/`.
 - Commit `a7aad95`: guard pemakaian (`flow-usage.ts`, 11 test), `flow-generator.ts` (prompt → kirim → tunggu → unduh via menu), `flow-readiness.ts`, CLI `flow:generate` (`--dry-run`/`--yes`).
 - Verifikasi guard: `flow:generate --dry-run` → `Prompt: ada`, `Tombol kirim: ada`, `Tantangan: tidak`, `Pemakaian 0/1 (2026-11-01 WIB)`, exit 0 tanpa biaya.
+- Commit `3bef04d`: probe hasil mencakup `/asb/` + `storage.googleapis.com`, Escape panel + pilih tab mode, ledger `submitted` (hanya dihitung setelah kirim).
+- Smoke image nyata (2026-11-01, setelan Flow `x1`): Flow membuat **1 gambar** ("Coffee cup on wooden table") dan kredit terpakai; CLI timeout 300 s karena probe lama tidak mengenali URL `/asb/`. Setelah perbaikan, probe mengembalikan `{ok:true, w:1376}` untuk hasil yang sama — unduhan otomatis belum diulang (kuota harian 1/1).
 - Test: `packages/browser-engine/src/flow-session.test.ts` — 18 test.
 - `corepack pnpm typecheck` exit 0 (10 paket) · `flow:login --check` → `chrome — C:\Program Files\Google\Chrome\Application\chrome.exe`.
 - `flow:inspect` pada sesi tersimpan (2026-11-01): URL berakhir di `https://flow.google.com/about`, judul "Google Flow — AI Creative Studio…", **0 input**, 60 tombol marketing ("Create with Google Flow", "Try in Google Flow") → **sesi belum terautentikasi / akun belum punya akses studio**; bukti di `data/flow-inspect-*.json` + `.png`.

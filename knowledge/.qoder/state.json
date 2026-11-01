@@ -3,7 +3,7 @@
   "project": "AI Social Media Automation Agent",
   "project_root": "F:/AiSosmedAutomation",
   "branch": "main",
-  "commit": "a7aad95",
+  "commit": "3bef04d",
   "status": "PARTIAL",
   "autonomy": "L1",
   "runtime": {
@@ -34,13 +34,13 @@
   "memory_version": 20,
   "context_version": 20,
   "skill_registry_version": 0,
-  "current_task": "NONE — guard pemakaian + generator Flow + CLI flow:generate DONE; smoke image via CLI belum",
+  "current_task": "NONE — guard + generator image + smoke image (Flow sukses) DONE; unduhan otomatis via CLI belum teruji ulang karena kuota 1/1",
   "last_task": "F: sesi profil Flow persisten + CLI flow:login (ADR-0010)",
   "last_session_id": "SESSION-2026-11-01-2",
   "last_scan": "2026-11-01T00:40:00+07:00",
   "last_index": "2026-11-01T00:40:00+07:00",
-  "last_updated": "2026-11-01T06:50:00+07:00",
-  "last_validation": "2026-11-01 (a7aad95) — typecheck 10 paket exit 0; flow-usage 11/11 test; flow:generate --dry-run exit 0 (prompt ada, tombol kirim ada, tanpa tantangan, 0/1 hari ini WIB)",
+  "last_updated": "2026-11-01T07:05:00+07:00",
+  "last_validation": "2026-11-01 (3bef04d) — typecheck 10 paket exit 0; flow-usage 11/11; smoke image nyata: Flow membuat 1 gambar (kredit terpakai), CLI timeout di deteksi, probe diperbaiki & diverifikasi menemukan hasil (asb, 1376px); ledger 1/1 hari ini",
   "last_test_status": "flow-usage 11/11; suite penuh terakhir 358 lulus dengan --no-file-parallelism",
   "last_command": "coba jalankan lagi",
   "last_command_status": "PARTIAL",
@@ -48,5 +48,5 @@
   "dirty": true,
   "dirty_reason": "AGENTS.md masih untracked (keputusan owner belum diambil)",
   "drift_detected": false,
-  "next_step": "Smoke image pertama lewat CLI (butuh --yes dan memotong kredit gambar; default x2): flow:generate --kind image --prompt … --yes. Setelah sukses, sambungkan generator ke handler GENERATE_VIDEO (FLOW_ADAPTER=real) dan lanjut video."
+  "next_step": "Selesaikan end-to-end image via CLI (butuh 1 kredit lagi atau tunggu besok): flow:generate --kind image --prompt … --yes. Setelah itu wiring ke handler GENERATE_VIDEO untuk video, atau lanjut pekerjaan lain."
 }
