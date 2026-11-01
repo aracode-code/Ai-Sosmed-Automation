@@ -3,7 +3,7 @@
   "project": "AI Social Media Automation Agent",
   "project_root": "F:/AiSosmedAutomation",
   "branch": "main",
-  "commit": "e9a0202",
+  "commit": "515f6ca",
   "status": "PARTIAL",
   "autonomy": "L1",
   "runtime": {
@@ -34,19 +34,19 @@
   "memory_version": 20,
   "context_version": 20,
   "skill_registry_version": 0,
-  "current_task": "NONE — tren ringkasan 7 hari tersedia di API dan Overview",
+  "current_task": "NONE — halaman Connections baca-saja selesai",
   "last_task": "F: sesi profil Flow persisten + CLI flow:login (ADR-0010)",
   "last_session_id": "SESSION-2026-11-01-2",
   "last_scan": "2026-11-01T00:40:00+07:00",
   "last_index": "2026-11-01T00:40:00+07:00",
-  "last_updated": "2026-11-01T11:45:00+07:00",
-  "last_validation": "2026-11-01 (e9a0202) — typecheck 10 paket exit 0; suite 413 test / 50 file hijau; 1 test tren; render desktop Overview menunjukkan tren 7 hari (10-30 terbit 1, 10-31 terbit 1, 11-01 job 1/terbit 1/gagal 1)",
-  "last_test_status": "413 passed / 0 failed (tanpa paralelisme)",
+  "last_updated": "2026-11-01T12:10:00+07:00",
+  "last_validation": "2026-11-01 (515f6ca) — typecheck 10 paket exit 0; suite 416 test / 51 file hijau; 3 test connections; render desktop: CDP terjangkau, tab project & prompt siap, kredensial akun DPAPI, platform youtube belum aktif (adapter off), kuota 2/1 (batas tercapai)",
+  "last_test_status": "416 passed / 0 failed (tanpa paralelisme)",
   "last_command": "coba jalankan lagi",
   "last_command_status": "PARTIAL",
   "open_wave": null,
   "dirty": true,
   "dirty_reason": "AGENTS.md masih untracked (keputusan owner belum diambil)",
   "drift_detected": false,
-  "next_step": "Kandidat: riwayat audit per job di detail, tren lebih panjang (30 hari), atau smoke video Flow saat kuota reset."
+  "next_step": "Kandidat: aksi connect dari UI (spawn proses dengan lifecycle jelas), riwayat audit per job, atau smoke video Flow saat kuota reset."
 }
