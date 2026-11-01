@@ -94,39 +94,92 @@ async function assertNoChallenge(page: PageLike): Promise<void> {
   }
 }
 
+export type FlowAspectRatio = '9:16' | '16:9' | '1:1';
+
+const RATIO_MODEL_PATTERN: Record<FlowMediaKind, string> = {
+  image: 'model default pembuatan gambar',
+  video: 'model default pembuatan video'
+};
+
 /**
- * Memilih rasio di panel Setelan untuk bagian model yang sesuai (gambar/video).
- * Gagal bila radio tidak ditemukan — jangan diam-diam memakai rasio lain.
+ * Ekspresi pemilihan rasio. Cakupan section dicari **berdasarkan kontrak**
+ * (satu tombol model + ada radio), bukan jumlah level tetap: depth 1–2 sudah
+ * memisahkan gambar/video, depth 3+ menyatukan keduanya. `Simpan` dicari global
+ * karena berada di footer panel, di luar section model.
  */
-async function applyAspectRatio(
-  page: PageLike,
+export function buildSetRatioExpression(kind: FlowMediaKind, ratio: FlowAspectRatio): string {
+  return `(() => {
+    const tune = [...document.querySelectorAll('button')].find((el) => (el.textContent || '').trim() === 'tune');
+    if (!tune) return 'panel-tidak-ada';
+    tune.click();
+    const model = [...document.querySelectorAll('button')].find((el) => /${RATIO_MODEL_PATTERN[kind]}/i.test(el.getAttribute('aria-label') || ''));
+    if (!model) return 'model-tidak-ada';
+    let scope = model;
+    let radios = [];
+    for (let depth = 0; depth < 3 && scope.parentElement; depth++) {
+      scope = scope.parentElement;
+      const owners = [...scope.querySelectorAll('button')].filter((el) => /model default pembuatan/i.test(el.getAttribute('aria-label') || '')).length;
+      const found = [...scope.querySelectorAll('[role="radio"]')];
+      if (owners === 1 && found.length > 0) { radios = found; break; }
+    }
+    if (radios.length === 0) return 'scope-tidak-ditemukan';
+    const radio = radios.find((el) => (el.textContent || '').includes(${JSON.stringify(ratio)}));
+    if (!radio) return 'rasio-tidak-ada';
+    radio.click();
+    const save = [...document.querySelectorAll('button')].find((el) => (el.textContent || '').trim() === 'Simpan');
+    if (!save) return 'simpan-tidak-ada';
+    save.click();
+    return 'ok';
+  })()`;
+}
+
+/** Membuka panel lagi dan memastikan radio yang diminta benar-benar aktif. */
+export function buildVerifyRatioExpression(kind: FlowMediaKind, ratio: FlowAspectRatio): string {
+  return `(() => {
+    const tune = [...document.querySelectorAll('button')].find((el) => (el.textContent || '').trim() === 'tune');
+    if (!tune) return 'panel-tidak-ada';
+    tune.click();
+    const model = [...document.querySelectorAll('button')].find((el) => /${RATIO_MODEL_PATTERN[kind]}/i.test(el.getAttribute('aria-label') || ''));
+    if (!model) return 'model-tidak-ada';
+    let scope = model;
+    let radios = [];
+    for (let depth = 0; depth < 3 && scope.parentElement; depth++) {
+      scope = scope.parentElement;
+      const owners = [...scope.querySelectorAll('button')].filter((el) => /model default pembuatan/i.test(el.getAttribute('aria-label') || '')).length;
+      const found = [...scope.querySelectorAll('[role="radio"]')];
+      if (owners === 1 && found.length > 0) { radios = found; break; }
+    }
+    if (radios.length === 0) return 'scope-tidak-ditemukan';
+    const radio = radios.find((el) => (el.textContent || '').includes(${JSON.stringify(ratio)}));
+    if (!radio) return 'rasio-tidak-ada';
+    return radio.getAttribute('aria-checked') === 'true' ? 'ok' : 'rasio-belum-aktif';
+  })()`;
+}
+
+/** Bagian halaman yang dibutuhkan untuk menerapkan rasio (mudah difake di test). */
+export interface RatioPage {
+  evaluate<T>(expression: string): Promise<T>;
+  keyboard: { press(key: string): Promise<void> };
+  waitForTimeout(ms: number): Promise<void>;
+}
+
+export async function applyAspectRatio(
+  page: RatioPage,
   kind: FlowMediaKind,
-  ratio: '9:16' | '16:9' | '1:1'
+  ratio: FlowAspectRatio
 ): Promise<void> {
-  const state = await page.evaluate<string>(
-    `(() => {
-      const tune = [...document.querySelectorAll('button')].find((el) => (el.textContent || '').trim() === 'tune');
-      if (!tune) return 'panel-tidak-ada';
-      tune.click();
-      const model = [...document.querySelectorAll('button')].find((el) => {
-        const aria = el.getAttribute('aria-label') || '';
-        return ${kind === 'video' ? '/model default pembuatan video/i' : '/model default pembuatan gambar/i'}.test(aria);
-      });
-      if (!model) return 'model-tidak-ada';
-      let section = model;
-      for (let i = 0; i < 5 && section.parentElement; i++) section = section.parentElement;
-      const radio = [...section.querySelectorAll('[role="radio"]')].find((el) => (el.textContent || '').includes(${JSON.stringify(ratio)}));
-      if (!radio) return 'rasio-tidak-ada';
-      radio.click();
-      const save = [...section.querySelectorAll('button')].find((el) => (el.textContent || '').trim() === 'Simpan');
-      if (save) save.click();
-      return 'ok';
-    })()`
-  );
+  const setState = await page.evaluate<string>(buildSetRatioExpression(kind, ratio));
   await page.waitForTimeout(800);
+  if (setState !== 'ok') {
+    await page.keyboard.press('Escape').catch(() => undefined);
+    throw new AppError('UI_CHANGED', `rasio ${ratio} tidak dapat diterapkan (${setState})`);
+  }
+
+  const verifyState = await page.evaluate<string>(buildVerifyRatioExpression(kind, ratio));
+  await page.waitForTimeout(400);
   await page.keyboard.press('Escape').catch(() => undefined);
-  if (state !== 'ok') {
-    throw new AppError('UI_CHANGED', `rasio ${ratio} tidak dapat diterapkan (${state})`);
+  if (verifyState !== 'ok') {
+    throw new AppError('UI_CHANGED', `verifikasi rasio ${ratio} gagal (${verifyState})`);
   }
 }
 
