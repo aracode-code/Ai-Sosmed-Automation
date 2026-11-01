@@ -13,7 +13,7 @@
 | `apps/dashboard/src/App.tsx` | Shell: sidebar (Jobs/Campaigns/Approvals/Accounts), badge health, tombol muat ulang, `onChanged` untuk refresh setelah keputusan |
 | `apps/dashboard/src/components.tsx` | `StatusPill`, `EmptyState`, `ErrorBox`, `Loading`, `Section`, formatter |
 | `apps/dashboard/src/ApprovalDialog.tsx` | Dialog tinjau: detail konten, pilih aset `valid`, pilih akun `connected`, alasan, kirim approve/reject |
-| `apps/dashboard/src/pages/JobsPage.tsx` | Daftar job + filter status + panel detail (payload JSON, lease, kunci idempoten) |
+| `apps/dashboard/src/pages/JobsPage.tsx` | Kartu ringkasan (`GET /api/v1/dashboard/summary`) + daftar job + filter status + panel detail (payload JSON, lease, kunci idempoten) |
 | `apps/dashboard/src/pages/CampaignsPage.tsx` | Daftar campaign + detail konten per versi |
 | `apps/dashboard/src/pages/ApprovalsPage.tsx` | Konten `pending` dari seluruh campaign + tombol *Tinjau* |
 | `apps/dashboard/src/pages/AccountsPage.tsx` | Akun + `connectionStatus` (tanpa `secretRef`) |
@@ -21,7 +21,7 @@
 
 ## Perilaku Penting
 
-- **Sumber data:** `GET /health`, `/api/v1/jobs`, `/api/v1/campaigns`, `/api/v1/campaigns/:id`, `/api/v1/accounts`, dan `GET /api/v1/content/:id` untuk dialog approval.
+- **Sumber data:** `GET /health`, `/api/v1/jobs`, `/api/v1/campaigns`, `/api/v1/campaigns/:id`, `/api/v1/accounts`, `GET /api/v1/content/:id` (dialog approval), dan `GET /api/v1/dashboard/summary` (kartu ringkasan).
 - **Aksi approval:** dialog mengirim `{version, assetSha256, captionHash, accountId, platform, reason?}` yang **diterima dari server** ke `POST /api/v1/content/:id/approve|reject`; UI tidak menghitung hash sendiri.
 - **Guard UI:** keputusan diblokir bila tidak ada aset `valid` atau akun `connected`; `APPROVAL_MISMATCH` menampilkan instruksi muat ulang.
 - **Tanpa kredensial:** UI tidak menyimpan token apa pun; pairing tetap CLI.
@@ -40,7 +40,7 @@ corepack pnpm --filter @saa/dashboard typecheck
 ## Batas / Belum Ada
 
 - Alur pairing/reauth akun belum ada di UI (token tidak boleh melewati browser); tetap CLI.
-- `GET /api/v1/dashboard/summary` tersedia (2026-11-01); UI belum memakai endpoint ini — kartu ringkasan masih dihitung dari daftar job di klien.
+- `GET /api/v1/dashboard/summary` dipakai halaman Jobs untuk lima kartu ringkasan (job aktif, perlu perhatian, menunggu approval, publikasi terbit, akun terhubung); kartu tidak menampilkan data sensitif.
 - Belum ada test UI otomatis; verifikasi manual di browser (ADR-0009 U8) — alur approve dan reject sudah diuji end-to-end pada DB demo.
 - Tailwind belum dipakai (ADR-0009 U4); router belum ada (U3).
 - Belum ada autentikasi/`Origin` check pada Local API yang dilayani UI (celah P7, `docs/security.md`).

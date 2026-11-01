@@ -3,7 +3,7 @@
   "project": "AI Social Media Automation Agent",
   "project_root": "F:/AiSosmedAutomation",
   "branch": "main",
-  "commit": "89ff992",
+  "commit": "0a20627",
   "status": "PARTIAL",
   "autonomy": "L1",
   "runtime": {
@@ -34,13 +34,13 @@
   "memory_version": 20,
   "context_version": 20,
   "skill_registry_version": 0,
-  "current_task": "NONE — endpoint summary ditambahkan dan dijalankan; UI belum memakai",
+  "current_task": "NONE — kartu ringkasan dashboard terpasang di halaman Jobs",
   "last_task": "F: sesi profil Flow persisten + CLI flow:login (ADR-0010)",
   "last_session_id": "SESSION-2026-11-01-2",
   "last_scan": "2026-11-01T00:40:00+07:00",
   "last_index": "2026-11-01T00:40:00+07:00",
-  "last_updated": "2026-11-01T07:42:00+07:00",
-  "last_validation": "2026-11-01 (89ff992) — typecheck 10 paket exit 0; suite 404 test / 49 file hijau; 3 test endpoint summary; smoke 4399: GET /api/v1/dashboard/summary 200 (campaign 1 active, content 1 rejected, account 1 connected, jobs 0), recentFailures=1 ok, recentFailures=99 → 400",
+  "last_updated": "2026-11-01T08:05:00+07:00",
+  "last_validation": "2026-11-01 (0a20627) — typecheck dashboard exit 0; vite build exit 0 (164,81 kB); suite 404 test / 49 file hijau; render desktop 1440x900 menunjukkan 5 kartu ringkasan dengan data API demo (akun terhubung 1, lainnya 0)",
   "last_test_status": "404 passed / 0 failed (tanpa paralelisme)",
   "last_command": "coba jalankan lagi",
   "last_command_status": "PARTIAL",
@@ -48,5 +48,5 @@
   "dirty": true,
   "dirty_reason": "AGENTS.md masih untracked (keputusan owner belum diambil)",
   "drift_detected": false,
-  "next_step": "Pakai summary di dashboard (kartu ringkasan) atau lanjut smoke video Flow (butuh kredit)."
+  "next_step": "Perbaiki layout sempit (<720px) atau lanjut smoke video Flow (butuh kredit); kartu ringkasan bisa ditambah tren/kegagalan terbaru."
 }
