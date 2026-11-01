@@ -437,6 +437,11 @@ body {
 
 /* Detail */
 
+.detail-actions {
+  display: flex;
+  gap: 8px;
+}
+
 .detail-grid {
   display: grid;
   grid-template-columns: minmax(240px, 360px) 1fr;

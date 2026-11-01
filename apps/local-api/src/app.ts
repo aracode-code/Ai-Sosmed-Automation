@@ -95,7 +95,7 @@ export function buildApp(options: BuildAppOptions): FastifyInstance {
     version,
     ...(workerActive === undefined ? {} : { workerActive })
   });
-  void app.register(jobRoutes, { db });
+  void app.register(jobRoutes, { db, now });
   void app.register(campaignRoutes, { db });
   void app.register(contentRoutes, { db, now });
   void app.register(dashboardRoutes, { db, now });

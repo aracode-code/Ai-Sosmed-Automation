@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useApi } from '../api';
+import { ApiError, sendJson, useApi } from '../api';
 import {
   EmptyState,
   ErrorBox,
@@ -28,11 +28,15 @@ const FILTERS = [
 export function JobsPage({ refreshToken }: { refreshToken: number }): JSX.Element {
   const [status, setStatus] = useState<(typeof FILTERS)[number]>('ALL');
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [localToken, setLocalToken] = useState(0);
+  const [retrying, setRetrying] = useState(false);
+  const [retryError, setRetryError] = useState<string | null>(null);
+  const token = refreshToken + localToken;
 
   const query = status === 'ALL' ? '?limit=50' : `?status=${status}&limit=50`;
-  const list = useApi<ListResponse<Job>>(`/api/v1/jobs${query}&t=${refreshToken}`);
-  const summary = useApi<DashboardSummary>(`/api/v1/dashboard/summary?t=${refreshToken}`);
-  const detail = useApi<Job>(selectedId === null ? null : `/api/v1/jobs/${selectedId}`);
+  const list = useApi<ListResponse<Job>>(`/api/v1/jobs${query}&t=${token}`);
+  const summary = useApi<DashboardSummary>(`/api/v1/dashboard/summary?t=${token}`);
+  const detail = useApi<Job>(selectedId === null ? null : `/api/v1/jobs/${selectedId}?t=${token}`);
 
   const byJobStatus = summary.data?.jobs.byStatus ?? {};
   const activeJobs =
@@ -52,6 +56,29 @@ export function JobsPage({ refreshToken }: { refreshToken: number }): JSX.Elemen
   const connected = summary.data?.accounts.byConnectionStatus.connected ?? 0;
   const reauth = summary.data?.accounts.byConnectionStatus.reauth_required ?? 0;
   const pendingApproval = summary.data?.content.pendingApproval ?? 0;
+
+  async function retrySelected(): Promise<void> {
+    if (detail.data === null) return;
+    setRetrying(true);
+    setRetryError(null);
+    try {
+      await sendJson<{ jobId: string; status: string }>(
+        `/api/v1/jobs/${detail.data.id}/retry`,
+        {}
+      );
+      setLocalToken((value) => value + 1);
+    } catch (caught) {
+      setRetryError(
+        caught instanceof ApiError
+          ? `${caught.code}: ${caught.message}`
+          : caught instanceof Error
+            ? caught.message
+            : 'kesalahan tidak dikenal'
+      );
+    } finally {
+      setRetrying(false);
+    }
+  }
 
   return (
     <div className="stack">
@@ -182,13 +209,26 @@ export function JobsPage({ refreshToken }: { refreshToken: number }): JSX.Elemen
         <Section
           title={`Detail job ${shortId(selectedId)}`}
           actions={
-            <button type="button" className="btn" onClick={() => setSelectedId(null)}>
-              Tutup
-            </button>
+            <div className="detail-actions">
+              {detail.data?.status === 'NEEDS_ATTENTION' ? (
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => void retrySelected()}
+                  disabled={retrying}
+                >
+                  {retrying ? 'Mengulang…' : 'Retry job'}
+                </button>
+              ) : null}
+              <button type="button" className="btn" onClick={() => setSelectedId(null)}>
+                Tutup
+              </button>
+            </div>
           }
         >
           {detail.loading ? <Loading /> : null}
           {detail.error !== null ? <ErrorBox message={detail.error} /> : null}
+          {retryError !== null ? <ErrorBox message={retryError} /> : null}
           {detail.data !== null ? <JobDetail job={detail.data} /> : null}
         </Section>
       ) : null}
