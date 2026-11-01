@@ -27,7 +27,7 @@ const READY: FlowReadiness = {
 describe('FlowPlaywrightGenerator', () => {
   it('meminta kind video dan mengembalikan metadata berkas nyata', async () => {
     const bytes = Buffer.from('ftypmp42-dummy');
-    let captured: { kind: string; prompt: string; dir: string; endpoint: string } | null = null;
+    let captured: { kind: string; prompt: string; dir: string; endpoint: string; ratio?: string } | null = null;
 
     const generator = new FlowPlaywrightGenerator({
       endpoint: 'http://127.0.0.1:9222',
@@ -38,7 +38,8 @@ describe('FlowPlaywrightGenerator', () => {
           kind: options.kind,
           prompt: options.prompt,
           dir: options.outputDirectory,
-          endpoint: options.endpoint
+          endpoint: options.endpoint,
+          ...(options.aspectRatio === undefined ? {} : { ratio: options.aspectRatio })
         };
         mkdirSync(options.outputDirectory, { recursive: true });
         const filePath = join(options.outputDirectory, 'clip.mp4');
@@ -58,7 +59,8 @@ describe('FlowPlaywrightGenerator', () => {
       kind: 'video',
       prompt: 'apel di meja',
       dir: join(workDir, 'corr-1'),
-      endpoint: 'http://127.0.0.1:9222'
+      endpoint: 'http://127.0.0.1:9222',
+      ratio: '16:9'
     });
     expect(result.mimeType).toBe('video/mp4');
     expect(result.sizeBytes).toBe(bytes.length);

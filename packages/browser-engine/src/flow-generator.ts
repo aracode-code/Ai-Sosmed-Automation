@@ -41,6 +41,8 @@ export interface FlowGenerateOptions {
   prompt: string;
   kind: FlowMediaKind;
   outputDirectory: string;
+  /** Rasio yang diminta (policy platform); bila tidak ada, memakai default Flow. */
+  aspectRatio?: '9:16' | '16:9' | '1:1';
   /** Batas tunggu hasil (video bisa beberapa menit). Default 15 menit. */
   renderTimeoutMs?: number;
   /** Dipanggil tepat setelah tombol kirim berhasil ditekan (kredit mulai terpakai). */
@@ -92,6 +94,42 @@ async function assertNoChallenge(page: PageLike): Promise<void> {
   }
 }
 
+/**
+ * Memilih rasio di panel Setelan untuk bagian model yang sesuai (gambar/video).
+ * Gagal bila radio tidak ditemukan — jangan diam-diam memakai rasio lain.
+ */
+async function applyAspectRatio(
+  page: PageLike,
+  kind: FlowMediaKind,
+  ratio: '9:16' | '16:9' | '1:1'
+): Promise<void> {
+  const state = await page.evaluate<string>(
+    `(() => {
+      const tune = [...document.querySelectorAll('button')].find((el) => (el.textContent || '').trim() === 'tune');
+      if (!tune) return 'panel-tidak-ada';
+      tune.click();
+      const model = [...document.querySelectorAll('button')].find((el) => {
+        const aria = el.getAttribute('aria-label') || '';
+        return ${kind === 'video' ? '/model default pembuatan video/i' : '/model default pembuatan gambar/i'}.test(aria);
+      });
+      if (!model) return 'model-tidak-ada';
+      let section = model;
+      for (let i = 0; i < 5 && section.parentElement; i++) section = section.parentElement;
+      const radio = [...section.querySelectorAll('[role="radio"]')].find((el) => (el.textContent || '').includes(${JSON.stringify(ratio)}));
+      if (!radio) return 'rasio-tidak-ada';
+      radio.click();
+      const save = [...section.querySelectorAll('button')].find((el) => (el.textContent || '').trim() === 'Simpan');
+      if (save) save.click();
+      return 'ok';
+    })()`
+  );
+  await page.waitForTimeout(800);
+  await page.keyboard.press('Escape').catch(() => undefined);
+  if (state !== 'ok') {
+    throw new AppError('UI_CHANGED', `rasio ${ratio} tidak dapat diterapkan (${state})`);
+  }
+}
+
 export async function generateFlowMedia(options: FlowGenerateOptions): Promise<FlowGenerateResult> {
   const prompt = promptForKind(options.prompt, options.kind);
   mkdirSync(options.outputDirectory, { recursive: true });
@@ -126,6 +164,9 @@ export async function generateFlowMedia(options: FlowGenerateOptions): Promise<F
     })()`
   );
   await page.waitForTimeout(800);
+  if (options.aspectRatio !== undefined) {
+    await applyAspectRatio(page, options.kind, options.aspectRatio);
+  }
 
   const promptBox = page.locator(PROMPT_SELECTOR).first();
   try {

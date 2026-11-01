@@ -24,6 +24,7 @@ export interface FlowPlaywrightGeneratorOptions {
     prompt: string;
     kind: 'video';
     outputDirectory: string;
+    aspectRatio?: '9:16' | '16:9' | '1:1';
     renderTimeoutMs?: number;
   }) => Promise<FlowGenerateResult>;
   /** Injeksi untuk test: menggantikan pemeriksaan kesiapan. */
@@ -82,6 +83,7 @@ export class FlowPlaywrightGenerator implements VideoGenerator {
       prompt: request.prompt,
       kind: 'video',
       outputDirectory,
+      aspectRatio: request.aspectRatio,
       ...(this.renderTimeoutMs === undefined ? {} : { renderTimeoutMs: this.renderTimeoutMs })
     });
 

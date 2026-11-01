@@ -1,4 +1,5 @@
 export * from './approval';
+export * from './aspect';
 export * from './entities';
 export * from './errors';
 export * from './job';

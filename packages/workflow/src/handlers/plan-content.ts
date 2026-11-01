@@ -1,4 +1,4 @@
-import { AppError, type Campaign } from '@saa/domain';
+import { AppError, aspectRatioForTargets, type Campaign } from '@saa/domain';
 import {
   PlannerOutputError,
   type AspectRatio,
@@ -129,6 +129,11 @@ export function createPlanContentHandler(deps: PlanContentDeps): JobHandler {
     }
 
     const contentId = `cnt_${ctx.job.id}`;
+    // Rasio ditentukan policy per platform (short-form vertikal → 9:16), bukan
+    // tebakan model; planner hanya dipakai bila tidak ada target.
+    const targets = plan.targets ?? [];
+    const aspectRatio =
+      targets.length > 0 ? aspectRatioForTargets(targets) : (plan.aspectRatio ?? '9:16');
     const content = upsertContentItem(deps.db.raw, {
       id: contentId,
       campaignId: campaign.id,
@@ -137,7 +142,7 @@ export function createPlanContentHandler(deps: PlanContentDeps): JobHandler {
       prompt: {
         decision: plan.decision,
         videoPrompt: plan.videoPrompt,
-        aspectRatio: plan.aspectRatio,
+        aspectRatio,
         rationale: plan.rationale
       },
       caption: captionMap(plan),
@@ -154,8 +159,8 @@ export function createPlanContentHandler(deps: PlanContentDeps): JobHandler {
         contentId: content.id,
         campaignId: campaign.id,
         videoPrompt: plan.videoPrompt,
-        aspectRatio: plan.aspectRatio,
-        targets: plan.targets ?? []
+        aspectRatio,
+        targets
       }
     });
 
