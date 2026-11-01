@@ -3,8 +3,8 @@
   "mode": "LIGHTWEIGHT_GREP",
   "status": "DEGRADED",
   "reason": "Tidak ada tool SQLite index di runtime ini (`sqlite_query_tool` missing). Pencarian memakai ripgrep terhadap source aktual; tidak ada code.db.",
-  "indexed_commit": "fd6231484aa8ac8420baf798ef7c2a1dd1e041c9",
-  "indexed_at": "2026-11-01T00:40:00+07:00",
+  "indexed_commit": "acdcf1711b9bbae800043fb82cf7bdd93e030d68",
+  "indexed_at": "2026-11-01T21:30:00+07:00",
   "scope": [
     "apps/local-api/src/**",
     "apps/dashboard/src/**",
@@ -20,18 +20,18 @@
     "docs/**"
   ],
   "counts": {
-    "files": 138,
-    "test_files": 44,
+    "files": 162,
+    "test_files": 53,
     "symbols": null,
     "imports": null,
-    "apis": 17,
+    "apis": 26,
     "db_objects": 12,
-    "tests": 357
+    "tests": 443
   },
   "validation": {
-    "last_validated_at": "2026-11-01T00:40:00+07:00",
+    "last_validated_at": "2026-11-01T21:30:00+07:00",
     "result": "partial",
-    "note": "Scope = daftar git ls-files (ts/tsx) pada commit fd62314: 138 file, 44 test + docs/. Tanpa index SQLite metadata simbol/import null. Endpoint tetap 17. Perubahan sesi: packages/browser-engine/src/flow-session.ts (+test 10), apps/local-api/src/flow-login.ts, dependensi playwright; counts dari git ls-files dan vitest aktual (357 test, 44 file)."
+    "note": "Scope = git ls-files (ts/tsx) pada commit acdcf17: 162 file (termasuk 53 file test) + docs/. Metadata simbol/import null karena tanpa index SQLite. Endpoint 26, tabel 12, test 443 (vitest aktual). Perubahan sesi: connect-runner(+test), routes/connect-actions(+test), app.ts, flow-login.ts, dashboard Connections."
   },
   "fallback": {
     "engine": "LIGHTWEIGHT_GREP",
