@@ -1,6 +1,6 @@
 # Modul — Local API (App, Route, Composition Root)
 
-**Status:** P1–P5 backend (mock publish) + worker loop + dispatch jadwal + produksi konten + pemicu konten manual + CLI kesiapan COMPLETED (2026-10-31) · commit `debdaaf`, `4b513ab`, `6ad9547`, `7d13431`, `bfc7c72`, `77fbb9c`, `1f27cd5`, `bb1ba57`, `bbfe83a`
+**Status:** P1–P5 backend (mock publish) + worker loop + dispatch jadwal + produksi konten + pemicu konten manual + CLI kesiapan COMPLETED (2026-10-31) · aksi connect dari UI COMPLETED (2026-11-01, runner proses lokal) · commit `debdaaf`, `4b513ab`, `6ad9547`, `7d13431`, `bfc7c72`, `77fbb9c`, `1f27cd5`, `bb1ba57`, `bbfe83a`
 **Sumber:** kode aktual (E1). Keputusan: `ADR-0001` (konfigurasi), `ADR-0003` D15, `ADR-0004` (worker + registry), `ADR-0005` (publikasi mock), `ADR-0006` (dispatch jadwal), `ADR-0007` (produksi konten per slot).
 
 ## Peta Berkas
@@ -15,6 +15,8 @@
 | `apps/local-api/src/errors.ts` | `errorEnvelope` bersama (`{ error: { code, message, requestId, details? } }`) |
 | `apps/local-api/src/preflight.ts` | Logika murni `collectPreflightChecks` — status PASS/WARN/FAIL tanpa akses jaringan dan tanpa mencetak rahasia |
 | `apps/local-api/src/preflight-youtube.ts` | CLI `preflight:youtube` — probe database read-only, akun, blob DPAPI, aset media; exit 0/1/2 |
+| `apps/local-api/src/connect-runner.ts` | `ConnectActionRunner`: spawn `flow-login`/`youtube-pair` sebagai proses anak, single-flight, timeout, kill tree, log memori tersunting |
+| `apps/local-api/src/routes/connect-actions.ts` | 4 route aksi connect: status, mulai login Flow, mulai pairing YouTube, hentikan |
 
 ## Composition Root (urutan boot)
 
@@ -35,7 +37,7 @@ loadConfig → createLogger → openDatabase → runMigrations → runStartupRec
 - Shutdown (`SIGINT`/`SIGTERM`): `dispatchLoop.stop()` → `worker.stop()` → `app.close()` → `db.close()` (dispatch lebih dulu agar tidak ada job baru).
 - `workerId = worker_<pid>`; satu worker per proses, satu job per siklus (ADR-0004 W8).
 
-## Route Terdaftar (22)
+## Route Terdaftar (26)
 
 | Area | Route |
 |---|---|
@@ -52,6 +54,20 @@ loadConfig → createLogger → openDatabase → runMigrations → runStartupRec
 | Jobs cancel | `POST /api/v1/jobs/:id/cancel` — status terminal & `PUBLISHING`/`VERIFYING` ditolak; `CANCELLED` lewat state machine, `lastErrorCode="CANCELLED_BY_USER"`, `runAt`/lease dikosongkan, audit `job.cancel`; 202, 409 `NOT_CANCELLABLE`/`CONCURRENT_UPDATE`, 404 |
 | Connections | `GET /api/v1/connections` — status CDP/Flow (terjangkau, tab project, prompt, tantangan), `adapter`/`privacy`/`appStatus`, kuota harian dari `data/flow-usage.json`, akun + `hasSecretRef` (boolean), dukungan platform; read-only, tanpa kredensial |
 | Jobs timeline | `GET /api/v1/jobs/:id/events` — `job` ringkas, `events` (audit_logs resource job), `attempts` (publish_attempts terurut `attempted_at`); 404 bila job tidak ada |
+| Connect status | `GET /api/v1/connections/actions` — snapshot per aksi (`idle`/`running`/`waiting`/`succeeded`/`failed`/`timed_out`/`cancelled`), waktu, exit code, `waitingFor`, error, 60 baris log terakhir |
+| Connect Flow | `POST /api/v1/connections/flow/login` — 202 mulai `flow:login`; 412 `CONNECT_PREFLIGHT_FAILED` bila browser/channel tidak siap; 409 `CONNECT_ACTION_IN_PROGRESS` |
+| Connect YouTube | `POST /api/v1/connections/youtube/pair` — body ketat berisi **tepat satu** `accountId` atau `label`; 202; 400 `ACCOUNT_NOT_FOUND`/`ACCOUNT_UNSUPPORTED`; 412 `MISSING_CREDENTIALS` bila `GOOGLE_OAUTH_CLIENT_ID` kosong |
+| Connect stop | `POST /api/v1/connections/actions/:kind/stop` — 200 hentikan; 409 `CONNECT_ACTION_NOT_RUNNING` |
+
+## Aksi Connect dari UI (`connect-runner.ts`)
+
+- Runner memulai **proses anak Node** (`process.execPath` + `--import tsx` + `src/flow-login.ts` / `src/pair-youtube.ts`), bukan shell; argumen diteruskan (`--account <id>` / `--label <label>`), `cwd` = direktori paket, `env` proses induk + `NO_COLOR=1`.
+- **Single-flight:** satu proses per jenis aksi; permintaan kedua → 409. State hanya di memori — restart API menghapus snapshot (UI kembali `idle`), proses anak yang masih hidup dihentikan saat `onClose` (`dispose`).
+- **Timeout:** `flow-login` 15 menit, `youtube-pair` 10 menit; lewat batas → `timed_out` + kill tree (`taskkill /PID <pid> /T /F` di win32).
+- **Fase `waiting`:** dideteksi dari baris log penanda (`Login ke Google Flow`, `Membuka browser untuk consent`) — itu tanda konsen manual di browser, bukan aksi otomatis.
+- **Log:** hanya 60 baris terakhir, dipotong 400 karakter, ANSI dihapus, pola `access_token|refresh_token|client_secret|authorization` diganti `[disunting]`; stderr diberi prefiks `! `. Log tidak dipersistensi.
+- **Tanpa kredensial lewat HTTP:** body pairing hanya `accountId`/`label` (`.strict()` menolak field lain); token tetap dibuat oleh CLI dan disimpan DPAPI.
+- **Prasyarat aksi:** login Flow memakai `resolveFlowBrowserChannel()` + `checkFlowBrowser()` (412 bila Chromium tidak ada); pairing memeriksa `GOOGLE_OAUTH_CLIENT_ID` di env (412 bila kosong) tanpa mencetak nilainya.
 
 ## Konfigurasi Penting
 
@@ -87,6 +103,7 @@ Argumen script diteruskan apa adanya; jangan memakai `--` pemisah (`--` ikut men
 ## Belum Ada
 
 - Auth lokal pada API (saat ini loopback-only sebagai batas keamanan). Celah autentikasi token + validasi `Origin` + rate limit dicatat di `docs/security.md` sebagai pekerjaan P7.
-- Route untuk media/aset, approval UI, dan kontrol worker/scheduler (start/stop/status per proses).
-- Pemicu `PLAN_CONTENT` manual ada di `POST /api/v1/content` (idempoten via `requestId`); belum ada route untuk membatalkan job atau membaca attempt publikasi.
+- Route untuk media/aset dan kontrol worker/scheduler (start/stop/status per proses).
+- Pemicu `PLAN_CONTENT` manual ada di `POST /api/v1/content` (idempoten via `requestId`); pembatalan job dan pembacaan attempt publikasi tersedia lewat `POST /api/v1/jobs/:id/cancel` dan `GET /api/v1/jobs/:id/events`.
 - Produksi konten ikut berhenti bila adapter publikasi tidak terdaftar, karena loop dispatch digerbangi adapter (ADR-0006 S8).
+- Aksi connect **tidak** menyelesaikan konflik profil: `flow:login` gagal bila Chrome/CDP lain sudah memakai profil Flow yang sama (`Opening in existing browser session`). Menghentikan Chrome milik owner bukan wewenang API; kondisi ini diteruskan ke UI sebagai error aksi + catatan.

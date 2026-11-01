@@ -1,58 +1,57 @@
 # CURRENT — Task Aktif
 
-**Session:** SESSION-2026-11-01-2
-**Updated:** 2026-11-01T00:40:00+07:00
-**Change class:** MEDIUM (dependensi Playwright + modul sesi Flow + CLI login; tanpa perubahan schema/route)
+**Session:** SESSION-2026-11-01-3
+**Updated:** 2026-11-01T21:30:00+07:00
+**Change class:** MEDIUM (route mutasi baru + runner proses lokal + UI Connections beraksi; tanpa perubahan schema/migrasi)
 
 ## Active Task
 
-_Tidak ada task aktif._ Owner meminta akses & menjalankan Google Flow; dipilih **Playwright + Chromium** dan urutan **session + `flow:login` dulu**. Slice sesi selesai; langkah berikutnya butuh login owner.
+_Tidak ada task aktif._ Owner meminta **aksi connect dipicu dari UI**. Slice selesai: halaman Connections dapat memulai `flow:login` dan `pair:youtube` sebagai proses lokal, memantau fase/log, dan menghentikannya. Sisa yang butuh owner: login Flow nyata (profil sedang dipakai Chrome CDP) dan pairing YouTube (env OAuth belum di-set).
 
 | Field | Nilai |
 |---|---|
-| Task terakhir | **F1** — sesi profil Flow + `flow:login` + `flow:inspect`; **peta DOM studio terverifikasi** (ADR-0010) |
-| Status | **P3 PARTIAL** — sesi/login + DOM studio terpetakan; adapter generasi & smoke belum · P4 PARTIAL (pairing UI) · P5 PARTIAL (smoke live) |
+| Task terakhir | **R4** — aksi connect dari UI (`989aa2f` backend, `acdcf17` UI) |
+| Status | **P4 PARTIAL** (UI approval + aksi connect DONE; reauth belum) · P3 PARTIAL · P5 PARTIAL |
 | Mode eksekusi | SINGLE-WRITER sequential |
-| DoD tercapai | ✅ 10 test sesi · ✅ typecheck & 357 test · ✅ `flow:login --check` hijau (Chromium + profil) |
+| DoD tercapai | ✅ typecheck exit 0 · ✅ **443 test / 53 file** · ✅ `vite build` · ✅ smoke UI 1440 px tanpa overflow |
 
 ## Bukti Sesi Ini (aktual 2026-11-01)
 
 | Bukti | Hasil |
 |---|---|
-| Commit | `fd62314` sesi+login · `260ac52` navigasi · `f2e586e` channel Chrome · `5093c28` `flow:inspect`+URL · `36484ee` peta DOM |
-| Dependensi | `playwright`; Chrome terpasang dipakai (`channel: chrome`) |
+| Commit | `989aa2f` runner + route + cause logging · `acdcf17` UI Connections beraksi |
 | Typecheck | PASS — 10 paket + `tests/tsconfig.json` (exit 0) |
-| Test | `flow-session.test.ts` **18/18**; suite penuh lulus 358 test dengan `--no-file-parallelism` (paralel default OOM di mesin ini) |
-| Login | Berhasil manual di Chrome profil khusus; sesi land di studio `flow.google.com` |
-| Generasi uji 1 | Prompt gambar → **2 gambar** (Nano Banana 2.1), bukan video |
-| Generasi uji 2 | Prompt "Buat video 5 detik …" → **1 video Veo 3.1 Lite**, durasi 9,96 s |
-| Unduhan | Kartu ⋮ → Download → **Ukuran asli** → `Red_apple_on_wooden_table_6cc18a29.mp4`, **2.923.700 byte**, `ftyp mp42` (tersimpan di `data/media/flow-smoke/`) |
-| Bukti JSON | `data/flow-studio-*.json`, `data/flow-generate-*.json`, `data/flow-video-run-*.json` + PNG |
-| Endpoint summary | `GET /api/v1/dashboard/summary` → 200 (campaign 1 active, content 1 rejected, account 1 connected, jobs 0); `?recentFailures=99` → 400; 3 test |
+| Test | **443 test / 53 file** hijau (`vitest run --no-file-parallelism`); baru: `connect-runner.test.ts` 11, `connect-actions.test.ts` 13 |
+| Build UI | PASS — CSS 11,20 kB / JS 181,79 kB |
+| API riil | `GET /api/v1/connections/actions` 200 pada 4317 (DB demo `data/database/ui-demo.sqlite`) |
+| UI riil | `localhost:5174` lebar 1440, `scrollWidth` 1440 (tanpa overflow); tombol pairing disabled saat label kosong |
+| Aksi login Flow | fase `failed`; penyebab `Opening in existing browser session…` karena Chrome PID 5252 memakai profil Flow yang sama (CDP 9222) |
+| Aksi pairing | 412 `MISSING_CREDENTIALS` — `GOOGLE_OAUTH_CLIENT_ID` belum di-set (nilai tidak dicetak) |
+| Screenshot | `data/desktop-connections-connect.png`, `-login.png`, `-login-stopped.png`, `-pair-error.png` |
 
 ## Temuan yang Mengikat
 
 | Temuan | Dampak |
 |---|---|
-| Chromium for Testing ditolak Google saat sign-in | Wajib `channel: chrome`/`msedge`; tanpa stealth/cookie-copy |
-| Label UI berbahasa Indonesia, tanpa `data-testid` | Selektor harus toleran locale atau memakai anchor struktural |
-| Prompt menentukan jenis media (bukan tombol mode) | Adapter harus meminta "video" secara eksplisit agar Veo dipakai |
-| Unduhan lewat menu kualitas, bukan URL bertanda tangan | Adapter memilih "Ukuran asli" via menu kartu |
-| Flow punya menu **Publikasikan ke YouTube** | Alternatif jalur publikasi; keputusan owner, bukan bagian adapter sekarang |
-| reCAPTCHA Enterprise ada di halaman | Tantangan = `SECURITY_CHALLENGE` → `NEEDS_ATTENTION` |
+| Satu profil Flow = satu proses | `flow:login` dari UI gagal bila Chrome/CDP owner memakai `flow-profile`; API tidak menutup browser owner (ADR-0010 F22) |
+| Status aksi hanya di memori | Restart API menghapus snapshot; proses anak yang masih hidup dihentikan lewat `dispose` pada `onClose` |
+| Fase `waiting` = konsen manual | Ditandai baris log CLI, bukan interaksi otomatis; UI tidak mengisi kredensial |
+| Body pairing `.strict()` | Field tambahan (mis. `clientSecret`) ditolak 400 tanpa echo |
+| Log aksi disunting | ANSI dibuang, pola token → `[disunting]`, 60 baris terakhir, ≤400 karakter/baris |
 
 ## Impact Map
 
-- **Berkas baru:** `packages/browser-engine/src/flow-session.ts`, `flow-session.test.ts`, `apps/local-api/src/flow-login.ts`.
-- **Diubah:** `packages/browser-engine/{package.json,src/index.ts}`, `apps/local-api/package.json` (script `flow:login`), `pnpm-lock.yaml`, `docs/runbook.md`, `01_PROJECT.md`, `modules/browser-engine.md`, `tasks/BACKLOG.md`.
-- **DB/route/migrasi:** tidak berubah (17 route, 12 tabel, 3 migrasi).
-- **Rahasia:** tidak ada kredensial di kode/log; sesi hanya di profil lokal.
+- **Berkas baru:** `apps/local-api/src/connect-runner.ts`, `connect-runner.test.ts`, `apps/local-api/src/routes/connect-actions.ts`, `connect-actions.test.ts`.
+- **Diubah:** `apps/local-api/src/app.ts` (wiring runner + hook `onClose`), `apps/local-api/src/flow-login.ts` (cetak penyebab), `apps/dashboard/src/{App.tsx,pages/ConnectionsPage.tsx,styles.css,types.ts}`, `docs/security.md`, `knowledge/modules/{local-api,dashboard}.md`, `knowledge/decisions/ADR-0010-flow-session-login.md`.
+- **DB/route/migrasi:** tidak ada migrasi; route 22 → **26**.
+- **Rahasia:** tidak ada kredensial di kode/log/body HTTP; pairing tetap membuat token lewat CLI + DPAPI.
 
 ## Drift Tercatat
 
-- P3 tetap PARTIAL: selektor/DOM Flow belum dipetakan; adapter generasi belum ada; smoke satu video belum.
-- OD-1 sebagian terjawab (teknis), sisa faktual: akses akun, kuota/kebijakan otomasi.
-- Pairing akun di UI belum; `GET /dashboard/summary` belum.
+- Fase `waiting` dan `stop` diverifikasi lewat unit test (bukan UI nyata) karena Chrome CDP owner memegang profil Flow; menutupnya bukan wewenang sesi ini.
+- P3 tetap PARTIAL: smoke satu video melalui aplikasi belum.
+- P5 tetap PARTIAL: pairing + unggah `private` live belum.
+- Pairing dari UI belum diuji dengan env OAuth terisi.
 - FK `content_items` drift (PK) masih menunggu keputusan owner.
 - `AGENTS.md` untracked.
 
@@ -62,8 +61,7 @@ _Tidak ada gelombang aktif._ `state.open_wave = null`.
 
 ## Next Session Handoff
 
-1. Selektor inti (E1, ADR-0010): prompt `div[role="textbox"][contenteditable="true"]` (ProseMirror), kirim `button[aria-label="Mulai pembuatan"]` (aktif setelah teks), hasil `<video src="/asb/...">`, unduhan lewat kartu → `Opsi lainnya` → `Download` → `Ukuran asli`.
-2. Berikutnya: implementasi `FlowVideoGenerator` di `@saa/browser-engine` memakai peta itu (prompt eksplisit "video" agar Veo dipakai; tunggu tombol Hentikan hilang; unduh via menu; validasi dengan `validateMediaFile`), lalu sambungkan ke handler `GENERATE_VIDEO` via `FLOW_ADAPTER=real|mock`.
-3. Smoke melalui aplikasi (bukan skrip ad-hoc) akan memakai kredit lagi — minta izin owner sebelum menjalankan.
-4. Pertimbangkan (keputusan owner): memakai menu **Publikasikan ke YouTube** Flow sebagai jalur alternatif P5, dan setelan agen "Konfirmasi sebelum membuat".
-5. Jangan nyatakan P3 COMPLETED sebelum smoke melalui aplikasi berhasil.
+1. Bila owner siap: tutup Chrome/CDP yang memakai `flow-profile`, lalu klik **Buka jendela login Flow** di `/` → tab Connections; login manual di jendela yang muncul.
+2. Isi `GOOGLE_OAUTH_CLIENT_ID` (dan secret bila perlu) di environment proses API, restart API, lalu pairing dari UI untuk akun YouTube; bukti = baris `accounts` `connection_status='connected'`.
+3. Setelah profil bebas: smoke `flow:generate` (butuh kredit) dan P5 live upload tetap menunggu izin owner.
+4. Pertimbangkan (keputusan owner): persistensi status aksi lintas restart, dan guard `Origin`/auth local API (P7) sebelum route mutasi dipakai di jaringan.

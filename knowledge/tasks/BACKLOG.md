@@ -48,7 +48,8 @@ Sumber fase + DoD: `LLD.md` §18. Urutan ini mengikat kecuali user menyatakan la
 - ~~Pin versi Node LTS + pnpm; komit lockfile.~~ DONE 2026-10-30 — `engines >=22.12 <23`, `packageManager pnpm@9.15.4`, `pnpm-lock.yaml` dikomit.
 - Tentukan apakah `HLD.md`/`LLD.md` dipindah ke `docs/` (buat ADR bila ya).
 - ~~Siapkan `docs/security.md` dan `docs/runbook.md` sebelum P7.~~ DONE 2026-10-31 (`365643d`) — runbook memuat prosedur smoke live; security mencatat celah auth/`Origin` local API sebagai pekerjaan P7. Tinjau ulang keduanya sebelum rilis.
-- **Celah keamanan local API**: autentikasi token + validasi `Origin` + rate limit belum ada (LLD §13.2; tercatat di `docs/security.md`).
+- **Celah keamanan local API**: autentikasi token + validasi `Origin` + rate limit belum ada (LLD §13.2; tercatat di `docs/security.md`). Ini kini juga berlaku untuk route mutasi `POST /api/v1/connections/*` (spawn proses lokal).
+- **Aksi connect lanjutan**: status aksi hanya di memori (restart API → `idle`); reauth akun belum ada di UI; belum ada antrean/riwayat aksi.
 - Putuskan tool lint + build artefak (ADR-0001 D7) sebelum UI desktop dimulai.
 - **Prasyarat konversi desktop (OD-3, ditunda 2026-11-01).** Rencana shell = Tauri v2 + sidecar Node yang membungkus UI + API yang sudah ada (bukan porting core). Konversi tetap murah **hanya bila** batasan ini dijaga selama versi web dibangun:
   - UI hanya memakai path relatif (`/api`, `/health`) dan tidak bergantung pada fitur dev server Vite (HMR/proxy); nanti `dist` disajikan sidecar agar satu origin.

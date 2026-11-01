@@ -23,7 +23,7 @@ Arah dependensi: `domain` ← `database` ← `workflow` ← `local-api`; `observ
 - **Klaim antrean** (`repositories/jobs.ts`): `claimDueJob` memakai `db.transaction(...).immediate()` + `UPDATE` terjaga kondisi lease sehingga hanya satu worker berhasil; transaksi ditutup sebelum pekerjaan eksternal.
 - **Transisi optimistis**: `applyTransition({from,to})` gagal (null) bila status sudah berubah — mencegah dua worker menimpa.
 - **Recovery startup** (`packages/workflow/src/recovery.ts`): lease kedaluwarsa → `QUEUED` bila reversibel, `NEEDS_ATTENTION` untuk `PUBLISHING`/`VERIFYING` atau attempts habis; `lastErrorCode = LEASE_EXPIRED`.
-- **API**: 22 route terdaftar (health, jobs, campaigns, approvals, schedules, accounts, content — daftar lengkap di `modules/local-api.md`); envelope error LLD §6.2; request id `req_<uuid>`.
+- **API**: 26 route terdaftar (health, jobs, campaigns, approvals, schedules, accounts, content, dashboard, connections + aksi connect — daftar lengkap di `modules/local-api.md`); envelope error LLD §6.2; request id `req_<uuid>`.
 - **Konfigurasi**: host non-loopback ditolak kecuali `APP_ALLOW_NETWORK=true`; `DATABASE_PATH` relatif diresolusi terhadap root workspace (`paths.ts`).
 
 ## Perintah

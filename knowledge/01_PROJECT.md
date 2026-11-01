@@ -65,7 +65,7 @@ tests/integration         # migrasi, restart recovery, klaim lintas koneksi, env
 docs                      # runbook operasional + security checklist (merujuk LLD §13, tidak menduplikasi)
 ```
 
-Belum dibuat (P3 penuh–P7): adapter Flow nyata, `packages/integrations/*`, aksi approval/pairing di UI.
+Belum dibuat (P3 penuh–P7): adapter Flow nyata, `packages/integrations/*`, reauth akun di UI.
 
 > Catatan: HLD/LLD berada di root repo (bukan `docs/`). Pindahkan hanya bila diputuskan di ADR — jangan memindahkan dokumen canonical tanpa jejak.
 
@@ -109,7 +109,7 @@ Belum dibuat (P3 penuh–P7): adapter Flow nyata, `packages/integrations/*`, aks
 - Kesiapan uji live (`bbfe83a`): `corepack pnpm --filter @saa/local-api preflight:youtube` memeriksa platform, adapter, kredensial OAuth (status ada/tidak), `YOUTUBE_APP_STATUS`, privasi, database, akun + blob DPAPI, dan aset media; exit 0 lulus/peringatan, 1 ada FAIL, 2 konfigurasi/pemakaian. Tidak memanggil Google dan tidak mencetak rahasia.
 - Dokumen operasional (`365643d`): `docs/runbook.md` (perintah, env, prosedur smoke live + bukti, troubleshooting kode galat adapter, backup) dan `docs/security.md` (status kontrol aktual, celah auth/`Origin` local API, insiden, checklist P7). LLD §13 tetap kanonik.
 - Aplikasi tidak membaca `.env`; semua konfigurasi dari environment proses. Perintah script pakai `pnpm run <script> <flag>` tanpa `--` pemisah (argumen `--` ikut diteruskan dan ditolak CLI).
-- Dashboard (ADR-0009): `apps/dashboard` React 18 + Vite, dev di `localhost:5174` dengan proxy `/api` dan `/health` ke `127.0.0.1:4317`; halaman Jobs/Campaigns/Approvals/Accounts. **Aksi approve/reject** memakai binding dari `GET /api/v1/content/:id` (UI tidak menghitung hash); pairing akun tetap CLI. Tanpa router dan tanpa Tailwind pada iterasi ini; tidak ada test UI otomatis.
+- Dashboard (ADR-0009): `apps/dashboard` React 18 + Vite, dev di `localhost:5174` dengan proxy `/api` dan `/health` ke `127.0.0.1:4317`; halaman Overview/Jobs/Campaigns/Approvals/Accounts/Connections. **Aksi approve/reject** memakai binding dari `GET /api/v1/content/:id` (UI tidak menghitung hash). **Aksi connect** (login Flow, pairing YouTube) dijalankan sebagai proses lokal dari halaman Connections (ADR-0010 F22). Tanpa router dan tanpa Tailwind pada iterasi ini; tidak ada test UI otomatis.
 - D7 dijawab sebagian oleh ADR-0009 U6: artefak build dashboard = `vite build` (`apps/dashboard/dist`, gitignored), typecheck = `tsc`, **lint belum dipilih**.
 - **Drift skema (2026-11-01):** `content_items` memakai PK `id` tunggal sementara LLD §5 menyebut `unique(id, version)`; versi baru untuk id yang sama tidak dapat disimpan (`UNIQUE constraint failed`). Saat ini satu baris per konten (versi selalu 1); revisi multi-versi menunggu keputusan owner (migrasi PK komposit vs tetapkan satu baris per id).
 - Flow (ADR-0010): `playwright` + **Chrome/Edge terpasang** (fallback Chromium; `FLOW_BROWSER_CHANNEL` menimpa) karena Google menolak sign-in di Chromium for Testing. Profil persisten `%LOCALAPPDATA%\saa\browser\flow-profile` (`FLOW_PROFILE_DIR` absolut); `openFlowSession` memegang lock profil dan melepasnya pada semua jalur; URL Flow **`https://flow.google.com/`**. `flow:login` membuka browser headed untuk login manual (tanpa mengisi kredensial/menembus CAPTCHA); `flow:inspect` memetakan DOM read-only. Sesi tersimpan belum terautentikasi (`/about`), sehingga adapter generasi belum ditulis.

@@ -30,6 +30,7 @@
 | F19 | `ASPECT_RATIOS` + `AspectRatio` hanya didefinisikan di `@saa/domain`; `agent-core` dan `browser-engine` me-re-export; `FlowAspectRatio` = alias | Review menemukan tiga definisi paralel yang rawan melenceng saat menambah rasio (mis. `4:5`) | — |
 | F20 | `Escape` hanya dikirim bila panel Setelan benar-benar terbuka (`PANEL_OPEN_EXPRESSION` memeriksa keberadaan tombol `Simpan`) | Menekan Escape refleks dapat menutup konteks lain (panel sesi); perilaku harus eksplisit, bukan kebiasaan | Panel Flow punya penanda buka/tutup yang lebih eksplisit |
 | F21 | Panel Setelan ditutup dengan **mengklik tombol `tune` (toggle)**; `Escape` tidak menutupnya. Generator memeriksa visibilitas komposer (0×0 = tertutup) dan hanya memilih tab mode bila komposer masih tersembunyi | Terverifikasi saat smoke: Escape tidak berpengaruh sehingga prompt gagal diisi sebelum submit | Panel punya tombol tutup eksplisit |
+| F22 | Aksi connect dari UI = **proses anak lokal** (`ConnectActionRunner`) yang menjalankan `flow:login` / `pair:youtube`; single-flight, timeout 15/10 menit, kill tree, log 60 baris tersunting di memori; tidak ada kredensial di body HTTP dan tidak ada bypass login/CAPTCHA | Owner ingin memicu login/pairing dari halaman Connections tanpa memindahkan konsen ke API; browser tetap manual | Runner perlu persistensi/antrean lintas restart |
 
 ## Konsekuensi
 
@@ -38,6 +39,7 @@
 - Profil Flow memuat cookie sesi Google → diperlakukan sebagai material sensitif (jangan disalin ke mesin lain kecuali untuk migrasi dengan kesadaran penuh).
 - OD-1 tetap terbuka pada bagian **faktual**: apakah akun owner benar-benar punya akses Flow, kuota/limit Flow, dan kebijakan penggunaan otomasi.
 - `flow:login --check` memberi bukti lokal tanpa membuka jendela (Chromium ada, profil dapat diresolusi).
+- Satu profil = satu proses: aksi login dari UI **gagal** bila Chrome/CDP lain (mis. CDP 9222 milik owner) sedang memakai profil `flow-profile`; pesan `Opening in existing browser session` diteruskan ke UI sebagai error aksi, API tidak menutup browser owner (F22, terverifikasi 2026-11-01).
 
 ## Bukti Implementasi (E1, 2026-11-01)
 

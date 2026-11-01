@@ -25,6 +25,7 @@ dan prosedur insiden.
 | Penolakan unggahan bila privasi hasil verifikasi tidak sesuai | **DONE** | `packages/youtube/src/youtube-api-adapter.ts` (`YT_PRIVACY_MISMATCH`) |
 | Path media dicek terhadap root yang diizinkan | **DONE** (saat validasi media) | `packages/browser-engine/src/{storage,media}.ts` |
 | Tool AI tanpa shell/eval, berbasis allowlist | **DONE** | `packages/agent-core/src/tools.ts` |
+| Aksi connect (login Flow / pairing YouTube) = proses anak lokal tanpa shell; body hanya `accountId`/`label`; log memori disunting | **DONE** | `apps/local-api/src/connect-runner.ts`, `apps/local-api/src/routes/connect-actions.ts` |
 | Tidak ada upaya menembus CAPTCHA/anti-bot; kondisi itu → `NEEDS_ATTENTION` | **DONE** | ADR-0003/ADR-0005 (kelas `SECURITY_CHALLENGE`) |
 | `.gitignore` menutup `data/`, `*.sqlite*`, `.env*`, storage state, cookies | **DONE** | `.gitignore` |
 | **Autentikasi token local API + validasi `Origin`** | **BELUM** (LLD §13.2) | tidak ada `preHandler`/header auth di `apps/local-api/src` — mitigasi sementara: loopback + `APP_ALLOW_NETWORK=false` |
@@ -52,9 +53,16 @@ membuka token. Namun perlakukan tetap sebagai rahasia.
   memanggil route. Karena itu `APP_HOST` wajib loopback. Jangan aktifkan `APP_ALLOW_NETWORK=true`
   sampai autentikasi token dan validasi `Origin` tersedia.
 - **Dashboard (dev).** `apps/dashboard` adalah UI yang dilayani Vite di `localhost:5174`
-  dan memanggil API lewat proxy loopback (termasuk aksi approve/reject); UI tidak menyimpan token
-  dan tidak memanggil DB. Dev server Vite **bukan** proses produksi: jangan bind ke LAN (`--host`)
+  dan memanggil API lewat proxy loopback (termasuk aksi approve/reject dan aksi connect); UI tidak
+  menyimpan token dan tidak memanggil DB. Dev server Vite **bukan** proses produksi: jangan bind ke LAN (`--host`)
   atau memakainya di luar mesin ini sampai autentikasi local API diterapkan.
+- **Aksi connect local API.** `POST /api/v1/connections/flow/login` dan `/youtube/pair` memulai
+  proses anak di mesin yang menjalankan API. Batasnya: single-flight per aksi (409), timeout
+  (15/10 menit) + kill tree, log hanya di memori (≤60 baris, ANSI dihapus, pola token disunting),
+  body pairing `.strict()` dengan tepat satu `accountId`/`label` sehingga token tidak bisa dikirim
+  lewat HTTP. Proses menjalankan CLI yang sama dengan pemakaian manual: tidak mengisi kredensial
+  dan tidak menembus CAPTCHA/anti-bot; tantangan tetap `NEEDS_ATTENTION`. Karena route ini
+  mengubah state mesin, ia mengikuti celah auth/`Origin` local API di atas (P7).
 - **AI (planner).** Output model tidak dipercaya: schema validation, tool allowlist, budget langkah,
   timeout; tidak ada akses shell. Campaign/capability/caption divalidasi di luar model (ADR-0002).
 - **Adapter publikasi.** Setiap `PUBLISH` menulis `publish_attempts` (audit), memakai idempotency key,

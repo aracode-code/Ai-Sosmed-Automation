@@ -1,5 +1,15 @@
 # DONE
 
+## 2026-11-01 — SESSION-2026-11-01-3
+
+- **Aksi connect dari UI** (`989aa2f` backend, `acdcf17` UI).
+  - `connect-runner.ts`: spawn `flow:login`/`pair:youtube` sebagai proses anak (tanpa shell), single-flight, timeout 15/10 menit, kill tree, log 60 baris tersunting (ANSI + pola token).
+  - `routes/connect-actions.ts`: `GET /connections/actions`, `POST /connections/flow/login`, `POST /connections/youtube/pair` (body `.strict()` tepat satu `accountId`/`label`), `POST /connections/actions/:kind/stop`; 412 preflight browser/OAuth, 409 single-flight.
+  - `flow-login.ts`: mencetak penyebab `AppError` sehingga kegagalan profil-terpakai terbaca.
+  - UI Connections: tombol login Flow, form pairing, panel fase/log + Hentikan, polling 2 s, peringatan profil Flow terpakai.
+  - Bukti: typecheck exit 0 · **443 test / 53 file** (baru 24) · `vite build` OK · API 4317 memuat route baru · render 1440 px tanpa overflow.
+  - Tidak diverifikasi di UI (hanya unit test): fase `waiting` dan `stop` — Chrome CDP owner memegang profil Flow.
+
 ## 2026-11-01 — SESSION-2026-11-01-2
 
 - **Sesi profil Flow + `flow:login`** (`fd62314`).
