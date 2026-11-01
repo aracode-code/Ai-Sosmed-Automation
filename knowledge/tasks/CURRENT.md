@@ -25,7 +25,8 @@ _Tidak ada task aktif._ Owner meminta **aksi connect dipicu dari UI**. Slice sel
 | Build UI | PASS — CSS 11,20 kB / JS 181,79 kB |
 | API riil | `GET /api/v1/connections/actions` 200 pada 4317 (DB demo `data/database/ui-demo.sqlite`) |
 | UI riil | `localhost:5174` lebar 1440, `scrollWidth` 1440 (tanpa overflow); tombol pairing disabled saat label kosong |
-| Aksi login Flow | fase `failed`; penyebab `Opening in existing browser session…` karena Chrome PID 5252 memakai profil Flow yang sama (CDP 9222) |
+| Aksi login Flow | fase `failed`; penyebab `Opening in existing browser session…` karena Chrome PID 5252 memakai profil Flow yang sama (CDP 9222) — sebelum Chrome ditutup |
+| Aksi login Flow (ulang) | 2026-11-02 03.23 — Chrome `flow-profile` ditutup via CDP `Browser.close` (PID 7288 lahir baru) → fase **`waiting`** di UI nyata, jendela Chrome login terbuka, tombol Hentikan tampil ([desktop-connections-login-waiting.png]) |
 | Aksi pairing | 412 `MISSING_CREDENTIALS` — `GOOGLE_OAUTH_CLIENT_ID` belum di-set (nilai tidak dicetak) |
 | Screenshot | `data/desktop-connections-connect.png`, `-login.png`, `-login-stopped.png`, `-pair-error.png` |
 
@@ -48,7 +49,7 @@ _Tidak ada task aktif._ Owner meminta **aksi connect dipicu dari UI**. Slice sel
 
 ## Drift Tercatat
 
-- Fase `waiting` dan `stop` diverifikasi lewat unit test (bukan UI nyata) karena Chrome CDP owner memegang profil Flow; menutupnya bukan wewenang sesi ini.
+- Fase `waiting` kini terverifikasi di UI nyata (2026-11-02); tombol **Hentikan** dan fase `succeeded` setelah jendela ditutup belum diuji end-to-end.
 - P3 tetap PARTIAL: smoke satu video melalui aplikasi belum.
 - P5 tetap PARTIAL: pairing + unggah `private` live belum.
 - Pairing dari UI belum diuji dengan env OAuth terisi.
