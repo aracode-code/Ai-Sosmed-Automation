@@ -10,9 +10,10 @@
 | `apps/dashboard/vite.config.ts` | Dev/preview server (`5174`/`5175`), proxy `/api` + `/health` → `http://127.0.0.1:4317` |
 | `apps/dashboard/src/api.ts` | `getJson`, `sendJson`, `ApiError`, hook `useApi` (abort, loading, error); pesan khusus saat Local API mati |
 | `apps/dashboard/src/types.ts` | Bentuk respons API yang dipakai UI (Job, Campaign, ContentItem, ContentDetail, AssetSummary, AccountSummary, Health) |
-| `apps/dashboard/src/App.tsx` | Shell: sidebar (Jobs/Campaigns/Approvals/Accounts), badge health, tombol muat ulang, `onChanged` untuk refresh setelah keputusan |
+| `apps/dashboard/src/App.tsx` | Shell: sidebar (Overview/Jobs/Campaigns/Approvals/Accounts; default Overview), badge health, tombol muat ulang, `onChanged` untuk refresh setelah keputusan |
 | `apps/dashboard/src/components.tsx` | `StatusPill`, `EmptyState`, `ErrorBox`, `Loading`, `Section`, formatter |
 | `apps/dashboard/src/ApprovalDialog.tsx` | Dialog tinjau: detail konten, pilih aset `valid`, pilih akun `connected`, alasan, kirim approve/reject |
+| `apps/dashboard/src/pages/OverviewPage.tsx` | Halaman awal: kartu ringkasan, maks. 5 campaign terbaru, dan kegagalan terbaru |
 | `apps/dashboard/src/pages/JobsPage.tsx` | Kartu ringkasan (`GET /api/v1/dashboard/summary`) + daftar job + filter status + panel detail (payload JSON, lease, kunci idempoten) |
 | `apps/dashboard/src/pages/CampaignsPage.tsx` | Daftar campaign + detail konten per versi |
 | `apps/dashboard/src/pages/ApprovalsPage.tsx` | Konten `pending` dari seluruh campaign + tombol *Tinjau* |
@@ -27,6 +28,7 @@
 - **Tanpa kredensial:** UI tidak menyimpan token apa pun; pairing tetap CLI.
 - **Kegagalan API:** `getJson`/`sendJson` memetakan respons non-JSON ≥500 (proxy Vite) menjadi "Local API tidak merespons — jalankan corepack pnpm start"; sidebar menampilkan titik merah.
 - **Health badge:** `GET /health` → `version`, `db`, `workers.active`; indikator hanya hijau bila `db === 'ok'`.
+- **Layout sempit (<720px):** header menjadi dua baris (brand+health, lalu nav horizontal yang menggulir tanpa scrollbar halaman); `grid-template-columns: minmax(0,1fr)` + `min-width:0` mencegah overflow; tabel menggulir di dalam panel.
 - **Approvals:** mengambil daftar campaign lalu detail tiap campaign secara paralel; baris = konten `approvalStatus === 'pending'`; setelah keputusan sukses daftar dimuat ulang.
 
 ## Perintah
