@@ -1,8 +1,8 @@
 import { z } from 'zod';
-import { PLATFORM_IDS, type PlatformId } from '@saa/domain';
+import { ASPECT_RATIOS, PLATFORM_IDS, type PlatformId } from '@saa/domain';
 
-export const ASPECT_RATIOS = ['9:16', '16:9', '1:1'] as const;
-export type AspectRatio = (typeof ASPECT_RATIOS)[number];
+/** Sumber tunggal tipe rasio ada di `@saa/domain` (ADR-0010 F17/F19). */
+export type { AspectRatio } from '@saa/domain';
 
 export const CAPABILITY_STATES = ['supported', 'unsupported', 'unknown'] as const;
 export type CapabilityState = (typeof CAPABILITY_STATES)[number];

@@ -1,6 +1,6 @@
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { AppError } from '@saa/domain';
+import { AppError, type AspectRatio } from '@saa/domain';
 import type { FlowMediaKind } from './flow-usage';
 
 /**
@@ -94,7 +94,7 @@ async function assertNoChallenge(page: PageLike): Promise<void> {
   }
 }
 
-export type FlowAspectRatio = '9:16' | '16:9' | '1:1';
+export type FlowAspectRatio = AspectRatio;
 
 const RATIO_MODEL_PATTERN: Record<FlowMediaKind, string> = {
   image: 'model default pembuatan gambar',

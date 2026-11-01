@@ -1,4 +1,6 @@
-export type AspectRatio = '9:16' | '16:9' | '1:1';
+/** Sumber tunggal tipe rasio ada di `@saa/domain` (ADR-0010 F19). */
+import type { AspectRatio } from '@saa/domain';
+export type { AspectRatio };
 
 export interface VideoGenerationRequest {
   prompt: string;

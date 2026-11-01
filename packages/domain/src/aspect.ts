@@ -6,7 +6,8 @@ import type { PlatformId } from './platform';
  * X 16:9. Campuran vertikal+horizontal dijatuhkan ke 9:16 (mobile-first).
  */
 
-export type AspectRatio = '9:16' | '16:9' | '1:1';
+export const ASPECT_RATIOS = ['9:16', '16:9', '1:1'] as const;
+export type AspectRatio = (typeof ASPECT_RATIOS)[number];
 
 export interface AspectTarget {
   platform: PlatformId | string;
