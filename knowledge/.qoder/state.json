@@ -3,7 +3,7 @@
   "project": "AI Social Media Automation Agent",
   "project_root": "F:/AiSosmedAutomation",
   "branch": "main",
-  "commit": "e79bd3d",
+  "commit": "9f13f77",
   "status": "PARTIAL",
   "autonomy": "L1",
   "runtime": {
@@ -34,19 +34,19 @@
   "memory_version": 20,
   "context_version": 20,
   "skill_registry_version": 0,
-  "current_task": "NONE — konsolidasi tipe AspectRatio DONE; smoke video end-to-end belum",
+  "current_task": "NONE — review P1–P5 selesai diterapkan; smoke video end-to-end belum",
   "last_task": "F: sesi profil Flow persisten + CLI flow:login (ADR-0010)",
   "last_session_id": "SESSION-2026-11-01-2",
   "last_scan": "2026-11-01T00:40:00+07:00",
   "last_index": "2026-11-01T00:40:00+07:00",
-  "last_updated": "2026-11-01T07:32:00+07:00",
-  "last_validation": "2026-11-01 (e79bd3d) — typecheck 10 paket exit 0; suite 400 test / 48 file hijau; AspectRatio kini hanya didefinisikan di @saa/domain (agent-core & browser-engine re-export)",
-  "last_test_status": "400 passed / 0 failed (tanpa paralelisme)",
+  "last_updated": "2026-11-01T07:36:00+07:00",
+  "last_validation": "2026-11-01 (9f13f77) — typecheck 10 paket exit 0; suite 401 test / 48 file hijau; 11 test rasio (termasuk Escape hanya saat panel terbuka)",
+  "last_test_status": "401 passed / 0 failed (tanpa paralelisme)",
   "last_command": "coba jalankan lagi",
   "last_command_status": "PARTIAL",
   "open_wave": null,
   "dirty": true,
   "dirty_reason": "AGENTS.md masih untracked (keputusan owner belum diambil)",
   "drift_detected": false,
-  "next_step": "Smoke video end-to-end via aplikasi (butuh izin kredit) atau lanjut pekerjaan lain; P4/P5/P3 tetap PARTIAL."
+  "next_step": "Smoke video end-to-end via aplikasi (butuh izin kredit) atau lanjut pekerjaan lain (mis. GET /dashboard/summary)."
 }
