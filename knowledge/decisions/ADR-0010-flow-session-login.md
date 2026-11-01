@@ -58,6 +58,8 @@
 - Test: `packages/browser-engine/src/flow-session.test.ts` — 18 test.
 - `corepack pnpm typecheck` exit 0 (10 paket) · `flow:login --check` → `chrome — C:\Program Files\Google\Chrome\Application\chrome.exe`.
 - `flow:inspect` pada sesi tersimpan (2026-11-01): URL berakhir di `https://flow.google.com/about`, judul "Google Flow — AI Creative Studio…", **0 input**, 60 tombol marketing ("Create with Google Flow", "Try in Google Flow") → **sesi belum terautentikasi / akun belum punya akses studio**; bukti di `data/flow-inspect-*.json` + `.png`.
+- **Verifikasi ulang (2026-11-02, setelah login dari UI):** Chrome pemakai profil ditutup graceful (CDP `Browser.close`), tombol **Buka jendela login Flow** diklik → fase `waiting`; jendela ditutup (`CloseMainWindow`) → aksi `succeeded` exit 0. `flow:inspect` lalu: `/` dan `/?pli=1` = halaman marketing (`looksLikeSignIn:false`, akun terlihat, 40 tombol); `https://flow.google.com/project/445c6cd0-e642-4516-9899-15b98af56c46` = "Testing Flow", heading "Rustic Tabletop Still Life Concepts", **komposer `div` "Apa yang ingin Anda buat?" ada**, 3 input, 60 tombol. Sesi **valid dan persisten** setelah jendela ditutup. Bukti: `data/flow-inspect-2026-11-01T23-29-53-926Z.*`, `…T23-30-20-742Z.*`, `…T23-30-54-317Z.*`.
+- Catatan verifikasi 2026-11-02: landing `/` kini halaman marketing (bukan daftar project seperti F1), dan `collectPageOutline` tidak mengumpulkan tautan sehingga URL project harus diambil dari bukti lain.
 - Belum: login studio nyata (bukan `/about`), pemetaan DOM studio, adapter generasi, smoke satu video.
 
 ## Peta DOM Studio Flow (E1, 2026-11-01, sesi terautentikasi)

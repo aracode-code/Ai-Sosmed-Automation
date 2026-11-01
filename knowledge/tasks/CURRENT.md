@@ -1,7 +1,7 @@
 # CURRENT — Task Aktif
 
 **Session:** SESSION-2026-11-01-3
-**Updated:** 2026-11-01T21:30:00+07:00
+**Updated:** 2026-11-02T03:32:00+07:00
 **Change class:** MEDIUM (route mutasi baru + runner proses lokal + UI Connections beraksi; tanpa perubahan schema/migrasi)
 
 ## Active Task
@@ -27,6 +27,10 @@ _Tidak ada task aktif._ Owner meminta **aksi connect dipicu dari UI**. Slice sel
 | UI riil | `localhost:5174` lebar 1440, `scrollWidth` 1440 (tanpa overflow); tombol pairing disabled saat label kosong |
 | Aksi login Flow | fase `failed`; penyebab `Opening in existing browser session…` karena Chrome PID 5252 memakai profil Flow yang sama (CDP 9222) — sebelum Chrome ditutup |
 | Aksi login Flow (ulang) | 2026-11-02 03.23 — Chrome `flow-profile` ditutup via CDP `Browser.close` (PID 7288 lahir baru) → fase **`waiting`** di UI nyata, jendela Chrome login terbuka, tombol Hentikan tampil ([desktop-connections-login-waiting.png]) |
+| Login Flow selesai | 2026-11-02 03.29 — jendela ditutup (`CloseMainWindow`) → aksi **`succeeded` (exit 0)** |
+| `flow:inspect` (landing) | `https://flow.google.com/` → bukan sign-in, akun terlihat, 40 tombol marketing |
+| `flow:inspect` (project) | `https://flow.google.com/project/445c6cd0-…` → "Testing Flow", komposer "Apa yang ingin Anda buat?" ada, 3 input, 60 tombol; **sesi valid & persisten** ([flow-inspect-project.png]) |
+| Pasca-inspect | 0 proses Chrome `flow-profile`, tanpa `SingletonLock`, port 9222 bebas |
 | Aksi pairing | 412 `MISSING_CREDENTIALS` — `GOOGLE_OAUTH_CLIENT_ID` belum di-set (nilai tidak dicetak) |
 | Screenshot | `data/desktop-connections-connect.png`, `-login.png`, `-login-stopped.png`, `-pair-error.png` |
 
@@ -49,8 +53,9 @@ _Tidak ada task aktif._ Owner meminta **aksi connect dipicu dari UI**. Slice sel
 
 ## Drift Tercatat
 
-- Fase `waiting` kini terverifikasi di UI nyata (2026-11-02); tombol **Hentikan** dan fase `succeeded` setelah jendela ditutup belum diuji end-to-end.
-- P3 tetap PARTIAL: smoke satu video melalui aplikasi belum.
+- Fase `waiting` dan `succeeded` kini terverifikasi di UI nyata (2026-11-02); tombol **Hentikan** belum diuji end-to-end.
+- `/` dan `/?pli=1` menampilkan halaman marketing; daftar project hanya terlihat pada URL project. `flow:inspect` tidak mengumpulkan tautan, jadi URL project harus berasal dari bukti lain.
+- P3 tetap PARTIAL: adapter generasi + smoke satu video melalui aplikasi belum.
 - P5 tetap PARTIAL: pairing + unggah `private` live belum.
 - Pairing dari UI belum diuji dengan env OAuth terisi.
 - FK `content_items` drift (PK) masih menunggu keputusan owner.
@@ -62,7 +67,8 @@ _Tidak ada gelombang aktif._ `state.open_wave = null`.
 
 ## Next Session Handoff
 
-1. Bila owner siap: tutup Chrome/CDP yang memakai `flow-profile`, lalu klik **Buka jendela login Flow** di `/` → tab Connections; login manual di jendela yang muncul.
-2. Isi `GOOGLE_OAUTH_CLIENT_ID` (dan secret bila perlu) di environment proses API, restart API, lalu pairing dari UI untuk akun YouTube; bukti = baris `accounts` `connection_status='connected'`.
-3. Setelah profil bebas: smoke `flow:generate` (butuh kredit) dan P5 live upload tetap menunggu izin owner.
-4. Pertimbangkan (keputusan owner): persistensi status aksi lintas restart, dan guard `Origin`/auth local API (P7) sebelum route mutasi dipakai di jaringan.
+1. Login Flow & verifikasi sesi **selesai** (2026-11-02): profil tersimpan, `flow:inspect` pada project melihat komposer.
+2. Berikutnya: uji adapter generasi end-to-end — `FLOW_ADAPTER=real` + `flow:generate --dry-run` (gratis), lalu smoke nyata hanya setelah izin owner (kredit, guard 1/hari).
+3. Pairing YouTube dari UI menunggu `GOOGLE_OAUTH_CLIENT_ID` di environment proses API.
+4. Pertimbangkan (keputusan owner): hentikan Chrome/CDP pemakai profil via tombol UI sebelum login (saat ini manual), dan persistensi status aksi lintas restart.
+5. Guard `Origin`/auth local API (P7) sebelum route mutasi dipakai di jaringan.

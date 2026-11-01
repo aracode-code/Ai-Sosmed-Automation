@@ -44,7 +44,7 @@ Status fase: **P3 PARTIAL** (Flow/OD-1) · **P4 PARTIAL** (UI approval + aksi co
 - **Dashboard (E1, `8e27b27`, `406f1f5`, `acdcf17`):** `apps/dashboard` React 18 + Vite 6, dev `localhost:5174`, proxy `/api` + `/health` → `127.0.0.1:4317`; halaman Overview/Jobs/Campaigns/Approvals/Accounts/Connections; **aksi approve/reject** memakai binding dari `GET /api/v1/content/:id` (UI tidak menghitung hash), diblokir tanpa aset `valid`/akun `connected`, `APPROVAL_MISMATCH` → minta muat ulang; **Connections beraksi** (login Flow + pairing dari UI). Tanpa router, tanpa Tailwind, tanpa test UI.
 - **Endpoint detail konten (E1, `5e8184b`):** `GET /api/v1/content/:id?version=n` → konten (default versi tertinggi pada baris itu), `campaign {platforms, approvalMode}`, `assets` tanpa `path`, `captionHash` server-side, `accounts` kandidat; 7 test.
 - **Drift skema (2026-11-01):** `content_items` PK `id` tunggal vs LLD §5 `unique(id, version)` → versi baru untuk id yang sama gagal; `version` saat ini selalu 1; menunggu keputusan owner.
-- **Sesi Flow (E1, `fd62314`):** `playwright` + Chromium (`%LOCALAPPDATA%\ms-playwright\chromium-1248`); profil `%LOCALAPPDATA%\saa\browser\flow-profile` (`FLOW_PROFILE_DIR` absolut); `openFlowSession` memegang `.worker-lock.json` dan melepasnya pada close/launch gagal/goto gagal; `flow:login [--check]` — login manual headed, tanpa mengisi kredensial atau menembus CAPTCHA; `DEFAULT_FLOW_URL = https://labs.google/fx/tools/flow` (belum diverifikasi).
+- **Sesi Flow (E1, `fd62314`; diverifikasi 2026-11-02):** `playwright` + Chromium/Chrome (`FLOW_BROWSER_CHANNEL`, default `chrome`); profil `%LOCALAPPDATA%\saa\browser\flow-profile` (`FLOW_PROFILE_DIR` absolut); `openFlowSession` memegang `.worker-lock.json` dan melepasnya pada close/launch gagal/goto gagal; `flow:login [--check]` — login manual headed, tanpa mengisi kredensial atau menembus CAPTCHA; `DEFAULT_FLOW_URL = https://flow.google.com/`. Login dari UI berakhir `succeeded`; `flow:inspect` pada project `445c6cd0-…` melihat komposer "Apa yang ingin Anda buat?" → **sesi valid & persisten**.
 - **Aksi connect (E1, `989aa2f`, `acdcf17`):** `ConnectActionRunner` spawn proses anak `flow:login`/`pair:youtube` tanpa shell; single-flight (409), timeout 15/10 menit + kill tree (`taskkill /T /F`), fase `idle|running|waiting|succeeded|failed|timed_out|cancelled`; log 60 baris di memori (ANSI dihapus, pola token → `[disunting]`); status hilang saat restart API. Route: `GET/POST /api/v1/connections/actions*`; body pairing `.strict()` tepat satu `accountId`/`label`; 412 bila Chromium tidak siap atau `GOOGLE_OAUTH_CLIENT_ID` kosong. UI Connections memantau tiap 2 s dan menyediakan Hentikan.
 - **Konflik profil Flow (E1):** `flow:login` gagal bila Chrome/CDP lain memakai `flow-profile` (`Opening in existing browser session`); API tidak menutup browser owner — terverifikasi pada smoke 2026-11-01.
 - **D7 (E1, ADR-0009 U6):** build UI = `vite build` (`dist` gitignored), typecheck = `tsc`; **lint belum dipilih**.
@@ -59,9 +59,9 @@ Status fase: **P3 PARTIAL** (Flow/OD-1) · **P4 PARTIAL** (UI approval + aksi co
 
 ## Langkah Berikutnya
 
-1. Login Flow nyata: tutup Chrome/CDP yang memakai `flow-profile`, lalu klik **Buka jendela login Flow** di Connections dan login manual.
-2. Isi `GOOGLE_OAUTH_CLIENT_ID` (+ secret bila perlu) di environment API, restart, lalu pairing dari UI; bukti = `accounts.connection_status='connected'`.
-3. Smoke `flow:generate` (butuh kredit) dan P5 live upload menunggu izin owner.
+1. Sesi Flow sudah valid — langkah berikutnya menguji adapter generasi end-to-end (`FLOW_ADAPTER=real` + `flow:generate --dry-run`, lalu smoke nyata setelah izin owner karena memakai kredit).
+2. Pairing YouTube dari UI menunggu `GOOGLE_OAUTH_CLIENT_ID` di environment API.
+3. P5 live upload menunggu input faktual owner (project OAuth, jenis akun, channel).
 3. Menunggu owner lain: keputusan revisi multi-versi konten, smoke live YouTube, job rekonsiliasi terjadwal, pairing akun di UI, lint (D7), `AGENTS.md`.
 
 ## Asumsi Terbuka (jangan dibangun di atasnya tanpa verifikasi)
