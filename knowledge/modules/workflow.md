@@ -25,6 +25,7 @@ Arah dependensi: `@saa/workflow` → `@saa/agent-core`, `@saa/browser-engine`, `
 - Pemetaan keputusan planner: `needs_human` → `ESCALATE` + `PLANNER_NEEDS_HUMAN`; `wait` → `RETRY_WAIT` dengan `run_at = now + 6 jam` + `PLANNER_WAIT`; `revise_metadata` → `PlannerOutputError`; `create_video` → simpan konten.
 - Konten: id `cnt_<jobId>`, versi 1, `approval_status` `pending`/`not_required`, caption dipetakan per platform.
 - Job anak: `GENERATE_VIDEO` idempotent (`generate:<contentId>`), payload membawa `contentId`, `videoPrompt`, `aspectRatio`, `targets`.
+- **Rasio** ditentukan policy `aspectRatioForTargets` (`@saa/domain`, ADR-0010 F17): TikTok/Instagram/Threads `9:16`; YouTube/Facebook `16:9` kecuali `contentFormat` short/reel/story/klip; X `16:9`; campuran → `9:16`. `plan.aspectRatio` hanya dipakai bila planner tidak menghasilkan target.
 
 ## GENERATE_VIDEO
 

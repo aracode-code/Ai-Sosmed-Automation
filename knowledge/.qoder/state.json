@@ -3,7 +3,7 @@
   "project": "AI Social Media Automation Agent",
   "project_root": "F:/AiSosmedAutomation",
   "branch": "main",
-  "commit": "f3565f6",
+  "commit": "70d7e49",
   "status": "PARTIAL",
   "autonomy": "L1",
   "runtime": {
@@ -34,19 +34,19 @@
   "memory_version": 20,
   "context_version": 20,
   "skill_registry_version": 0,
-  "current_task": "NONE — generator Flow nyata ter-wiring (FLOW_ADAPTER=real) tanpa memakai kredit; smoke video via aplikasi belum",
+  "current_task": "NONE — policy rasio per platform + penerapan di adapter DONE (tanpa kredit)",
   "last_task": "F: sesi profil Flow persisten + CLI flow:login (ADR-0010)",
   "last_session_id": "SESSION-2026-11-01-2",
   "last_scan": "2026-11-01T00:40:00+07:00",
   "last_index": "2026-11-01T00:40:00+07:00",
-  "last_updated": "2026-11-01T07:12:00+07:00",
-  "last_validation": "2026-11-01 (f3565f6) — typecheck 10 paket exit 0; suite 385 test hijau (--no-file-parallelism); 5 test FlowPlaywrightGenerator + 4 test config Flow; boot smoke 4398 log generator nyata aktif, /health ok, port dibebaskan",
-  "last_test_status": "385 passed / 0 failed (tanpa paralelisme)",
+  "last_updated": "2026-11-01T07:16:00+07:00",
+  "last_validation": "2026-11-01 (70d7e49) — typecheck 10 paket exit 0; suite 390 test hijau; 5 test policy rasio; generator meneruskan aspectRatio; PLAN_CONTENT memakai policy rasio",
+  "last_test_status": "390 passed / 0 failed (tanpa paralelisme)",
   "last_command": "coba jalankan lagi",
   "last_command_status": "PARTIAL",
   "open_wave": null,
   "dirty": true,
   "dirty_reason": "AGENTS.md masih untracked (keputusan owner belum diambil)",
   "drift_detected": false,
-  "next_step": "Smoke video end-to-end lewat aplikasi: butuh Chrome CDP aktif, project Flow terbuka, FLOW_ADAPTER=real, dan izin kredit video (Veo). Bisa juga tunggu reset kuota harian."
+  "next_step": "Smoke video end-to-end via aplikasi (butuh izin kredit video) atau lanjut pekerjaan lain; rasio otomatis sudah diterapkan."
 }

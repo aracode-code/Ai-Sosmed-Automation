@@ -16,7 +16,7 @@
 | `packages/browser-engine/src/flow-session.ts` | `resolveFlowProfileDir`, `detectInstalledBrowser`, `resolveFlowBrowserChannel`, `checkFlowBrowser`, `openFlowSession` — profil persisten + lock + launcher Playwright (ADR-0010) |
 | `packages/browser-engine/src/flow-inspect.ts` | `collectPageOutline` — outline input/tombol/heading + deteksi halaman login, dievaluasi di halaman (read-only) |
 | `packages/browser-engine/src/flow-readiness.ts` | `inspectFlowReady(endpoint)` — cek prompt/kirim/tantangan tanpa mengubah apa pun |
-| `packages/browser-engine/src/flow-generator.ts` | `generateFlowMedia` — isi prompt ProseMirror → kirim → tunggu hasil → unduh via menu `Opsi lainnya → Download → Ukuran asli` |
+| `packages/browser-engine/src/flow-generator.ts` | `generateFlowMedia` — pilih tab mode & rasio → isi prompt ProseMirror → kirim → tunggu hasil → unduh via menu `Opsi lainnya → Download → Ukuran asli` |
 | `packages/browser-engine/src/flow-usage.ts` | Guard hitungan: `parseFlowGuard`, `decideGeneration`, ledger `parseLedger`/`appendUsage`/`updateLastStatus`, `dayOf` (Asia/Jakarta) |
 | `packages/browser-engine/src/flow-playwright-generator.ts` | `FlowPlaywrightGenerator` (`VideoGenerator`) — memanggil `generateFlowMedia` (tab Video), menghitung sha256/ukuran/mime; `checkAvailability` dari `inspectFlowReady` |
 
