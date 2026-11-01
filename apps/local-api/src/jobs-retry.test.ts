@@ -101,3 +101,66 @@ describe('POST /api/v1/jobs/:id/retry', () => {
     expect(response.statusCode).toBe(404);
   });
 });
+
+describe('POST /api/v1/jobs/:id/cancel', () => {
+  it('membatalkan job QUEUED dan mencatat audit', async () => {
+    const job = insertJob(db.raw, {
+      jobType: 'GENERATE_VIDEO',
+      idempotencyKey: 'cancel-1',
+      payload: {},
+      campaignId,
+      status: 'QUEUED',
+      runAt: '2026-11-01T09:00:00.000Z'
+    });
+
+    const response = await app.inject({ method: 'POST', url: `/api/v1/jobs/${job.id}/cancel` });
+
+    expect(response.statusCode).toBe(202);
+    expect(response.json<{ status: string }>().status).toBe('cancelled');
+
+    const updated = getJob(db.raw, job.id);
+    expect(updated?.status).toBe('CANCELLED');
+    expect(updated?.lastErrorCode).toBe('CANCELLED_BY_USER');
+    expect(updated?.runAt).toBeNull();
+    expect(updated?.leaseOwner).toBeNull();
+
+    const audit = listAuditByResource(db.raw, 'job', job.id);
+    expect(audit.some((event) => event.action === 'job.cancel')).toBe(true);
+  });
+
+  it('menolak pembatalan saat aksi eksternal mungkin berjalan', async () => {
+    const job = insertJob(db.raw, {
+      jobType: 'PUBLISH',
+      idempotencyKey: 'cancel-2',
+      payload: {},
+      campaignId,
+      status: 'PUBLISHING'
+    });
+
+    const response = await app.inject({ method: 'POST', url: `/api/v1/jobs/${job.id}/cancel` });
+
+    expect(response.statusCode).toBe(409);
+    expect(response.json<{ error: { code: string } }>().error.code).toBe('NOT_CANCELLABLE');
+    expect(getJob(db.raw, job.id)?.status).toBe('PUBLISHING');
+  });
+
+  it('menolak pembatalan job terminal', async () => {
+    const job = insertJob(db.raw, {
+      jobType: 'PUBLISH',
+      idempotencyKey: 'cancel-3',
+      payload: {},
+      campaignId,
+      status: 'PUBLISHED'
+    });
+
+    const response = await app.inject({ method: 'POST', url: `/api/v1/jobs/${job.id}/cancel` });
+
+    expect(response.statusCode).toBe(409);
+    expect(getJob(db.raw, job.id)?.status).toBe('PUBLISHED');
+  });
+
+  it('404 untuk job yang tidak ada', async () => {
+    const response = await app.inject({ method: 'POST', url: '/api/v1/jobs/job_hilang/cancel' });
+    expect(response.statusCode).toBe(404);
+  });
+});

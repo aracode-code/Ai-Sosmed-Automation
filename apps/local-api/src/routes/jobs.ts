@@ -1,6 +1,5 @@
 import type { FastifyPluginAsync } from 'fastify';
-import { JOB_STATUSES, transitionJob, type JobStatus } from '@saa/domain';
-import {
+import { JOB_STATUSES, transitionJob, type JobStatus } from '@saa/domain';import {
   appendAudit,
   applyTransition,
   getJob,
@@ -126,5 +125,63 @@ export const jobRoutes: FastifyPluginAsync<JobRoutesDeps> = async (app, deps) =>
     );
 
     return reply.status(202).send({ jobId: updated.id, status: 'queued' });
+  });
+
+  /**
+   * Cancel aman: status terminal ditolak, dan `PUBLISHING`/`VERIFYING` ditolak
+   * karena aksi eksternal mungkin sudah terjadi (state tidak pasti).
+   */
+  app.post('/api/v1/jobs/:id/cancel', async (request, reply) => {
+    const { id } = idParamsSchema.parse(request.params);
+    const requestId = String(request.id);
+    const job = getJob(deps.db.raw, id);
+    if (job === null) {
+      return reply
+        .status(404)
+        .send(errorEnvelope('NOT_FOUND', `job ${id} tidak ditemukan`, requestId));
+    }
+
+    const transition = transitionJob(job.status, { type: 'CANCEL' });
+    if (!transition.ok) {
+      return reply
+        .status(409)
+        .send(errorEnvelope('NOT_CANCELLABLE', transition.reason, requestId));
+    }
+
+    const nowIso = (deps.now ?? (() => new Date()))().toISOString();
+    const updated = applyTransition(deps.db.raw, {
+      jobId: job.id,
+      from: job.status,
+      to: transition.status,
+      now: nowIso,
+      patch: { lastErrorCode: 'CANCELLED_BY_USER', runAt: null, clearLease: true }
+    });
+    if (updated === null) {
+      return reply
+        .status(409)
+        .send(
+          errorEnvelope(
+            'CONCURRENT_UPDATE',
+            'job berubah saat pembatalan; muat ulang lalu coba lagi',
+            requestId
+          )
+        );
+    }
+
+    appendAudit(
+      deps.db.raw,
+      {
+        actorType: 'user',
+        actorId: 'local-user',
+        action: 'job.cancel',
+        resourceType: 'job',
+        resourceId: job.id,
+        result: 'success',
+        metadata: { from: job.status, to: updated.status }
+      },
+      nowIso
+    );
+
+    return reply.status(202).send({ jobId: updated.id, status: 'cancelled' });
   });
 };

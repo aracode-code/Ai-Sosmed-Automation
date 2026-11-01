@@ -30,7 +30,8 @@ export function JobsPage({ refreshToken }: { refreshToken: number }): JSX.Elemen
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [localToken, setLocalToken] = useState(0);
   const [retrying, setRetrying] = useState(false);
-  const [retryError, setRetryError] = useState<string | null>(null);
+  const [cancelling, setCancelling] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
   const token = refreshToken + localToken;
 
   const query = status === 'ALL' ? '?limit=50' : `?status=${status}&limit=50`;
@@ -57,10 +58,19 @@ export function JobsPage({ refreshToken }: { refreshToken: number }): JSX.Elemen
   const reauth = summary.data?.accounts.byConnectionStatus.reauth_required ?? 0;
   const pendingApproval = summary.data?.content.pendingApproval ?? 0;
 
+  const TERMINAL_STATUSES = ['PUBLISHED', 'FAILED', 'CANCELLED', 'COMPLETED', 'PERMANENT_FAILURE'];
+  const IRREVERSIBLE_STATUSES = ['PUBLISHING', 'VERIFYING'];
+  const selectedStatus = detail.data?.status ?? null;
+  const canRetry = selectedStatus === 'NEEDS_ATTENTION';
+  const canCancel =
+    selectedStatus !== null &&
+    !TERMINAL_STATUSES.includes(selectedStatus) &&
+    !IRREVERSIBLE_STATUSES.includes(selectedStatus);
+
   async function retrySelected(): Promise<void> {
     if (detail.data === null) return;
     setRetrying(true);
-    setRetryError(null);
+    setActionError(null);
     try {
       await sendJson<{ jobId: string; status: string }>(
         `/api/v1/jobs/${detail.data.id}/retry`,
@@ -68,7 +78,7 @@ export function JobsPage({ refreshToken }: { refreshToken: number }): JSX.Elemen
       );
       setLocalToken((value) => value + 1);
     } catch (caught) {
-      setRetryError(
+      setActionError(
         caught instanceof ApiError
           ? `${caught.code}: ${caught.message}`
           : caught instanceof Error
@@ -77,6 +87,29 @@ export function JobsPage({ refreshToken }: { refreshToken: number }): JSX.Elemen
       );
     } finally {
       setRetrying(false);
+    }
+  }
+
+  async function cancelSelected(): Promise<void> {
+    if (detail.data === null) return;
+    setCancelling(true);
+    setActionError(null);
+    try {
+      await sendJson<{ jobId: string; status: string }>(
+        `/api/v1/jobs/${detail.data.id}/cancel`,
+        {}
+      );
+      setLocalToken((value) => value + 1);
+    } catch (caught) {
+      setActionError(
+        caught instanceof ApiError
+          ? `${caught.code}: ${caught.message}`
+          : caught instanceof Error
+            ? caught.message
+            : 'kesalahan tidak dikenal'
+      );
+    } finally {
+      setCancelling(false);
     }
   }
 
@@ -210,7 +243,7 @@ export function JobsPage({ refreshToken }: { refreshToken: number }): JSX.Elemen
           title={`Detail job ${shortId(selectedId)}`}
           actions={
             <div className="detail-actions">
-              {detail.data?.status === 'NEEDS_ATTENTION' ? (
+              {canRetry ? (
                 <button
                   type="button"
                   className="btn btn-primary"
@@ -218,6 +251,16 @@ export function JobsPage({ refreshToken }: { refreshToken: number }): JSX.Elemen
                   disabled={retrying}
                 >
                   {retrying ? 'Mengulang…' : 'Retry job'}
+                </button>
+              ) : null}
+              {canCancel ? (
+                <button
+                  type="button"
+                  className="btn btn-danger"
+                  onClick={() => void cancelSelected()}
+                  disabled={cancelling}
+                >
+                  {cancelling ? 'Membatalkan…' : 'Batalkan'}
                 </button>
               ) : null}
               <button type="button" className="btn" onClick={() => setSelectedId(null)}>
@@ -228,7 +271,7 @@ export function JobsPage({ refreshToken }: { refreshToken: number }): JSX.Elemen
         >
           {detail.loading ? <Loading /> : null}
           {detail.error !== null ? <ErrorBox message={detail.error} /> : null}
-          {retryError !== null ? <ErrorBox message={retryError} /> : null}
+          {actionError !== null ? <ErrorBox message={actionError} /> : null}
           {detail.data !== null ? <JobDetail job={detail.data} /> : null}
         </Section>
       ) : null}
