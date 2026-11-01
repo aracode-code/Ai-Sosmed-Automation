@@ -8,10 +8,12 @@ import type { Logger } from '@saa/observability';
 import type { DatabaseHandle } from '@saa/database';
 import { ZodError } from 'zod';
 import type { AppConfig } from './config';
+import { ConnectActionRunner, type ConnectActionController } from './connect-runner';
 import { errorEnvelope } from './errors';
 import { accountRoutes } from './routes/accounts';
 import { approvalRoutes } from './routes/approvals';
 import { campaignRoutes } from './routes/campaigns';
+import { connectActionRoutes } from './routes/connect-actions';
 import { connectionRoutes } from './routes/connections';
 import { contentRoutes } from './routes/content';
 import { dashboardRoutes } from './routes/dashboard';
@@ -27,6 +29,10 @@ export interface BuildAppOptions {
   now?: () => Date;
   /** Status worker nyata; tanpa callback, health melaporkan 0 worker aktif. */
   workerActive?: () => boolean;
+  /** Pengendali aksi connect; default memakai runner proses lokal nyata. */
+  connectRunner?: ConnectActionController;
+  connectPreflight?: () => Promise<{ ok: boolean; detail: string | null }>;
+  hasYouTubeCredentials?: () => boolean;
 }
 
 export function buildApp(options: BuildAppOptions): FastifyInstance {
@@ -104,6 +110,23 @@ export function buildApp(options: BuildAppOptions): FastifyInstance {
   void app.register(scheduleRoutes, { db, now });
   void app.register(accountRoutes, { db });
   void app.register(connectionRoutes, { db, config: options.config });
+
+  const connectRunner: ConnectActionController =
+    options.connectRunner ?? new ConnectActionRunner();
+  if (options.connectRunner === undefined) {
+    app.addHook('onClose', async () => {
+      if (connectRunner instanceof ConnectActionRunner) connectRunner.dispose();
+    });
+  }
+  void app.register(connectActionRoutes, {
+    runner: connectRunner,
+    db,
+    now,
+    ...(options.connectPreflight === undefined ? {} : { preflightFlow: options.connectPreflight }),
+    ...(options.hasYouTubeCredentials === undefined
+      ? {}
+      : { hasYouTubeCredentials: options.hasYouTubeCredentials })
+  });
 
   return app;
 }

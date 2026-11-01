@@ -83,6 +83,10 @@ void main().catch((error: unknown) => {
   }
   if (error instanceof AppError) {
     console.error(`Gagal [${error.errorClass}]: ${error.message}`);
+    const cause = (error as { cause?: unknown }).cause;
+    if (cause instanceof Error && cause.message !== error.message) {
+      console.error(`Penyebab     : ${cause.message}`);
+    }
     process.exitCode = error.errorClass === 'VALIDATION' ? 2 : 1;
     return;
   }
