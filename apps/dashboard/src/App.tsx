@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { useApi } from './api';
 import type { Health } from './types';
+import { ConnectionsPage } from './pages/ConnectionsPage';
 import { OverviewPage } from './pages/OverviewPage';
 import { JobsPage } from './pages/JobsPage';
 import { CampaignsPage } from './pages/CampaignsPage';
 import { ApprovalsPage } from './pages/ApprovalsPage';
 import { AccountsPage } from './pages/AccountsPage';
 
-type Tab = 'overview' | 'jobs' | 'campaigns' | 'approvals' | 'accounts';
+type Tab = 'overview' | 'jobs' | 'campaigns' | 'approvals' | 'accounts' | 'connections';
 
 interface TabDef {
   id: Tab;
@@ -65,6 +66,17 @@ const TABS: TabDef[] = [
       <svg viewBox="0 0 16 16" aria-hidden="true">
         <circle cx="8" cy="5.5" r="2.5" />
         <path d="M3 13.5c0-2.5 2.2-4 5-4s5 1.5 5 4" />
+      </svg>
+    )
+  },
+  {
+    id: 'connections',
+    label: 'Connections',
+    icon: (
+      <svg viewBox="0 0 16 16" aria-hidden="true">
+        <path d="M6 2v4M10 2v4" />
+        <path d="M4.5 6h7v2a3.5 3.5 0 0 1-7 0z" />
+        <path d="M8 11.5V14" />
       </svg>
     )
   }
@@ -148,6 +160,7 @@ export function App(): JSX.Element {
             />
           ) : null}
           {tab === 'accounts' ? <AccountsPage refreshToken={refreshToken} /> : null}
+          {tab === 'connections' ? <ConnectionsPage refreshToken={refreshToken} /> : null}
         </div>
       </main>
     </div>

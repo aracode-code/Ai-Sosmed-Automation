@@ -486,6 +486,13 @@ body {
   color: #b7c2d2;
 }
 
+.panel-pad {
+  padding: 14px 16px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
 /* Tren */
 
 .trend {

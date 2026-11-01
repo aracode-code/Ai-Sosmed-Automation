@@ -108,3 +108,36 @@ export interface DashboardSummary {
     updatedAt: string;
   }[];
 }
+
+/** Respons GET /api/v1/connections. */
+export interface FlowProbeStatus {
+  reachable: boolean;
+  pageOpen: boolean;
+  promptPresent: boolean;
+  submitPresent: boolean;
+  challengeDetected: boolean;
+  detail: string | null;
+}
+
+export interface ConnectionsPayload {
+  generatedAt: string;
+  flow: FlowProbeStatus & {
+    adapter: 'mock' | 'real';
+    cdpEndpoint: string;
+    privacy: string;
+    appStatus: string;
+  };
+  usage: {
+    guard: { maxPerDay: number; requireConfirm: boolean; dryRun: boolean };
+    usedToday: number;
+    day: string;
+  };
+  accounts: {
+    id: string;
+    platform: string;
+    label: string;
+    connectionStatus: 'connected' | 'reauth_required' | 'disconnected';
+    hasSecretRef: boolean;
+  }[];
+  platforms: { id: string; supported: boolean; adapter: string; generator: string | null }[];
+}
