@@ -47,7 +47,7 @@ loadConfig → createLogger → openDatabase → runMigrations → runStartupRec
 | Accounts | `GET /api/v1/accounts` (tanpa `secretRef`/`profileKey`) |
 | Content | `POST /api/v1/content` — 202 `{jobId, status:'queued'|'duplicate'}`; key `plan:manual:<campaignId>:<requestId|uuid>`; 404 campaign, 409 `CAMPAIGN_INACTIVE`/`CAMPAIGN_NO_PLATFORM`/`PLAN_IN_PROGRESS`/`PIPELINE_BUSY` |
 | Content detail | `GET /api/v1/content/:id?version=n` — konten (default versi tertinggi pada baris id itu), `campaign {platforms, approvalMode}`, `assets` tanpa `path`, `captionHash` dihitung server, `accounts` kandidat sesuai platform campaign; 404 konten/versi, 400 versi invalid |
-| Dashboard | `GET /api/v1/dashboard/summary?recentFailures=n` — hitungan job/attempt/campaign/konten/akun + `recentFailures` (`FAILED`/`PERMANENT_FAILURE`/`NEEDS_ATTENTION`, default 5, maks 20); 400 bila parameter di luar rentang |
+| Dashboard | `GET /api/v1/dashboard/summary?recentFailures=n&trendDays=d` — hitungan job/attempt/campaign/konten/akun, `recentFailures` (default 5, maks 20), dan `trend` harian Asia/Jakarta (`jobs`, `published`, `failed`; default 7 hari, maks 30); 400 bila parameter di luar rentang |
 | Jobs retry | `POST /api/v1/jobs/:id/retry` — hanya `NEEDS_ATTENTION` → `QUEUED` via `RECOVER_REQUEUE`; reset `attempts`/`lastErrorCode`/lease, `runAt = now`, audit `job.retry`; 202 `{jobId, status:"queued"}`, 409 `NOT_RETRYABLE`/`CONCURRENT_UPDATE`, 404 |
 | Jobs cancel | `POST /api/v1/jobs/:id/cancel` — status terminal & `PUBLISHING`/`VERIFYING` ditolak; `CANCELLED` lewat state machine, `lastErrorCode="CANCELLED_BY_USER"`, `runAt`/lease dikosongkan, audit `job.cancel`; 202, 409 `NOT_CANCELLABLE`/`CONCURRENT_UPDATE`, 404 |
 
