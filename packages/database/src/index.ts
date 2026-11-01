@@ -6,6 +6,7 @@ export * from './repositories/approvals';
 export * from './repositories/audit';
 export * from './repositories/campaigns';
 export * from './repositories/content';
+export * from './repositories/dashboard';
 export * from './repositories/jobs';
 export * from './repositories/media';
 export * from './repositories/publish-attempts';
