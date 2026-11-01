@@ -99,6 +99,7 @@ export interface DashboardSummary {
   campaigns: { total: number; byStatus: Record<string, number> };
   content: { total: number; byApprovalStatus: Record<string, number>; pendingApproval: number };
   accounts: { total: number; byConnectionStatus: Record<string, number> };
+  trend: { date: string; jobs: number; published: number; failed: number }[];
   recentFailures: {
     id: string;
     jobType: string;

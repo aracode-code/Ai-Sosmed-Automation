@@ -29,6 +29,8 @@ interface SummaryPayload {
 let workDir: string;
 let db: DatabaseHandle;
 let app: FastifyInstance;
+let completedJobId: string;
+let youtubeAccountId: string;
 
 beforeEach(async () => {
   workDir = mkdtempSync(join(tmpdir(), 'saa-dashboard-'));
@@ -47,6 +49,7 @@ beforeEach(async () => {
     label: 'Kanal',
     connectionStatus: 'connected'
   });
+  youtubeAccountId = youtubeAccount.id;
   insertSocialAccount(db.raw, { platform: 'tiktok', label: 'Kanal 2', connectionStatus: 'reauth_required' });
 
   upsertContentItem(db.raw, {
@@ -77,6 +80,7 @@ beforeEach(async () => {
     },
     '2026-11-01T01:00:00.000Z'
   );
+  completedJobId = completed.id;
   insertJob(
     db.raw,
     {
@@ -101,23 +105,24 @@ beforeEach(async () => {
   );
 
   insertPublishAttempt(db.raw, {
-    jobId: completed.id,
-    accountId: youtubeAccount.id,
+    jobId: completedJobId,
+    accountId: youtubeAccountId,
     platform: 'youtube',
     idempotencyKey: 'pub-1',
     status: 'published'
-  });
+  }, '2026-11-01T04:40:00.000Z');
   insertPublishAttempt(db.raw, {
-    jobId: completed.id,
-    accountId: youtubeAccount.id,
+    jobId: completedJobId,
+    accountId: youtubeAccountId,
     platform: 'youtube',
     idempotencyKey: 'pub-2',
     status: 'unknown'
-  });
+  }, '2026-11-01T04:41:00.000Z');
 
   app = buildApp({
     db,
-    config: loadConfig({ DATABASE_PATH: join(workDir, 'app.sqlite') })
+    config: loadConfig({ DATABASE_PATH: join(workDir, 'app.sqlite') }),
+    now: () => new Date('2026-11-01T04:40:00.000Z')
   });
   await app.ready();
 });
@@ -165,5 +170,44 @@ describe('GET /api/v1/dashboard/summary', () => {
     });
 
     expect(response.statusCode).toBe(400);
+  });
+});
+
+describe('tren 7 hari pada ringkasan', () => {
+  it('mengelompokkan job dan attempt per hari WIB dengan titik kosong', async () => {
+    const attemptDay = '2026-10-30T03:00:00.000Z'; // 10.00 WIB, 2 hari sebelum 1 Nov
+    insertPublishAttempt(db.raw, {
+      jobId: completedJobId,
+      accountId: youtubeAccountId,
+      platform: 'youtube',
+      idempotencyKey: 'trend-pub-1',
+      status: 'published'
+    });
+    db.raw
+      .prepare('UPDATE publish_attempts SET attempted_at = ? WHERE idempotency_key = ?')
+      .run(attemptDay, 'trend-pub-1');
+    insertPublishAttempt(db.raw, {
+      jobId: completedJobId,
+      accountId: youtubeAccountId,
+      platform: 'youtube',
+      idempotencyKey: 'trend-fail-1',
+      status: 'unknown'
+    });
+    db.raw
+      .prepare('UPDATE publish_attempts SET attempted_at = ? WHERE idempotency_key = ?')
+      .run('2026-10-31T05:00:00.000Z', 'trend-fail-1');
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/api/v1/dashboard/summary?trendDays=3'
+    });
+
+    expect(response.statusCode).toBe(200);
+    const payload = response.json<{ trend: { date: string; jobs: number; published: number; failed: number }[] }>();
+    expect(payload.trend).toHaveLength(3);
+    expect(payload.trend.map((point) => point.date)).toEqual(['2026-10-30', '2026-10-31', '2026-11-01']);
+    expect(payload.trend[0]?.published).toBe(1);
+    expect(payload.trend[1]?.failed).toBe(1);
+    expect(payload.trend[2]).toEqual({ date: '2026-11-01', jobs: 3, published: 1, failed: 1 });
   });
 });

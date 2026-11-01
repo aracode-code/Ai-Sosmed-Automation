@@ -8,7 +8,8 @@ export interface DashboardRoutesDeps {
 }
 
 const querySchema = z.object({
-  recentFailures: z.coerce.number().int().min(1).max(20).optional()
+  recentFailures: z.coerce.number().int().min(1).max(20).optional(),
+  trendDays: z.coerce.number().int().min(1).max(30).optional()
 });
 
 /** Ringkasan baca-saja untuk halaman dashboard (LLD §6). */
@@ -19,10 +20,11 @@ export const dashboardRoutes: FastifyPluginAsync<DashboardRoutesDeps> = async (a
     const query = querySchema.parse(request.query);
     return {
       generatedAt: now().toISOString(),
-      ...getDashboardSummary(
-        deps.db.raw,
-        query.recentFailures === undefined ? {} : { recentFailures: query.recentFailures }
-      )
+      ...getDashboardSummary(deps.db.raw, {
+        nowIso: now().toISOString(),
+        ...(query.recentFailures === undefined ? {} : { recentFailures: query.recentFailures }),
+        ...(query.trendDays === undefined ? {} : { trendDays: query.trendDays })
+      })
     };
   });
 };

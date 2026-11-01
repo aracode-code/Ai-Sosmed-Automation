@@ -25,6 +25,9 @@ export function OverviewPage({ refreshToken }: { refreshToken: number }): JSX.El
   const connected = summary.data?.accounts.byConnectionStatus.connected ?? 0;
   const reauth = summary.data?.accounts.byConnectionStatus.reauth_required ?? 0;
   const recentCampaigns = campaigns.data?.items.slice(0, 5) ?? [];
+  const trend = summary.data?.trend ?? [];
+  const maxTrend = Math.max(1, ...trend.map((point) => Math.max(point.jobs, point.published, point.failed)));
+  const barWidth = (value: number): string => (value === 0 ? '0%' : `${Math.max(3, (value / maxTrend) * 100)}%`);
 
   return (
     <div className="stack">
@@ -52,6 +55,44 @@ export function OverviewPage({ refreshToken }: { refreshToken: number }): JSX.El
           />
         </div>
       ) : null}
+
+      <Section title="Tren 7 hari">
+        {summary.loading ? <Loading /> : null}
+        {trend.length > 0 ? (
+          <div className="trend">
+            <div className="trend-legend">
+              <span className="legend legend-jobs">Job dibuat</span>
+              <span className="legend legend-pub">Terbit</span>
+              <span className="legend legend-fail">Gagal/unknown</span>
+            </div>
+            {trend.map((point) => (
+              <div key={point.date} className="trend-row">
+                <span className="trend-date mono">{point.date.slice(5)}</span>
+                <div className="trend-bars">
+                  <span
+                    className="trend-bar trend-jobs"
+                    style={{ width: barWidth(point.jobs) }}
+                    title={`${point.jobs} job dibuat`}
+                  />
+                  <span
+                    className="trend-bar trend-pub"
+                    style={{ width: barWidth(point.published) }}
+                    title={`${point.published} terbit`}
+                  />
+                  <span
+                    className="trend-bar trend-fail"
+                    style={{ width: barWidth(point.failed) }}
+                    title={`${point.failed} gagal/unknown`}
+                  />
+                </div>
+                <span className="trend-value mono">
+                  {point.jobs}/{point.published}/{point.failed}
+                </span>
+              </div>
+            ))}
+          </div>
+        ) : null}
+      </Section>
 
       <Section title="Campaign">
         {campaigns.loading ? <Loading /> : null}
