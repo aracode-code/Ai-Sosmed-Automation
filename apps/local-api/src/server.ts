@@ -1,4 +1,5 @@
 import { createDeepSeekClient, createPlanner, type Planner } from '@saa/agent-core';
+import { FlowPlaywrightGenerator } from '@saa/browser-engine';
 import {
   openDatabase,
   resolveWorkspacePath,
@@ -96,9 +97,23 @@ async function main(): Promise<void> {
 
   const planner = buildPlanner(logger);
   const publisher = buildPublisher(config, logger, db);
+  const generator =
+    config.flowAdapter === 'real'
+      ? new FlowPlaywrightGenerator({
+          endpoint: config.flowCdpEndpoint,
+          outputRoot: mediaRoot
+        })
+      : undefined;
+  if (generator !== undefined) {
+    logger.info(
+      { endpoint: config.flowCdpEndpoint },
+      'generator Flow nyata aktif; pembuatan akan memakai kredit akun'
+    );
+  }
   const handlers = buildHandlerRegistry({
     db,
     mediaRoot,
+    ...(generator === undefined ? {} : { generator }),
     ...(planner === undefined ? {} : { planner }),
     ...(publisher === undefined ? {} : { publisher })
   });

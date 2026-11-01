@@ -1,5 +1,6 @@
 export * from './flow-generator';
 export * from './flow-inspect';
+export * from './flow-playwright-generator';
 export * from './flow-readiness';
 export * from './flow-session';
 export * from './flow-usage';

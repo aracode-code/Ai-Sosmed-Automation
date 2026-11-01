@@ -160,3 +160,25 @@ describe('loadYouTubeCredentials', () => {
     ).toEqual({ clientId: 'id-uji', clientSecret: 'rahasia-uji' });
   });
 });
+
+describe('konfigurasi Flow (ADR-0010)', () => {
+  it('default memakai generator mock dan endpoint loopback', () => {
+    const config = loadConfig({});
+    expect(config.flowAdapter).toBe('mock');
+    expect(config.flowCdpEndpoint).toBe('http://127.0.0.1:9222');
+  });
+
+  it('menerima FLOW_ADAPTER=real', () => {
+    expect(loadConfig({ FLOW_ADAPTER: 'real' }).flowAdapter).toBe('real');
+  });
+
+  it('menolak adapter Flow yang tidak dikenal', () => {
+    expect(() => loadConfig({ FLOW_ADAPTER: 'lain' })).toThrow(/konfigurasi tidak valid/);
+  });
+
+  it('menolak endpoint CDP non-loopback', () => {
+    expect(() => loadConfig({ FLOW_CDP_ENDPOINT: 'http://10.0.0.5:9222' })).toThrow(
+      /loopback|konfigurasi tidak valid/
+    );
+  });
+});

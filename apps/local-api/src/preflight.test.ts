@@ -24,7 +24,9 @@ const baseConfig: AppConfig = {
   schedulerIntervalMs: 5_000,
   youtubeAdapter: 'api',
   youtubeUploadPrivacy: 'private',
-  youtubeAppStatus: 'production'
+  youtubeAppStatus: 'production',
+  flowAdapter: 'mock',
+  flowCdpEndpoint: 'http://127.0.0.1:9222'
 };
 
 const credentials: YouTubeCredentials = { clientId: 'client-id', clientSecret: 'client-secret' };

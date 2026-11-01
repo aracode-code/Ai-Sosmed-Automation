@@ -26,6 +26,15 @@ const envSchema = z
      * dilaporkan owner agar status Testing (refresh token 7 hari) terlihat saat boot.
      */
     YOUTUBE_APP_STATUS: z.enum(['testing', 'production', 'unknown']).default('unknown'),
+    /** `mock` = artefak MP4 palsu; `real` = studio Flow via CDP (ADR-0010). */
+    FLOW_ADAPTER: z.enum(['mock', 'real']).default('mock'),
+    FLOW_CDP_ENDPOINT: z
+      .string()
+      .url()
+      .default('http://127.0.0.1:9222')
+      .refine((value) => value.startsWith('http://127.0.0.1:'), {
+        message: 'FLOW_CDP_ENDPOINT harus http://127.0.0.1:<port> (loopback)'
+      }),
     APP_ALLOW_NETWORK: z.enum(['true', 'false']).default('false')
   })
   .superRefine((env, ctx) => {
@@ -54,6 +63,8 @@ export interface AppConfig {
   youtubeAdapter: 'off' | 'mock' | 'api';
   youtubeUploadPrivacy: 'private' | 'unlisted' | 'public';
   youtubeAppStatus: 'testing' | 'production' | 'unknown';
+  flowAdapter: 'mock' | 'real';
+  flowCdpEndpoint: string;
 }
 
 export class ConfigError extends Error {
@@ -87,7 +98,9 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
     schedulerIntervalMs: env.SCHEDULER_INTERVAL_MS,
     youtubeAdapter: env.YOUTUBE_ADAPTER,
     youtubeUploadPrivacy: env.YOUTUBE_UPLOAD_PRIVACY,
-    youtubeAppStatus: env.YOUTUBE_APP_STATUS
+    youtubeAppStatus: env.YOUTUBE_APP_STATUS,
+    flowAdapter: env.FLOW_ADAPTER,
+    flowCdpEndpoint: env.FLOW_CDP_ENDPOINT
   };
 }
 
