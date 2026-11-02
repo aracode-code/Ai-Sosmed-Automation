@@ -1,66 +1,65 @@
 # CURRENT — Task Aktif
 
 **Session:** SESSION-2026-11-02-1
-**Updated:** 2026-11-02T09:30:00+07:00
-**Change class:** MEDIUM (mode generasi baru lintas domain → DB → workflow → scheduler → UI)
+**Updated:** 2026-11-02T09:58:00+07:00
+**Change class:** MEDIUM (route media baru + containment berkas + panel hasil generasi di UI)
 
 ## Active Task
 
-Owner meminta **dua mode generasi: video atau gambar** (`tambahkam 2 mode generasi video atau image`). **COMPLETED** sebagai slice **S6**: campaign memiliki `generationMode` (`video` default / `image`) yang tersimpan di DB, mengalir ke perencanaan (`PLAN_CONTENT` menyimpan `mediaKind`), produksi (`GENERATE_VIDEO`/`GENERATE_IMAGE` dengan generator `MediaGenerator`), validasi media (MP4 vs PNG/JPEG), penjadwalan (campaign gambar tidak menerbitkan), dan dashboard (select + kolom mode). Desain dicatat di `decisions/ADR-0012-generation-modes.md`.
+Owner meminta **berkas hasil generasi ditampilkan di job** (`apakah kamu bisa menbambhkan file hasil generatenya di job`). **COMPLETED** sebagai slice **S7**: `GET /api/v1/media/:id/file` menyajikan aset media yang tercatat di `media_assets`, dan panel detail Jobs menampilkan **Hasil generasi** (`<img>` untuk gambar, `<video>` untuk video) beserta mime/ukuran/status validasi/sha256 + tautan **Unduh**. Tidak ada tabel, migrasi, atau dependensi baru.
+
+Fitur sebelumnya (**S6 dua mode generasi video/gambar**, `81dd916`, ADR-0012) tetap VERIFIED dan tidak diubah.
 
 | Field | Nilai |
 |---|---|
-| Slice | **S6** — mode generasi video/gambar |
-| Status | **COMPLETED (S6)** — dua mode tersedia end-to-end; mode gambar berhenti di produksi media (publikasi gambar belum ada) |
+| Slice | **S7** — berkas hasil generasi di detail job |
+| Status | **COMPLETED (S7)** — video terverifikasi live + visual; cabang `<img>` baru diuji unit (belum ada aset gambar di DB nyata) |
 | Mode eksekusi | SINGLE-WRITER sequential, L1 |
-| Commit kode | `81dd916` — 37 berkas, +731/−162 |
+| Commit kode | `4ebdc9d` — 7 berkas, +350/−2 |
 
 ## Bukti Sesi Ini (aktual 2026-11-02 WIB)
 
 | Bukti | Hasil |
 |---|---|
-| Domain + DB | `GenerationMode`/`MediaKind` (`packages/domain/src/generation.ts`); `Campaign.generationMode`; `JOB_TYPES` + `GENERATE_IMAGE`; migrasi `0004_campaign_generation_mode.sql` (`campaigns.generation_mode` default `video`); repository memetakan nilai tak dikenal → `video` |
-| API campaign | `POST /api/v1/campaigns` menerima `generationMode: 'video'|'image'` default `video`; respons campaign menyertakan `generationMode` |
-| Generator | `MediaGenerator`/`MediaGenerationRequest.kind?` (default `video`); `MockMediaGenerator` menulis MP4-shaped atau **PNG valid** 72×128 / 128×72 / 96×96; `FlowPlaywrightGenerator` meneruskan `kind` + timeout render video 15 menit / gambar 5 menit |
-| Validasi | `validateMediaFile({kind})`: video wajib `ftyp`, gambar wajib signature PNG/JPEG; probe durasi hanya video; gambar `durationMs = null` |
-| Workflow | `createGenerateMediaHandler(deps, kind)` didaftarkan untuk `GENERATE_VIDEO` dan `GENERATE_IMAGE`; `PLAN_CONTENT` menyimpan `mediaKind` dan memilih job type sesuai mode; `PUBLISH` mensyaratkan aset `video/mp4` (aset gambar → `FAILED` + `VALIDATION`) |
-| Scheduler | `enqueueDuePublicationJobs` berhenti untuk campaign non-video dan filter aset `video/mp4`; guard `listPlanContentsAwaitingPublish` dilewati untuk campaign gambar; `PIPELINE_BUSY` hanya untuk video |
-| Rencana | `GET /api/v1/plans/:jobId` menampilkan `campaign.generationMode` + `mediaKind` per item; approve meng-enqueue `GENERATE_IMAGE`/`GENERATE_VIDEO` sesuai mode item |
-| UI | `CreateCampaignForm` select **Mode generasi** (dua opsi, default video); tabel Campaigns kolom **Generasi**; `PlanReviewPanel` menampilkan mode campaign + item dan pesan sukses sesuai job type |
-| Test | `corepack pnpm vitest run --no-file-parallelism` → **57 file / 501 test** hijau (sebelumnya 489; +12 test; `generate-video.ts`+test diganti `generate-media.ts`+test, beberapa test lain disesuaikan) |
+| Route media | `apps/local-api/src/routes/media.ts`: `getMediaAsset` → `assertInsideRoot(MEDIA_ROOT)` (path DB tidak dipercaya) → mime allowlist → `statSync` → `createReadStream`; header `content-type`, `content-length`, `content-disposition: inline`, `x-media-sha256`; 404 `NOT_FOUND`/`MEDIA_MISSING`, 409 `MEDIA_UNSUPPORTED`/`MEDIA_OUTSIDE_ROOT` |
+| Wiring | `buildApp` menerima `mediaRoot?` (default `resolve(config.mediaRoot)`); `server.ts` meneruskan `mediaRoot` yang sudah diresolusi — nilai sama dengan `outputRoot` generator |
+| UI Jobs | `JobsPage` memuat `GET /api/v1/content/:contentId` lalu merender `JobResult` bila `assets.length > 0`: `<img>`/`<video controls preload="metadata">`, mime, ukuran terformat, `StatusPill`, sha256 12 karakter, tautan `download` bernama `<assetId>.<ext>` |
+| Test | `corepack pnpm vitest run --no-file-parallelism` → **58 file / 506 test** hijau; `media-route.test.ts` 5 test (PNG 200 + header + payload, 404 `NOT_FOUND`, 409 `MEDIA_OUTSIDE_ROOT`, 404 `MEDIA_MISSING`, 409 `MEDIA_UNSUPPORTED`) |
 | Quality gate | `corepack pnpm typecheck` exit 0 (10 paket + `tests/tsconfig.json`) |
-| Smoke UI | Playwright headless Chromium **1440×900** pada API `127.0.0.1:4317` + dashboard `localhost:5174`: select mode menampilkan `video — diproduksi dan dapat diterbitkan` + `image — diproduksi, belum diterbitkan`, opsi `image` dapat dipilih, kolom **GENERASI** menampilkan `video`; screenshot `data/tmp/campaign-generation-mode.png` + `-image.png` (gitignored). Tidak ada campaign gambar yang dikirim ke planner (menghindari panggilan DeepSeek berbayar) |
-| Migrasi runtime | API dev di-restart; migrasi `0004` diterapkan; `GET /api/v1/campaigns` mengembalikan `generationMode:"video"` untuk campaign lama |
-| Secret scan | Tidak ada kredensial di diff/log/UI; screenshot tidak memuat rahasia |
+| Smoke live | `curl -D - /api/v1/media/med_cnt_smoke_p3_20261102/file` → `200`, `content-type: video/mp4`, `content-length: 3466852`, `content-disposition: inline; filename="flow-video.mp4"`, `x-media-sha256: 59df3899…98051` |
+| Smoke UI | Chromium headless (viewport **1126×792**) pada API `127.0.0.1:4317` + dashboard `localhost:5174`: job `job_0705ff16-…` (`NEEDS_ATTENTION`) menampilkan video 7 s dengan gambar nyata, `video/mp4`, `3.3 MB`, `valid`, sha256 `59df3899f62a…`, tombol **Unduh** → route media |
+| Regresi | Halaman lain tidak diubah; `TONES` hanya menambah kunci `valid: 'ok'`; route lama tetap terdaftar (32 route) |
+| Secret scan | Tidak ada kredensial di diff/log/UI; route tidak mengembalikan `path` filesystem, hanya `content-disposition` nama berkas |
 
 ## Temuan yang Mengikat
 
 | Temuan | Dampak |
 |---|---|
-| Publikasi gambar tidak ada | Adapter terdaftar hanya YouTube (video). Mode gambar = produksi media saja; `PUBLISH` dipaksa → `VALIDATION` (ADR-0012 G9) |
-| Kosakata planner dipertahankan | `create_video`/`videoPrompt` dipakai untuk kedua mode agar output model lama tetap valid; mode adalah kebijakan campaign (G3) |
-| Guard kedalaman berbeda | Campaign gambar tidak menunggu job `PUBLISH`; slot berikutnya langsung merencanakan konten baru (G10) |
-| Mode tidak dapat diubah dari UI | Campaign hanya bisa dibuat; edit mode menunggu form edit campaign di backlog |
+| Path DB tidak tepercaya | `media_assets.path` dapat menunjuk luar `MEDIA_ROOT` (data lama/uji); setiap permintaan divalidasi ulang dengan `assertInsideRoot`, bukan hanya saat tulis |
+| Mime allowlist ketat | Hanya `video/mp4`, `image/png`, `image/jpeg`; nilai lain → 409 `MEDIA_UNSUPPORTED` (tidak menyajikan `text/html` atau tipe tak dikenal) |
+| Bukan static directory | Route berbasis id + resolusi DB; tidak ada direktori media yang diekspos ke publik |
+| Hasil parsial tetap terlihat | Panel dirender untuk job `COMPLETED` maupun `NEEDS_ATTENTION` — aset Flow yang sudah tersimpan dapat diperiksa/diunduh walau job gagal di tahap unduhan |
+| Cabang `<img>` belum visual | Belum ada aset gambar di DB nyata; hanya unit test PNG/JPEG. Jangan klaim UI gambar terverifikasi |
 
 ## Impact Map
 
-- **Kode diubah:** `packages/domain/src/{generation.ts,index.ts,entities.ts,job.ts}`; `packages/database/{migrations/0004_campaign_generation_mode.sql,schema.ts,repositories/campaigns.ts,migrate.test.ts}`; `packages/browser-engine/src/{types.ts,mock-generator.ts,media.ts,flow-usage.ts,flow-playwright-generator.ts}` (+test); `packages/workflow/src/handlers/{generate-media.ts,plan-content.ts,publish.ts}` (+test), `index.ts`; `packages/scheduler/src/{dispatch.ts,production.ts}` (+test); `apps/local-api/src/{handlers.ts,routes/campaigns.ts,routes/plans.ts,routes/content.ts}` (+test); `apps/dashboard/src/{types.ts,CreateCampaignForm.tsx,PlanReviewPanel.tsx,pages/CampaignsPage.tsx}`.
-- **Dihapus:** `packages/workflow/src/handlers/generate-video.ts` + test (digantikan `generate-media.ts`).
-- **Tidak berubah:** kontrak `SocialAdapter`/adapter YouTube, route/jumlah endpoint (31), tabel selain `campaigns`, dependensi/lockfile, keputusan keamanan/rahasia.
-- **Dependensi baru:** tidak ada.
+- **Kode diubah:** `apps/local-api/src/{app.ts,server.ts}`, `apps/local-api/src/routes/media.ts` (baru), `apps/local-api/src/media-route.test.ts` (baru), `apps/dashboard/src/pages/JobsPage.tsx`, `apps/dashboard/src/styles.css`, `apps/dashboard/src/components.tsx`.
+- **Tidak berubah:** skema/tabel (13), migrasi (5), kontrak repository, handler workflow, scheduler, adapter YouTube/Flow, dependensi/lockfile, keputusan keamanan/rahasia.
+- **Route:** 31 → **32**.
 
 ## Drift Tercatat
 
-- Flow tab **Gambar** nyata belum diuji lewat aplikasi (butuh kredit); hanya launcher palsu pada test.
-- Publikasi gambar belum ada; adapter gambar (Instagram/Facebook) adalah pekerjaan P6.
-- Temuan lama tetap: P3 PARTIAL (unduhan via worker belum diuji ulang), P4 PARTIAL (reauth), P5 PARTIAL (unggah nyata), P7 auth/`Origin`, `content_items` PK drift, ledger kredit jalur aplikasi, lint (D7), `AGENTS.md` untracked.
+- Pratinjau `<img>` belum diuji visual (tidak ada aset gambar di DB nyata); route PNG/JPEG lolos unit test.
+- Smoke UI memakai viewport 1126×792 (browser otomasi), bukan 1440 seperti smoke sebelumnya — dicatat apa adanya.
+- Temuan lama tetap: P3 PARTIAL (unduhan via worker belum diuji ulang), P4 PARTIAL (reauth), P5 PARTIAL (unggah nyata), P7 auth/`Origin`, `content_items` PK drift, ledger kredit jalur aplikasi, lint (D7), `AGENTS.md` untracked, publikasi media gambar (P6).
 
 ## Next Session Handoff
 
-1. **Tunggu instruksi owner**; dua mode generasi selesai dan tidak ada slice berikutnya yang disetujui.
+1. **Tunggu instruksi owner**; S7 selesai dan tidak ada slice berikutnya yang disetujui.
 2. Jangan retry job `NEEDS_ATTENTION` yang sudah punya aset `valid` (retry = submit ulang Flow).
 3. Retest unduhan `GENERATE_VIDEO` lewat Flow nyata **butuh 1 kredit**; tab Gambar Flow juga perlu uji berbayar sebelum mode gambar dinyatakan VERIFIED untuk Flow nyata.
 4. Publikasi media gambar membutuhkan adapter platform baru (P6) — jangan mengaktifkan `PUBLISH` untuk gambar tanpa adapter tersebut.
+5. Bila muncul aset gambar nyata (Flow tab Gambar/mock image di DB aplikasi), ambil screenshot panel **Hasil generasi** untuk menutup drift cabang `<img>`.
 
 ## Team Scope
 

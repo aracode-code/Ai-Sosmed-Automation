@@ -3,8 +3,8 @@
   "mode": "LIGHTWEIGHT_GREP",
   "status": "DEGRADED",
   "reason": "Tidak ada tool SQLite index di runtime ini (`sqlite_query_tool` missing). Pencarian memakai ripgrep terhadap source aktual; tidak ada code.db.",
-  "indexed_commit": "81dd916647a1efd65661d91f04842c2ec26d6ab3",
-  "indexed_at": "2026-11-02T09:28:00+07:00",
+  "indexed_commit": "4ebdc9d2652f75b05d0fb77b996e3785d86827fb",
+  "indexed_at": "2026-11-02T09:55:00+07:00",
   "scope": [
     "apps/local-api/src/**",
     "apps/dashboard/src/**",
@@ -20,18 +20,18 @@
     "docs/**"
   ],
   "counts": {
-    "files": 174,
-    "test_files": 57,
+    "files": 176,
+    "test_files": 58,
     "symbols": null,
     "imports": null,
-    "apis": 31,
+    "apis": 32,
     "db_objects": 13,
-    "tests": 501
+    "tests": 506
   },
   "validation": {
-    "last_validated_at": "2026-11-02T09:28:00+07:00",
+    "last_validated_at": "2026-11-02T09:55:00+07:00",
     "result": "partial",
-    "note": "Scope = git ls-files (ts/tsx) + perubahan kerja mode generasi: 174 file (termasuk 57 file test) + docs/. Metadata simbol/import null karena tanpa index SQLite. Endpoint 31 (tidak berubah), tabel 13 (tanpa tabel baru), test 501 (vitest aktual). Perubahan sesi: generation.ts, generate-media.ts(+test), mock-generator/media/types browser-engine, campaign generationMode (schema/migrasi 0004/repo/route), scheduler dispatch/production, plan-content/publish, routes plans/content, UI Campaigns/CreateCampaignForm/PlanReviewPanel."
+    "note": "Scope = git ls-files (ts/tsx) + perubahan kerja: 176 file (termasuk 58 file test) + docs/. Metadata simbol/import null karena tanpa index SQLite. Endpoint 32 (+GET /api/v1/media/:id/file), tabel 13 (tanpa tabel baru), test 506 (vitest aktual). Perubahan S7: apps/local-api/src/routes/media.ts(+media-route.test.ts), wiring app.ts/server.ts (mediaRoot), JobsPage JobResult, styles.css, components.tsx TONES.valid."
   },
   "fallback": {
     "engine": "LIGHTWEIGHT_GREP",

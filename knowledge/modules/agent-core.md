@@ -31,7 +31,7 @@ Arah dependensi: `@saa/agent-core` → `@saa/domain` + `zod`. Tidak mengimpor da
 ```bash
 corepack pnpm --filter @saa/agent-core typecheck
 corepack pnpm exec vitest run packages/agent-core     # 34 test
-corepack pnpm exec vitest run --no-file-parallelism   # seluruh workspace (501 test per 2026-11-02)
+corepack pnpm exec vitest run --no-file-parallelism   # seluruh workspace (506 test per 2026-11-02)
 ```
 
 ## Belum Ada (P2+)

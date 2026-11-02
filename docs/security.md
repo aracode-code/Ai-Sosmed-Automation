@@ -23,7 +23,8 @@ dan prosedur insiden.
 | Redaksi log (`authorization`, `cookie`, `*.token`, `*.secret`, `*.password`) + sanitasi objek konteks | **DONE** | `packages/observability/src/{logger,sanitize}.ts` |
 | Local API bind loopback; non-loopback ditolak kecuali `APP_ALLOW_NETWORK=true` | **DONE** | `apps/local-api/src/config.ts` |
 | Penolakan unggahan bila privasi hasil verifikasi tidak sesuai | **DONE** | `packages/youtube/src/youtube-api-adapter.ts` (`YT_PRIVACY_MISMATCH`) |
-| Path media dicek terhadap root yang diizinkan | **DONE** (saat validasi media) | `packages/browser-engine/src/{storage,media}.ts` |
+| Path media dicek terhadap root yang diizinkan | **DONE** (saat validasi media **dan** saat penyajian) | `packages/browser-engine/src/{storage,media}.ts`, `apps/local-api/src/routes/media.ts` |
+| Berkas media hanya disajikan lewat id aset + allowlist mime (`video/mp4`, `image/png`, `image/jpeg`); path DB divalidasi ulang `assertInsideRoot` | **DONE** | `apps/local-api/src/routes/media.ts` |
 | Tool AI tanpa shell/eval, berbasis allowlist | **DONE** | `packages/agent-core/src/tools.ts` |
 | Aksi connect (login Flow / pairing YouTube) = proses anak lokal tanpa shell; body hanya `accountId`/`label`; log memori disunting | **DONE** | `apps/local-api/src/connect-runner.ts`, `apps/local-api/src/routes/connect-actions.ts` |
 | Tidak ada upaya menembus CAPTCHA/anti-bot; kondisi itu → `NEEDS_ATTENTION` | **DONE** | ADR-0003/ADR-0005 (kelas `SECURITY_CHALLENGE`) |

@@ -1,13 +1,15 @@
 # L0 — Active Context
 
 **Session:** SESSION-2026-11-02-1
-**Updated:** 2026-11-02T09:28:00+07:00
+**Updated:** 2026-11-02T09:52:00+07:00
 **Autonomy:** L1 (BALANCED)
-**Change class terakhir:** MEDIUM (dua mode generasi video/gambar — kampanye, generator, validasi, workflow, scheduler, API, UI)
+**Change class terakhir:** MEDIUM (berkas hasil generasi dapat dilihat/diunduh dari job — route media baru, containment berkas, panel Jobs)
 
 ## Current Task
 
-**S6 COMPLETED — dua mode generasi (video/gambar), `ADR-0012`.** Campaign kini punya `generationMode: 'video' | 'image'` (default `video`, kolom `campaigns.generation_mode` + migrasi `0004`). Mode `image` memakai job `GENERATE_IMAGE`, generator media generik (`MediaGenerator` + `MockMediaGenerator` PNG nyata), validasi PNG/JPEG, dan **tidak pernah** dipublikasikan (dispatch & handler `PUBLISH` hanya menerima `video/mp4`; guard produksi `PIPELINE_BUSY` tidak berlaku untuk gambar). UI Campaigns menampilkan select **Mode generasi** saat membuat campaign, kolom **Generasi** di tabel, dan label mode di panel tinjau rencana. Kosakata planner (`create_video`/`videoPrompt`) **tidak berubah**; mode dibawa lewat `mediaKind` di `prompt_json`, sehingga tidak ada panggilan AI tambahan. Quality gate: **57 file / 501 test hijau**, typecheck 10 paket + `tests/tsconfig.json` PASS. Alur approval rencana Slice 1–4 dan uji live DeepSeek sebelumnya tetap VERIFIED; retest unduhan Flow nyata masih menunggu 1 kredit dan uji tab **Gambar** Flow dengan kredit belum dijalankan.
+**S7 COMPLETED — berkas hasil generasi tampil di detail job (`4ebdc9d`).** `GET /api/v1/media/:id/file` menyajikan aset media: `path` dari DB divalidasi ulang dengan `assertInsideRoot(MEDIA_ROOT)`, mime allowlist (`video/mp4`, `image/png`, `image/jpeg`), header `content-type`/`content-length`/`content-disposition: inline`/`x-media-sha256`, stream `createReadStream`; 404 `NOT_FOUND`/`MEDIA_MISSING`, 409 `MEDIA_UNSUPPORTED`/`MEDIA_OUTSIDE_ROOT`. Panel detail Jobs menampilkan **Hasil generasi** (`img` untuk gambar, `video` untuk video) + mime/ukuran/status validasi/sha256 + tautan **Unduh**; data aset diambil dari `GET /api/v1/content/:contentId`. Quality gate: **58 file / 506 test hijau**, typecheck 10 paket + `tests/tsconfig.json` PASS. Smoke live: route 200 `video/mp4`, 3.466.852 B, sha256 `59df3899…98051`; UI Chromium headless menampilkan video 7 s + metadata. Cabang `<img>` belum diuji visual (belum ada aset gambar di DB nyata).
+
+Fitur sebelumnya tetap VERIFIED: **S6 dua mode generasi (video/gambar), `81dd916`, `ADR-0012`** — `campaigns.generation_mode`, job `GENERATE_IMAGE`, `MediaGenerator`/PNG mock, validasi PNG/JPEG, gambar tidak pernah dipublikasikan, UI select **Mode generasi** + kolom **Generasi**. Retest unduhan Flow nyata masih menunggu 1 kredit; uji tab **Gambar** Flow dengan kredit belum dijalankan.
 
 | Fase | Commit | Isi |
 |---|---|---|
@@ -26,8 +28,9 @@
 | S4 | `1656c9f` | filter job per campaign/tipe + form permintaan & keputusan rencana di Campaigns |
 | S5 | `4650d90` | form "Buat campaign" di Campaigns (nama, niche, mode approval, platform) |
 | S6 | `81dd916` | dua mode generasi video/gambar (ADR-0012) |
+| S7 | `4ebdc9d` | berkas hasil generasi tampil di detail job (route media + panel Jobs) |
 
-Status fase: **P3 PARTIAL** (pembuatan via aplikasi VERIFIED; unduhan via aplikasi UNVERIFIED; tab Gambar Flow belum diuji) · **P4 PARTIAL** (UI approval + aksi connect DONE; reauth belum) · **P4b/P4c COMPLETED** · **P5 PARTIAL** (A1–A7 DONE; unggahan nyata UNVERIFIED) · **Alur approval rencana kerja: Slice 1–4 DONE** · **Dua mode generasi: DONE (publikasi media gambar belum ada)**.
+Status fase: **P3 PARTIAL** (pembuatan via aplikasi VERIFIED; unduhan via aplikasi UNVERIFIED; tab Gambar Flow belum diuji) · **P4 PARTIAL** (UI approval + aksi connect DONE; reauth belum) · **P4b/P4c COMPLETED** · **P5 PARTIAL** (A1–A7 DONE; unggahan nyata UNVERIFIED) · **Alur approval rencana kerja: Slice 1–4 DONE** · **Dua mode generasi: DONE (publikasi media gambar belum ada)** · **Hasil generasi di detail job: DONE**.
 
 ## Konteks Minimum
 
@@ -38,8 +41,8 @@ Status fase: **P3 PARTIAL** (pembuatan via aplikasi VERIFIED; unduhan via aplika
 
 ## Fakta Aktif (terverifikasi)
 
-- 8 paket workspace + `apps/local-api` + `apps/dashboard`; **174 file TS/TSX** (termasuk 57 file test), **501 test hijau**; typecheck 10 paket + `tests/tsconfig.json` PASS.
-- Migrasi **5 berkas** (`0000_init` … `0004_campaign_generation_mode`); **13 tabel** (tanpa tabel baru; `campaigns.generation_mode`); **31 route**.
+- 8 paket workspace + `apps/local-api` + `apps/dashboard`; **176 file TS/TSX** (termasuk 58 file test), **506 test hijau**; typecheck 10 paket + `tests/tsconfig.json` PASS.
+- Migrasi **5 berkas** (`0000_init` … `0004_campaign_generation_mode`); **13 tabel** (tanpa tabel baru; `campaigns.generation_mode`); **32 route**.
 - Rantai otomatis: slot → `PLAN_CONTENT` → (approval rencana) → `GENERATE_VIDEO` per item → media valid → `PUBLISH` seluruh item rencana + produksi slot berikutnya; publikasi lebih dulu dalam satu tick.
 - Pipeline kedalaman satu: slot ditahan bila ada `PLAN_CONTENT` non-terminal atau **ada item rencana** yang belum punya job `PUBLISH`.
 - Kunci idempoten: `plan:<scheduleId>:<slot>`, `generate:<contentId>`, `publish:<contentId>:v<version>:<accountId>:<platform>`, `plan:manual:<campaignId>:<requestId|uuid>`, `publish:<jobId>`.
@@ -60,8 +63,9 @@ Status fase: **P3 PARTIAL** (pembuatan via aplikasi VERIFIED; unduhan via aplika
 - **Filter job (E1, `1656c9f`):** `GET /api/v1/jobs` menerima `jobType` (divalidasi terhadap `JOB_TYPES`) dan `campaignId`; keduanya opsional dan terikat ke query repository `listJobs` — diperlukan agar daftar rencana dapat ditemukan setelah muat ulang (tanpa endpoint baru).
 - **Konfigurasi (E1):** `YOUTUBE_ADAPTER=off|mock|api`, `YOUTUBE_UPLOAD_PRIVACY`, `YOUTUBE_APP_STATUS=testing|production|unknown` (status *Internal* diwakili `production`).
 - **Preflight (E1, `bbfe83a`):** `preflight:youtube` — tanpa jaringan, tanpa mencetak rahasia; exit 0 lulus/peringatan, 1 FAIL, 2 konfigurasi.
-- **Dashboard (E1, `8e27b27`, `406f1f5`, `acdcf17`, `1656c9f`, `4650d90`):** `apps/dashboard` React 18 + Vite 6, dev `localhost:5174`, proxy `/api` + `/health` → `127.0.0.1:4317`; halaman Overview/Jobs/Campaigns/Approvals/Accounts/Connections; **aksi approve/reject per-konten** memakai binding dari `GET /api/v1/content/:id` (UI tidak menghitung hash), diblokir tanpa aset `valid`/akun `connected`, `APPROVAL_MISMATCH` → minta muat ulang; **Connections beraksi** (login Flow + pairing dari UI); **Campaigns beraksi** (form "Buat campaign" → `POST /api/v1/campaigns` lalu baris baru langsung dipilih, select **Mode generasi** `video|image`, kolom **Generasi**, form permintaan rencana + daftar job rencana + panel keputusan rencana yang menampilkan mode/`mediaKind`). Tanpa router, tanpa Tailwind, tanpa test UI.
+- **Dashboard (E1, `8e27b27`, `406f1f5`, `acdcf17`, `1656c9f`, `4650d90`, `4ebdc9d`):** `apps/dashboard` React 18 + Vite 6, dev `localhost:5174`, proxy `/api` + `/health` → `127.0.0.1:4317`; halaman Overview/Jobs/Campaigns/Approvals/Accounts/Connections; **aksi approve/reject per-konten** memakai binding dari `GET /api/v1/content/:id` (UI tidak menghitung hash), diblokir tanpa aset `valid`/akun `connected`, `APPROVAL_MISMATCH` → minta muat ulang; **Connections beraksi** (login Flow + pairing dari UI); **Campaigns beraksi** (form "Buat campaign" → `POST /api/v1/campaigns` lalu baris baru langsung dipilih, select **Mode generasi** `video|image`, kolom **Generasi**, form permintaan rencana + daftar job rencana + panel keputusan rencana yang menampilkan mode/`mediaKind`); **Jobs** menampilkan panel **Hasil generasi** (`img`/`video` + mime/ukuran/status/sha256 + Unduh) untuk job yang kontennya punya aset, diambil dari `GET /api/v1/content/:contentId`. Tanpa router, tanpa Tailwind, tanpa test UI.
 - **Endpoint detail konten (E1, `5e8184b`):** `GET /api/v1/content/:id?version=n` → konten (default versi tertinggi pada baris itu), `campaign {platforms, approvalMode}`, `assets` tanpa `path`, `captionHash` server-side, `accounts` kandidat; 7 test.
+- **Berkas media di job (E1, `4ebdc9d`):** `GET /api/v1/media/:id/file` — `getMediaAsset` → containment `assertInsideRoot(MEDIA_ROOT)` (path DB tidak dipercaya) → mime allowlist `video/mp4|image/png|image/jpeg` → `statSync` → stream; header `content-type`, `content-length`, `content-disposition: inline`, `x-media-sha256`; galat 404 `NOT_FOUND`/`MEDIA_MISSING`, 409 `MEDIA_UNSUPPORTED`/`MEDIA_OUTSIDE_ROOT`; `mediaRoot` diteruskan `buildApp` dari composition root (default `resolve(config.mediaRoot)`); 5 test route.
 - **Drift skema (2026-11-01):** `content_items` PK `id` tunggal vs LLD §5 `unique(id, version)` → versi baru untuk id yang sama gagal; `version` saat ini selalu 1; menunggu keputusan owner.
 - **Sesi Flow (E1, `fd62314`; diverifikasi 2026-11-02):** `playwright` + Chromium/Chrome (`FLOW_BROWSER_CHANNEL`, default `chrome`); profil `%LOCALAPPDATA%\saa\browser\flow-profile` (`FLOW_PROFILE_DIR` absolut); `openFlowSession` memegang `.worker-lock.json` dan melepasnya pada close/launch gagal/goto gagal; `flow:login [--check]` — login manual headed, tanpa mengisi kredensial atau menembus CAPTCHA; `DEFAULT_FLOW_URL = https://flow.google.com/`. Login dari UI berakhir `succeeded`; `flow:inspect` pada project `445c6cd0-…` melihat komposer "Apa yang ingin Anda buat?" → **sesi valid & persisten**.
 - **Aksi connect (E1, `989aa2f`, `acdcf17`):** `ConnectActionRunner` spawn proses anak `flow:login`/`pair:youtube` tanpa shell; single-flight (409), timeout 15/10 menit + kill tree (`taskkill /T /F`), fase `idle|running|waiting|succeeded|failed|timed_out|cancelled`; log 60 baris di memori (ANSI dihapus, pola token → `[disunting]`); status hilang saat restart API. Route: `GET/POST /api/v1/connections/actions*`; body pairing `.strict()` tepat satu `accountId`/`label`; 412 bila Chromium tidak siap atau `GOOGLE_OAUTH_CLIENT_ID` kosong. UI Connections memantau tiap 2 s dan menyediakan Hentikan.
@@ -104,7 +108,7 @@ Status fase: **P3 PARTIAL** (pembuatan via aplikasi VERIFIED; unduhan via aplika
 - Status publikasi app OAuth hanya diketahui dari laporan owner lewat `YOUTUBE_APP_STATUS`.
 - DPAPI hanya teruji di Windows 10 host ini; OAuth/refresh/resume hanya dengan `fetch` palsu.
 - Adapter DeepSeek **sudah** diuji live 2026-11-02 (2 item, ±2 s); yang belum: perilaku pada output invalid/konten panjang, biaya token aktual, dan siklus penuh dengan publikasi nyata.
-- Dashboard hanya diuji di Chromium desktop (viewport ~818px).
+- Dashboard hanya diuji di Chromium desktop (viewport ~818px; pratinjau hasil generasi diuji pada 1126×792); cabang `<img>` untuk aset gambar belum pernah tampil di UI karena DB nyata belum punya aset gambar (route PNG/JPEG hanya diuji unit).
 - Revisi konten multi-versi tidak dapat disimpan (PK `content_items` = `id`); `version` selalu 1.
 - Unduhan lewat worker baru terbukti dengan ekspresi Playwright terpisah (bukan jalur handler penuh) setelah tambalan.
 - Jalur **gambar** Flow nyata (tab Gambar, pilihan rasio gambar, unduhan PNG) belum pernah dijalankan; `MockMediaGenerator` PNG sudah diuji tetapi Flow gambar tidak. Media gambar **belum dapat dipublikasikan** ke platform apa pun — belum ada adapter.

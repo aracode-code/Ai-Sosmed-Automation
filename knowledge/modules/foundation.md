@@ -23,7 +23,7 @@ Arah dependensi: `domain` ← `database` ← `workflow` ← `local-api`; `observ
 - **Klaim antrean** (`repositories/jobs.ts`): `claimDueJob` memakai `db.transaction(...).immediate()` + `UPDATE` terjaga kondisi lease sehingga hanya satu worker berhasil; transaksi ditutup sebelum pekerjaan eksternal.
 - **Transisi optimistis**: `applyTransition({from,to})` gagal (null) bila status sudah berubah — mencegah dua worker menimpa.
 - **Recovery startup** (`packages/workflow/src/recovery.ts`): lease kedaluwarsa → `QUEUED` bila reversibel, `NEEDS_ATTENTION` untuk `PUBLISHING`/`VERIFYING` atau attempts habis; `lastErrorCode = LEASE_EXPIRED`.
-- **API**: 31 route terdaftar (health, jobs, campaigns, approvals, plans, schedules, accounts, content, dashboard, connections + aksi connect, ai — daftar lengkap di `modules/local-api.md`); envelope error LLD §6.2; request id `req_<uuid>`.
+- **API**: 32 route terdaftar (health, jobs, campaigns, approvals, plans, schedules, accounts, content, media, dashboard, connections + aksi connect, ai — daftar lengkap di `modules/local-api.md`); envelope error LLD §6.2; request id `req_<uuid>`.
 - **Migrasi**: `0000_init` … `0004_campaign_generation_mode` (5 berkas, 13 tabel); `plan_approvals` mencatat keputusan rencana dengan binding hash (`8b9a512`); `campaigns.generation_mode` default `video` (ADR-0012).
 - **Konfigurasi**: host non-loopback ditolak kecuali `APP_ALLOW_NETWORK=true`; `DATABASE_PATH` relatif diresolusi terhadap root workspace (`paths.ts`).
 
@@ -31,7 +31,7 @@ Arah dependensi: `domain` ← `database` ← `workflow` ← `local-api`; `observ
 
 ```bash
 corepack pnpm typecheck                              # 10 paket + tests/ (per 2026-11-02)
-corepack pnpm test                                   # seluruh workspace (501 test per 2026-11-02)
+corepack pnpm test                                   # seluruh workspace (506 test per 2026-11-02)
 corepack pnpm migrate                                 # terapkan migrations/*.sql
 corepack pnpm start                                   # local API di 127.0.0.1:4317
 ```

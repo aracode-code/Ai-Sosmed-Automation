@@ -1,6 +1,6 @@
 # Modul — Local API (App, Route, Composition Root)
 
-**Status:** P1–P5 backend (mock publish) + worker loop + dispatch jadwal + produksi konten + pemicu konten manual + CLI kesiapan COMPLETED (2026-10-31) · aksi connect dari UI COMPLETED (2026-11-01, runner proses lokal) · kredensial AI (kunci DeepSeek DPAPI + planner lazy) COMPLETED (2026-11-02, ADR-0011) · approval rencana + publikasi satu gerbang COMPLETED (2026-11-02, `8b9a512`) · dua mode generasi video/gambar COMPLETED (2026-11-02, ADR-0012) · commit `debdaaf`, `4b513ab`, `6ad9547`, `7d13431`, `bfc7c72`, `77fbb9c`, `1f27cd5`, `bb1ba57`, `bbfe83a`, `1dfcadf`, `8b9a512`
+**Status:** P1–P5 backend (mock publish) + worker loop + dispatch jadwal + produksi konten + pemicu konten manual + CLI kesiapan COMPLETED (2026-10-31) · aksi connect dari UI COMPLETED (2026-11-01, runner proses lokal) · kredensial AI (kunci DeepSeek DPAPI + planner lazy) COMPLETED (2026-11-02, ADR-0011) · approval rencana + publikasi satu gerbang COMPLETED (2026-11-02, `8b9a512`) · dua mode generasi video/gambar COMPLETED (2026-11-02, ADR-0012) · route berkas media `GET /api/v1/media/:id/file` + pratinjau hasil di Jobs COMPLETED (2026-11-02) · commit `debdaaf`, `4b513ab`, `6ad9547`, `7d13431`, `bfc7c72`, `77fbb9c`, `1f27cd5`, `bb1ba57`, `bbfe83a`, `1dfcadf`, `8b9a512`
 **Sumber:** kode aktual (E1). Keputusan: `ADR-0001` (konfigurasi), `ADR-0003` D15, `ADR-0004` (worker + registry), `ADR-0005` (publikasi mock), `ADR-0006` (dispatch jadwal), `ADR-0007` (produksi konten per slot), `ADR-0011` (kredensial AI), `ADR-0012` (mode generasi).
 
 ## Peta Berkas
@@ -13,7 +13,8 @@
 | `apps/local-api/src/app.ts` | `buildApp`: Fastify, error envelope, registrasi route, `workerActive` untuk health, `aiCredentials` opsional (default DPAPI) |
 | `apps/local-api/src/handlers.ts` | `buildHandlerRegistry`: satu-satunya titik pendaftaran handler |
 | `apps/local-api/src/server.ts` | Composition root: migrasi → recovery → kredensial AI → registry → dispatcher/worker → listen → start; shutdown berurutan |
-| `apps/local-api/src/routes/*.ts` | Route HTTP per area (health, jobs, campaigns, approvals, plans, schedules, accounts, content, ai) |
+| `apps/local-api/src/routes/*.ts` | Route HTTP per area (health, jobs, campaigns, approvals, plans, schedules, accounts, content, ai, media) |
+| `apps/local-api/src/routes/media.ts` | `GET /api/v1/media/:id/file` — sajikan berkas aset (containment `MEDIA_ROOT`, mime allowlist, `inline` + `x-media-sha256`) |
 | `apps/local-api/src/errors.ts` | `errorEnvelope` bersama (`{ error: { code, message, requestId, details? } }`) |
 | `apps/local-api/src/preflight.ts` | Logika murni `collectPreflightChecks` — status PASS/WARN/FAIL tanpa akses jaringan dan tanpa mencetak rahasia |
 | `apps/local-api/src/preflight-youtube.ts` | CLI `preflight:youtube` — probe database read-only, akun, blob DPAPI, aset media; exit 0/1/2 |
@@ -42,7 +43,7 @@ loadConfig → createLogger → openDatabase → runMigrations → runStartupRec
 - Shutdown (`SIGINT`/`SIGTERM`): `dispatchLoop.stop()` → `worker.stop()` → `app.close()` → `db.close()` (dispatch lebih dulu agar tidak ada job baru).
 - `workerId = worker_<pid>`; satu worker per proses, satu job per siklus (ADR-0004 W8).
 
-## Route Terdaftar (31)
+## Route Terdaftar (32)
 
 | Area | Route |
 |---|---|
@@ -55,6 +56,7 @@ loadConfig → createLogger → openDatabase → runMigrations → runStartupRec
 | Accounts | `GET /api/v1/accounts` (tanpa `secretRef`/`profileKey`) |
 | Content | `POST /api/v1/content` — 202 `{jobId, status:'queued'|'duplicate'}`; key `plan:manual:<campaignId>:<requestId|uuid>`; 404 campaign, 409 `CAMPAIGN_INACTIVE`/`CAMPAIGN_NO_PLATFORM`/`PLAN_IN_PROGRESS`/`PIPELINE_BUSY`; `PIPELINE_BUSY` hanya berlaku untuk campaign `generationMode='video'` (ADR-0012 G10) |
 | Content detail | `GET /api/v1/content/:id?version=n` — konten (default versi tertinggi pada baris id itu), `campaign {platforms, approvalMode, generationMode}`, `assets` tanpa `path`, `captionHash` dihitung server, `accounts` kandidat sesuai platform campaign; 404 konten/versi, 400 versi invalid |
+| Media file | `GET /api/v1/media/:id/file` — stream berkas aset; `content-type` dari allowlist (`video/mp4`, `image/png`, `image/jpeg`), `content-length`, `content-disposition: inline`, `x-media-sha256`; 404 `NOT_FOUND`/`MEDIA_MISSING`, 409 `MEDIA_UNSUPPORTED`/`MEDIA_OUTSIDE_ROOT`; `path` dari DB **selalu** divalidasi ulang dengan `assertInsideRoot(MEDIA_ROOT)` |
 | Dashboard | `GET /api/v1/dashboard/summary?recentFailures=n&trendDays=d` — hitungan job/attempt/campaign/konten/akun, `recentFailures` (default 5, maks 20), dan `trend` harian Asia/Jakarta (`jobs`, `published`, `failed`; default 7 hari, maks 30); 400 bila parameter di luar rentang |
 | Jobs retry | `POST /api/v1/jobs/:id/retry` — hanya `NEEDS_ATTENTION` → `QUEUED` via `RECOVER_REQUEUE`; reset `attempts`/`lastErrorCode`/lease, `runAt = now`, audit `job.retry`; 202 `{jobId, status:"queued"}`, 409 `NOT_RETRYABLE`/`CONCURRENT_UPDATE`, 404 |
 | Jobs cancel | `POST /api/v1/jobs/:id/cancel` — status terminal & `PUBLISHING`/`VERIFYING` ditolak; `CANCELLED` lewat state machine, `lastErrorCode="CANCELLED_BY_USER"`, `runAt`/lease dikosongkan, audit `job.cancel`; 202, 409 `NOT_CANCELLABLE`/`CONCURRENT_UPDATE`, 404 |
@@ -111,7 +113,7 @@ Argumen script diteruskan apa adanya; jangan memakai `--` pemisah (`--` ikut men
 ## Belum Ada
 
 - Auth lokal pada API (saat ini loopback-only sebagai batas keamanan). Celah autentikasi token + validasi `Origin` + rate limit dicatat di `docs/security.md` sebagai pekerjaan P7.
-- Route untuk media/aset dan kontrol worker/scheduler (start/stop/status per proses).
+- Route untuk kontrol worker/scheduler (start/stop/status per proses). Berkas aset kini dapat dibaca lewat `GET /api/v1/media/:id/file` (hanya mime allowlist, tanpa path traversal).
 - Pemicu `PLAN_CONTENT` manual ada di `POST /api/v1/content` (idempoten via `requestId`); pembatalan job dan pembacaan attempt publikasi tersedia lewat `POST /api/v1/jobs/:id/cancel` dan `GET /api/v1/jobs/:id/events`.
 - Produksi konten ikut berhenti bila adapter publikasi tidak terdaftar, karena loop dispatch digerbangi adapter (ADR-0006 S8).
 - Aksi connect **tidak** menyelesaikan konflik profil: `flow:login` gagal bila Chrome/CDP lain sudah memakai profil Flow yang sama (`Opening in existing browser session`). Menghentikan Chrome milik owner bukan wewenang API; kondisi ini diteruskan ke UI sebagai error aksi + catatan.

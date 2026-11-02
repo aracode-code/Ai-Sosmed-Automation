@@ -65,7 +65,7 @@ Arah dependensi: `@saa/workflow` → `@saa/agent-core`, `@saa/browser-engine`, `
 ```bash
 corepack pnpm --filter @saa/workflow typecheck
 corepack pnpm vitest run packages/workflow      # dispatcher, worker, retry, recovery, handler
-corepack pnpm test                              # 501 test seluruh workspace (2026-11-02)
+corepack pnpm test                              # 506 test seluruh workspace (2026-11-02)
 ```
 
 ## Belum Ada
