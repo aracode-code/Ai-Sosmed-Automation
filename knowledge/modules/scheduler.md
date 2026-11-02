@@ -35,14 +35,14 @@ Ringkasan hasil: `{paused, due, seeded, shifted, quotaSkipped, enqueued, failed[
 
 1. `platforms` kosong → tidak ada job (tanpa adapter, job hanya akan `NO_HANDLER`).
 2. Campaign harus ada dan `status === 'active'`.
-3. Ambil **konten terbaru** campaign (`listContentByCampaign`, urut versi turun); `rejected` → berhenti.
-4. Butuh aset media `valid` terakhir; tanpa itu → berhenti.
+3. Ambil konten terbaru campaign (`listContentByCampaign`, urut versi turun); `rejected` → berhenti. Mode `required`: bila approval rencana valid (`plan_approvals` + `hashPlanBinding` cocok), kandidat = **seluruh item rencana** (`listContentByPlanJob`) kecuali `rejected`; selain itu hanya konten terbaru.
+4. Butuh aset media `valid` terakhir; tanpa itu → berhenti (per konten).
 5. Akun kandidat = akun `connected` pada platform campaign yang adapter-nya terdaftar.
-6. Per akun: caption platform wajib ada (`resolveCaption`); mode `required` wajib `approvalStatus === 'approved'` **dan** `getLatestApproval` + `checkApprovalBinding` cocok (caption hash dihitung dari peta caption yang sama).
+6. Per akun: caption platform wajib ada (`resolveCaption`); mode `required` wajib `approvalStatus === 'approved'` **dan** — hanya bila gerbang rencana tidak dipakai — `getLatestApproval` + `checkApprovalBinding` cocok (caption hash dihitung dari peta caption yang sama).
 7. Key idempoten `publish:<contentId>:v<version>:<accountId>:<platform>`; job yang sudah ada dilewati.
 8. Job dibuat `QUEUED`, payload `{contentId, campaignId, accountId, platform}` — kontrak handler `PUBLISH`.
 
-Konsekuensi yang disadari: hanya konten terbaru, satu batch per slot, slot tetap maju walau tidak ada job (ADR-0006 S3/S7). Sejak rencana batch 2026-11-02 (`df45977`) satu `PLAN_CONTENT` dapat menghasilkan 1–5 konten; enqueuer publikasi **belum** mengiterasi semuanya — single-gate publish menunggu Slice 3.
+Konsekuensi yang disadari: satu batch per slot, slot tetap maju walau tidak ada job (ADR-0006 S3/S7). Sejak Slice 3 (`8b9a512`) rencana batch 1–5 item diterbitkan **seluruhnya** setelah satu approval rencana; data lama tanpa `planJobId` tetap memakai konten terbaru + approval per-konten.
 
 ## Produksi Konten per Slot (P4c)
 
@@ -50,10 +50,10 @@ Konsekuensi yang disadari: hanya konten terbaru, satu batch per slot, slot tetap
 
 1. Campaign harus ada, `status === 'active'`, dan punya platform target.
 2. Ada `PLAN_CONTENT` non-terminal untuk campaign (`NEEDS_ATTENTION` dihitung aktif) → tidak ada job baru.
-3. Konten terbaru ada tetapi belum punya job `PUBLISH` → tidak ada job baru (kedalaman satu).
+3. Konten terbaru ada tetapi masih ada item rencana tanpa job `PUBLISH` (`listPlanContentsAwaitingPublish`) → tidak ada job baru (kedalaman satu).
 4. Selain itu: job `PLAN_CONTENT` `QUEUED` dibuat dengan key `plan:<scheduleId>:<slot>`, payload `{campaignId}`.
 
-`slot` = `schedule.nextRunAt` saat jadwal due (fallback `context.now`). Helper `hasActiveJobForCampaign`/`hasJobForContent` tinggal di `@saa/database`.
+`slot` = `schedule.nextRunAt` saat jadwal due (fallback `context.now`). Helper `hasActiveJobForCampaign`/`hasJobForContent` tinggal di `@saa/database`; guard per rencana memakai `listPlanContentsAwaitingPublish` (Slice 3, `8b9a512`).
 
 **Urutan dalam satu tick:** publikasi lebih dulu, lalu produksi. Tanpa urutan ini, konten yang baru direncanakan (belum punya media) akan menahan publikasi slot berjalan.
 

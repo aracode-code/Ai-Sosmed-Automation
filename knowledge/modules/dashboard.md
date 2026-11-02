@@ -45,6 +45,7 @@ corepack pnpm --filter @saa/dashboard typecheck
 
 ## Batas / Belum Ada
 
+- Approval tahap **rencana** (`GET /api/v1/plans/:jobId` + approve/reject) belum punya UI; halaman Approvals masih per konten dengan binding aset. Form permintaan rencana + daftar approval batch = Slice 4.
 - Alur **reauth** akun (token kedaluwarsa/`reauth_required`) belum ada di UI; pairing awal sudah bisa dimulai dari UI tetapi tetap dijalankan proses lokal CLI.
 - `GET /api/v1/dashboard/summary` dipakai halaman Jobs untuk lima kartu ringkasan (job aktif, perlu perhatian, menunggu approval, publikasi terbit, akun terhubung); kartu tidak menampilkan data sensitif.
 - Belum ada test UI otomatis; verifikasi manual di browser (ADR-0009 U8) — alur approve, reject, dan aksi connect sudah diuji pada DB demo.

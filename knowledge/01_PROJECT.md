@@ -9,7 +9,7 @@
 | Tipe | Aplikasi desktop lokal Windows, satu pengguna utama | VERIFIED (HLD §2.3) |
 | Deployment | Windows PC lokal; packaging Electron/Tauri belum dipilih | VERIFIED (HLD §4, LLD §19) |
 | Dokumen induk | `HLD.md` v1.0 dan `LLD.md` v1.0 (keduanya berstatus Draft) | VERIFIED |
-| Implementasi kode | **P1 + P2 + P3 mock + P4 backend + P4b/P4c otomatisasi + P5 mock + adapter YouTube API (A1–A7) + CLI preflight + dashboard (approval beraksi) + sesi Flow/login + kredensial AI (DPAPI) + rencana batch `items[]`** — 8 paket + `apps/local-api` + `apps/dashboard`, 466 test hijau | VERIFIED (commit `debdaaf` … `df45977`, 2026-11-02) |
+| Implementasi kode | **P1 + P2 + P3 mock + P4 backend + P4b/P4c otomatisasi + P5 mock + adapter YouTube API (A1–A7) + CLI preflight + dashboard (approval beraksi) + sesi Flow/login + kredensial AI (DPAPI) + rencana batch `items[]` + approval rencana & publikasi satu gerbang** — 8 paket + `apps/local-api` + `apps/dashboard`, 486 test hijau | VERIFIED (commit `debdaaf` … `8b9a512`, 2026-11-02) |
 
 ## Tujuan Produk
 
@@ -54,7 +54,7 @@ Mengotomatisasi alur produksi video dari perencanaan sampai publikasi lintas pla
 apps/local-api            # Fastify + composition root: health, jobs, campaigns, approvals, schedules, accounts; worker loop
 apps/dashboard            # React 18 + Vite: shell + halaman Jobs/Campaigns/Approvals (aksi approve/reject)/Accounts, proxy ke API
 packages/domain           # entitas, JobType/JobStatus, error class, state machine, approval binding, schedule config, kontrak SocialAdapter
-packages/database         # schema Drizzle 12 tabel, client, migrator SQL, repository (termasuk publish_attempts)
+packages/database         # schema Drizzle 13 tabel, client, migrator SQL, repository (termasuk publish_attempts, plan_approvals)
 packages/workflow         # dispatcher, worker loop, retry, recovery, handler PLAN_CONTENT + GENERATE_VIDEO + PUBLISH
 packages/observability    # logger Pino + redaksi secret
 packages/agent-core       # skema PlanDecision + planner + adapter DeepSeek + tool allowlist
@@ -87,6 +87,7 @@ Belum dibuat (P3 penuh–P7): adapter Flow nyata, `packages/integrations/*`, rea
 - Migrasi hanya lewat `packages/database/migrations/*.sql` + `schema_migrations`; jurnal drizzle-kit tidak dipakai (ADR-0001 D3).
 - Media: generator menulis ke `outputRoot` (relatif `content/<contentId>`); setiap path divalidasi containment + checksum sebelum dicatat sebagai `media_assets` (ADR-0003 D18–D19).
 - Approval: terikat versi konten + sha256 aset + hash caption + akun + platform; mismatch → `409 APPROVAL_MISMATCH` (ADR-0003 D7–D9).
+- Approval rencana: satu keputusan per job `PLAN_CONTENT` (`plan_approvals`, unique `plan_job_id`) dengan binding `hashPlanBinding` atas `{contentId, versi, hash caption}` — tanpa aset karena media belum ada. `POST /api/v1/plans/:jobId/approve|reject` menuntut `bindingHash` dari `GET /api/v1/plans/:jobId`; approve membangkitkan `GENERATE_VIDEO` untuk semua item, reject menandai semua item `rejected` (2026-11-02, Slice 3).
 - Scheduler: `next_run_at` persisten, kuota harian per akun+platform, pause lewat `settings` — tidak menghapus jadwal (ADR-0003 D10–D14).
 - P3 saat ini memakai generator **mock** (MP4-shaped, bukan video yang dapat diputar); Flow asli menunggu OD-1 (ADR-0003 D16–D17).
 - Status job: 15 status (termasuk `COMPLETED` untuk job langkah); publication tetap berakhir `PUBLISHED`.
@@ -113,9 +114,9 @@ Belum dibuat (P3 penuh–P7): adapter Flow nyata, `packages/integrations/*`, rea
 - D7 dijawab sebagian oleh ADR-0009 U6: artefak build dashboard = `vite build` (`apps/dashboard/dist`, gitignored), typecheck = `tsc`, **lint belum dipilih**.
 - **Drift skema (2026-11-01):** `content_items` memakai PK `id` tunggal sementara LLD §5 menyebut `unique(id, version)`; versi baru untuk id yang sama tidak dapat disimpan (`UNIQUE constraint failed`). Saat ini satu baris per konten (versi selalu 1); revisi multi-versi menunggu keputusan owner (migrasi PK komposit vs tetapkan satu baris per id).
 - Flow (ADR-0010): `playwright` + **Chrome/Edge terpasang** (fallback Chromium; `FLOW_BROWSER_CHANNEL` menimpa) karena Google menolak sign-in di Chromium for Testing. Profil persisten `%LOCALAPPDATA%\saa\browser\flow-profile` (`FLOW_PROFILE_DIR` absolut); `openFlowSession` memegang lock profil dan melepasnya pada semua jalur; URL Flow **`https://flow.google.com/`**. `flow:login` membuka browser headed untuk login manual (tanpa mengisi kredensial/menembus CAPTCHA); `flow:inspect` memetakan DOM read-only. Sesi tersimpan belum terautentikasi (`/about`), sehingga adapter generasi belum ditulis.
-- Dispatch jadwal: `ScheduleDispatchLoop` (default 5 s) hanya membuat job `PUBLISH` untuk **konten terbaru** campaign aktif dengan aset valid, akun terhubung, caption platform tersedia, dan approval terikat valid; kunci idempoten `publish:<contentId>:v<version>:<accountId>:<platform>` (ADR-0006).
+- Dispatch jadwal: `ScheduleDispatchLoop` (default 5 s) membuat job `PUBLISH` untuk konten campaign aktif dengan aset valid, akun terhubung, caption platform tersedia, dan approval valid. Mode `required` memakai **gerbang rencana** bila binding cocok (semua item rencana, kecuali `rejected`); tanpa itu hanya **konten terbaru** dengan approval per-konten. Kunci idempoten `publish:<contentId>:v<version>:<accountId>:<platform>` (ADR-0006; diperluas Slice 3, `8b9a512`).
 - Dispatch hanya berjalan bila `SCHEDULER_ENABLED=true`, worker aktif, dan adapter publikasi terdaftar; slot jadwal tetap maju walau tidak ada job terbuat (ADR-0006 S7).
-- Produksi konten: satu `PLAN_CONTENT` per slot dengan pipeline **kedalaman satu** — perencanaan berjalan atau konten terbaru tanpa job `PUBLISH` menahan slot berikutnya; publikasi dijalankan lebih dulu dalam tick yang sama (ADR-0007).
+- Produksi konten: satu `PLAN_CONTENT` per slot dengan pipeline **kedalaman satu** — perencanaan berjalan atau **item rencana** yang belum punya job `PUBLISH` menahan slot berikutnya; publikasi dijalankan lebih dulu dalam tick yang sama (ADR-0007; diperluas Slice 3).
 - Quality gate P1: `tsc` strict + Vitest; lint/build artefak belum ada (ADR-0001 D7).
 
 ## Status Implementasi

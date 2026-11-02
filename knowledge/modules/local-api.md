@@ -1,6 +1,6 @@
 # Modul — Local API (App, Route, Composition Root)
 
-**Status:** P1–P5 backend (mock publish) + worker loop + dispatch jadwal + produksi konten + pemicu konten manual + CLI kesiapan COMPLETED (2026-10-31) · aksi connect dari UI COMPLETED (2026-11-01, runner proses lokal) · kredensial AI (kunci DeepSeek DPAPI + planner lazy) COMPLETED (2026-11-02, ADR-0011) · commit `debdaaf`, `4b513ab`, `6ad9547`, `7d13431`, `bfc7c72`, `77fbb9c`, `1f27cd5`, `bb1ba57`, `bbfe83a`, `1dfcadf`
+**Status:** P1–P5 backend (mock publish) + worker loop + dispatch jadwal + produksi konten + pemicu konten manual + CLI kesiapan COMPLETED (2026-10-31) · aksi connect dari UI COMPLETED (2026-11-01, runner proses lokal) · kredensial AI (kunci DeepSeek DPAPI + planner lazy) COMPLETED (2026-11-02, ADR-0011) · approval rencana + publikasi satu gerbang COMPLETED (2026-11-02, `8b9a512`) · commit `debdaaf`, `4b513ab`, `6ad9547`, `7d13431`, `bfc7c72`, `77fbb9c`, `1f27cd5`, `bb1ba57`, `bbfe83a`, `1dfcadf`, `8b9a512`
 **Sumber:** kode aktual (E1). Keputusan: `ADR-0001` (konfigurasi), `ADR-0003` D15, `ADR-0004` (worker + registry), `ADR-0005` (publikasi mock), `ADR-0006` (dispatch jadwal), `ADR-0007` (produksi konten per slot), `ADR-0011` (kredensial AI).
 
 ## Peta Berkas
@@ -13,12 +13,13 @@
 | `apps/local-api/src/app.ts` | `buildApp`: Fastify, error envelope, registrasi route, `workerActive` untuk health, `aiCredentials` opsional (default DPAPI) |
 | `apps/local-api/src/handlers.ts` | `buildHandlerRegistry`: satu-satunya titik pendaftaran handler |
 | `apps/local-api/src/server.ts` | Composition root: migrasi → recovery → kredensial AI → registry → dispatcher/worker → listen → start; shutdown berurutan |
-| `apps/local-api/src/routes/*.ts` | Route HTTP per area (health, jobs, campaigns, approvals, schedules, accounts, content, ai) |
+| `apps/local-api/src/routes/*.ts` | Route HTTP per area (health, jobs, campaigns, approvals, plans, schedules, accounts, content, ai) |
 | `apps/local-api/src/errors.ts` | `errorEnvelope` bersama (`{ error: { code, message, requestId, details? } }`) |
 | `apps/local-api/src/preflight.ts` | Logika murni `collectPreflightChecks` — status PASS/WARN/FAIL tanpa akses jaringan dan tanpa mencetak rahasia |
 | `apps/local-api/src/preflight-youtube.ts` | CLI `preflight:youtube` — probe database read-only, akun, blob DPAPI, aset media; exit 0/1/2 |
 | `apps/local-api/src/connect-runner.ts` | `ConnectActionRunner`: spawn `flow-login`/`youtube-pair` sebagai proses anak, single-flight, timeout, kill tree, log memori tersunting |
 | `apps/local-api/src/routes/connect-actions.ts` | 4 route aksi connect: status, mulai login Flow, mulai pairing YouTube, hentikan |
+| `apps/local-api/src/routes/plans.ts` | Review rencana (`GET`) + keputusan approve/reject; transaksi keputusan + konten + job generate + audit |
 
 ## Composition Root (urutan boot)
 
@@ -41,7 +42,7 @@ loadConfig → createLogger → openDatabase → runMigrations → runStartupRec
 - Shutdown (`SIGINT`/`SIGTERM`): `dispatchLoop.stop()` → `worker.stop()` → `app.close()` → `db.close()` (dispatch lebih dulu agar tidak ada job baru).
 - `workerId = worker_<pid>`; satu worker per proses, satu job per siklus (ADR-0004 W8).
 
-## Route Terdaftar (28)
+## Route Terdaftar (31)
 
 | Area | Route |
 |---|---|
@@ -49,6 +50,7 @@ loadConfig → createLogger → openDatabase → runMigrations → runStartupRec
 | Jobs | `GET /api/v1/jobs`, `GET /api/v1/jobs/:id` |
 | Campaigns | `POST /api/v1/campaigns`, `GET /api/v1/campaigns`, `GET /api/v1/campaigns/:id` |
 | Approvals | `POST /api/v1/content/:id/approve`, `POST /api/v1/content/:id/reject` |
+| Plans | `GET /api/v1/plans/:jobId` — rencana `PLAN_CONTENT` + `contents[]` + `bindingHash` + keputusan; 404 bila job tidak ada/bukan `PLAN_CONTENT`. `POST /api/v1/plans/:jobId/approve` dan `/reject` — body `{bindingHash, decidedBy?, reason?}`; 409 `PLAN_NOT_READY`/`PLAN_EMPTY`/`PLAN_ALREADY_DECIDED`/`PLAN_MISMATCH` (+`PLAN_INVALID` saat approve bila ada item tanpa `videoPrompt`); 201 `{approval, contentIds, enqueuedJobIds}` |
 | Schedules | `POST /api/v1/schedules`, `GET /api/v1/schedules`, `PATCH /api/v1/schedules/:id`, `POST /api/v1/scheduler/pause`, `POST /api/v1/scheduler/resume` |
 | Accounts | `GET /api/v1/accounts` (tanpa `secretRef`/`profileKey`) |
 | Content | `POST /api/v1/content` — 202 `{jobId, status:'queued'|'duplicate'}`; key `plan:manual:<campaignId>:<requestId|uuid>`; 404 campaign, 409 `CAMPAIGN_INACTIVE`/`CAMPAIGN_NO_PLATFORM`/`PLAN_IN_PROGRESS`/`PIPELINE_BUSY` |
@@ -113,4 +115,4 @@ Argumen script diteruskan apa adanya; jangan memakai `--` pemisah (`--` ikut men
 - Pemicu `PLAN_CONTENT` manual ada di `POST /api/v1/content` (idempoten via `requestId`); pembatalan job dan pembacaan attempt publikasi tersedia lewat `POST /api/v1/jobs/:id/cancel` dan `GET /api/v1/jobs/:id/events`.
 - Produksi konten ikut berhenti bila adapter publikasi tidak terdaftar, karena loop dispatch digerbangi adapter (ADR-0006 S8).
 - Aksi connect **tidak** menyelesaikan konflik profil: `flow:login` gagal bila Chrome/CDP lain sudah memakai profil Flow yang sama (`Opening in existing browser session`). Menghentikan Chrome milik owner bukan wewenang API; kondisi ini diteruskan ke UI sebagai error aksi + catatan.
-- Alur approval rencana kerja (rencana `items[]` + satu gerbang pembuatan/publikasi) **belum ada**; Slice 1 hanya menyediakan kredensial AI (ADR-0011). `approvals.asset_sha256 NOT NULL` masih menghalangi approval tahap rencana.
+- Approval rencana tersedia lewat API (`/api/v1/plans/:jobId`), tetapi **UI** belum punya form permintaan maupun daftar approval batch (Slice 4).

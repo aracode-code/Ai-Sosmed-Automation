@@ -1,6 +1,6 @@
 # Modul — Workflow (Dispatcher + Handler Langkah)
 
-**Status:** COMPLETED untuk P1/P2, PLAN_CONTENT, GENERATE_VIDEO, PUBLISH (mock), dan worker loop (2026-10-30) · commit `70c7cec`, `826a732`, `013531a`, `6ad9547`, `7d13431`
+**Status:** COMPLETED untuk P1/P2, PLAN_CONTENT, GENERATE_VIDEO, PUBLISH (mock), worker loop (2026-10-30), dan gerbang approval rencana di PUBLISH (2026-11-02, `8b9a512`) · commit `70c7cec`, `826a732`, `013531a`, `6ad9547`, `7d13431`, `8b9a512`
 **Sumber:** kode aktual (E1). Keputusan: `ADR-0003` (D1–D6, D22–D23), `ADR-0004` (W1–W4, W8), `ADR-0005` (Y1–Y10). Kontrak: LLD §4.1, §9, §11.
 
 ## Peta Paket
@@ -25,8 +25,8 @@ Arah dependensi: `@saa/workflow` → `@saa/agent-core`, `@saa/browser-engine`, `
 - Pemetaan keputusan planner: `needs_human` → `ESCALATE` + `PLANNER_NEEDS_HUMAN`; `wait` → `RETRY_WAIT` dengan `run_at = now + 6 jam` + `PLANNER_WAIT`; `revise_metadata` → `PlannerOutputError`; `create_video` → simpan konten.
 - **Bentuk rencana:** `planItemsOf(plan)` menerima `items` 1–5 atau bentuk tunggal lama; handler menolak 0 item / > 5 item sebagai `PlannerOutputError`.
 - Konten: id batch `cnt_<jobId>_<n>` (1-based), bentuk tunggal tetap `cnt_<jobId>`; versi 1; `approval_status` `pending`/`not_required`; caption dipetakan per platform dari target item. `prompt_json` memuat `planJobId`, `itemIndex`, `itemCount` untuk pencarian item satu rencana (bahan Slice 3).
-- **Gerbang approval:** `approvalRequired=true` → semua konten `pending` dan **tidak ada** job `GENERATE_VIDEO`; `false` → satu job idempotent (`generate:<contentId>`) per item dengan payload `contentId`, `videoPrompt`, `aspectRatio`, `targets`. Job `PLAN_CONTENT` sendiri tetap `COMPLETED` dengan `content_id` = item pertama.
-- **Konsekuensi interim:** publikasi (enqueuer scheduler) dan guard produksi masih memilih konten terbaru; batch > 1 item baru diterbitkan seluruhnya setelah Slice 3 (single-gate publish).
+- **Gerbang approval:** `approvalRequired=true` → semua konten `pending` dan **tidak ada** job `GENERATE_VIDEO`; keputusan diambil di tahap rencana (`POST /api/v1/plans/:jobId/approve`) yang meng-enqueue generate untuk seluruh item. `false` → satu job idempotent (`generate:<contentId>`) per item dengan payload `contentId`, `videoPrompt`, `aspectRatio`, `targets`. Job `PLAN_CONTENT` sendiri tetap `COMPLETED` dengan `content_id` = item pertama.
+- **Setelah Slice 3 (`8b9a512`):** publikasi memakai approval rencana (satu gerbang) — lihat bagian PUBLISH.
 - **Rasio** ditentukan policy `aspectRatioForTargets` (`@saa/domain`, ADR-0010 F17): TikTok/Instagram/Threads `9:16`; YouTube/Facebook `16:9` kecuali `contentFormat` short/reel/story/klip; X `16:9`; campuran → `9:16`. `plan.aspectRatio` hanya dipakai bila planner tidak menghasilkan target (bentuk tunggal).
 
 ## GENERATE_VIDEO
@@ -41,7 +41,7 @@ Arah dependensi: `@saa/workflow` → `@saa/agent-core`, `@saa/browser-engine`, `
 ## PUBLISH
 
 - Payload `{ contentId, campaignId, accountId, platform }`; adapter harus platform yang sama.
-- Prasyarat: campaign + konten (versi terbaru) + akun terhubung + aset `valid` + caption platform (`resolveCaption` di `@saa/domain`, dipakai juga oleh enqueuer scheduler); mode `required` wajib approval yang masih mengikat.
+- Prasyarat: campaign + konten (versi terbaru) + akun terhubung + aset `valid` + caption platform (`resolveCaption` di `@saa/domain`, dipakai juga oleh enqueuer scheduler). Mode `required`: gerbang rencana valid (`getPlanGate` — `plan_approvals` + `hashPlanBinding` cocok) melewati cek approval per-konten; bila tidak valid, berlaku `getLatestApproval` + `checkApprovalBinding` seperti sebelumnya.
 - `PUBLISH_STARTED` diterima dari `SCHEDULED` dan `QUEUED` (promosi retry mengembalikan job ke `QUEUED` — ADR-0005 Y4).
 - Attempt dicatat sebelum aksi eksternal (`publish:<jobId>` unik); status akhir hanya dari `adapter.getStatus` (Y2–Y3).
 - Retry lewat `PUBLISH_SUBMITTED → VERIFICATION_FAILED` karena `PUBLISHING` tidak dapat langsung ke `RETRY_WAIT` (Y5).

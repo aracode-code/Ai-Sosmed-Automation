@@ -23,7 +23,7 @@
 - `buildHandlerRegistry` menerima `planner` **selalu**; `buildHandlerRegistry({ db, mediaRoot })` tanpa planner tetap tidak mendaftarkan `PLAN_CONTENT` (kontrak test lama dipertahankan).
 - Kunci yang diisi lewat UI langsung dipakai job berikutnya; job `PLAN_CONTENT` yang sudah `NEEDS_ATTENTION` karena `AUTH` perlu di-retry manual setelah kunci diisi.
 - `state`/log/UI hanya memuat status (`configured`, `source`, `storeError`), tidak pernah nilai kunci.
-- Alur approval rencana kerja (slice 2–4) belum ada; rencana tertulis: planner mengembalikan `items[]`, job menunggu approval sebelum `GENERATE_VIDEO`, migrasi `0003_plan_approvals.sql`, satu gerbang (setelah rencana disetujui, pembuatan + publikasi otomatis).
+- Alur approval rencana kerja (slice 2–4) belum ada **saat ADR ini dibuat**; rencana tertulis: planner mengembalikan `items[]`, job menunggu approval sebelum `GENERATE_VIDEO`, migrasi `0003_plan_approvals.sql`, satu gerbang (setelah rencana disetujui, pembuatan + publikasi otomatis). **Status 2026-11-02:** slice 1–3 DONE (`1dfcadf`, `df45977`, `8b9a512`); slice 4 (UI) belum.
 
 ## Bukti
 
