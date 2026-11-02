@@ -1,13 +1,13 @@
 # L0 — Active Context
 
 **Session:** SESSION-2026-11-02-1
-**Updated:** 2026-11-02T07:15:00+07:00
+**Updated:** 2026-11-02T07:36:00+07:00
 **Autonomy:** L1 (BALANCED)
-**Change class terakhir:** MEDIUM (smoke GENERATE_VIDEO lewat aplikasi + tambalan unduhan CDP)
+**Change class terakhir:** MEDIUM (Slice 1 kredensial AI: manager DPAPI + planner lazy + 2 route + UI)
 
 ## Current Task
 
-**P3 PARTIAL — smoke lewat aplikasi.** Job `job_0705ff16-ab0c-45bd-aac1-48d240e6f1fb` dibuat dengan `FLOW_ADAPTER=real`; worker benar-benar membuat video di Flow (kredit 1/1 untuk 2026-11-02 WIB). Unduhan lewat worker GAGAL: dialog "Save As" native menahan event `download`; API dihentikan agar retry tidak mengirim prompt kedua, job dieskalasi `NEEDS_ATTENTION` (`UI_CHANGED`), media dipulihkan dari URL bertanda tangan dan divalidasi. `flow-generator` sudah ditambal `Browser.setDownloadBehavior`; retest lewat aplikasi belum dijalankan (butuh 1 kredit, menunggu izin owner).
+**Slice 1 COMPLETED — kredensial AI (ADR-0011).** Kunci DeepSeek disimpan terenkripsi DPAPI `deepseek-api-key` lewat halaman Connections (menang atas env), planner selalu terdaftar dan meresolusi kunci per job (`AUTH` bila kosong), dan produksi konten terjadwal ditahan selama kunci belum ada. Alur approval rencana kerja (slice 2–4: planner `items[]`, migrasi `0003_plan_approvals.sql`, route approve/reject, form UI) **belum dimulai** — menunggu review owner. P3 tetap PARTIAL: retest unduhan `GENERATE_VIDEO` lewat worker masih menunggu 1 kredit.
 
 | Fase | Commit | Isi |
 |---|---|---|
@@ -19,9 +19,10 @@
 | W | `5e8184b`, `406f1f5` | `GET /api/v1/content/:id` + aksi approval |
 | F | `fd62314` | sesi profil Flow + `flow:login` (ADR-0010) |
 | R | `989aa2f`, `acdcf17` | aksi connect dari UI (runner proses + route + halaman Connections beraksi) |
-| S | `bea64d1` + commit sesi ini | smoke GENERATE_VIDEO lewat aplikasi + tambalan `setDownloadBehavior` |
+| S | `6fbd7fb` + `e8fcb1b` | smoke GENERATE_VIDEO lewat aplikasi + tambalan `setDownloadBehavior` + sinkronisasi knowledge |
+| AI | `1dfcadf` | kredensial AI DPAPI + planner lazy + input UI (ADR-0011) |
 
-Status fase: **P3 PARTIAL** (pembuatan via aplikasi VERIFIED; unduhan via aplikasi UNVERIFIED) · **P4 PARTIAL** (UI approval + aksi connect DONE; reauth belum) · **P4b/P4c COMPLETED** · **P5 PARTIAL** (A1–A7 DONE; unggahan nyata UNVERIFIED).
+Status fase: **P3 PARTIAL** (pembuatan via aplikasi VERIFIED; unduhan via aplikasi UNVERIFIED) · **P4 PARTIAL** (UI approval + aksi connect DONE; reauth belum) · **P4b/P4c COMPLETED** · **P5 PARTIAL** (A1–A7 DONE; unggahan nyata UNVERIFIED) · **Alur approval rencana kerja NOT STARTED** (slice 2–4).
 
 ## Konteks Minimum
 
@@ -32,14 +33,15 @@ Status fase: **P3 PARTIAL** (pembuatan via aplikasi VERIFIED; unduhan via aplika
 
 ## Fakta Aktif (terverifikasi)
 
-- 8 paket workspace + `apps/local-api` + `apps/dashboard`; **162 file TS/TSX** (termasuk 53 file test), **443 test hijau**; typecheck 10 paket + `tests/tsconfig.json` PASS.
-- Migrasi tetap 3 berkas; 12 tabel; **26 route**.
+- 8 paket workspace + `apps/local-api` + `apps/dashboard`; **168 file TS/TSX** (termasuk 56 file test), **458 test hijau**; typecheck 10 paket + `tests/tsconfig.json` PASS.
+- Migrasi tetap 3 berkas; 12 tabel; **28 route**.
 - Rantai otomatis: slot → `PLAN_CONTENT` → `GENERATE_VIDEO` → media valid → `PUBLISH` + produksi slot berikutnya; publikasi lebih dulu dalam satu tick.
 - Pipeline kedalaman satu: slot ditahan bila ada `PLAN_CONTENT` non-terminal atau konten terbaru belum punya job `PUBLISH`.
 - Kunci idempoten: `plan:<scheduleId>:<slot>`, `publish:<contentId>:v<version>:<accountId>:<platform>`, `plan:manual:<campaignId>:<requestId|uuid>`, `publish:<jobId>`.
 - Index kode: `LIGHTWEIGHT_GREP` / `DEGRADED` — `index-state.json`.
 - **YouTube (E1):** `videos.insert` resumable + `videos.list` verifikasi `privacyStatus`; `private` default, `categoryId 27`; `quotaExceeded`/`uploadLimitExceeded` → `AUTH` tanpa retry; resume 308 maks. 3 lanjutan; `externalPostId` disimpan agar restart tidak mengunggah ulang.
 - **Kredensial (E1):** token YouTube di DPAPI `%LOCALAPPDATA%\saa\credentials\youtube-<accountId>.bin`; DB hanya `secret_ref` + `connection_status`; OAuth client hanya dari env; aplikasi tidak membaca `.env`.
+- **Kredensial AI (E1, `1dfcadf`, ADR-0011):** kunci DeepSeek di DPAPI `deepseek-api-key` (diisi lewat Connections), **menang** atas `DEEPSEEK_API_KEY`; planner selalu terdaftar dengan `createLazyPlanner` (resolusi per job, `AUTH` bila kosong); produksi terjadwal ditahan bila kunci belum ada; `GET /api/v1/ai/status` + `POST /api/v1/ai/credentials` tidak pernah mengembalikan nilai kunci.
 - **Konfigurasi (E1):** `YOUTUBE_ADAPTER=off|mock|api`, `YOUTUBE_UPLOAD_PRIVACY`, `YOUTUBE_APP_STATUS=testing|production|unknown` (status *Internal* diwakili `production`).
 - **Preflight (E1, `bbfe83a`):** `preflight:youtube` — tanpa jaringan, tanpa mencetak rahasia; exit 0 lulus/peringatan, 1 FAIL, 2 konfigurasi.
 - **Dashboard (E1, `8e27b27`, `406f1f5`, `acdcf17`):** `apps/dashboard` React 18 + Vite 6, dev `localhost:5174`, proxy `/api` + `/health` → `127.0.0.1:4317`; halaman Overview/Jobs/Campaigns/Approvals/Accounts/Connections; **aksi approve/reject** memakai binding dari `GET /api/v1/content/:id` (UI tidak menghitung hash), diblokir tanpa aset `valid`/akun `connected`, `APPROVAL_MISMATCH` → minta muat ulang; **Connections beraksi** (login Flow + pairing dari UI). Tanpa router, tanpa Tailwind, tanpa test UI.
@@ -70,11 +72,13 @@ Status fase: **P3 PARTIAL** (pembuatan via aplikasi VERIFIED; unduhan via aplika
 
 ## Langkah Berikutnya
 
-1. Retest unduhan `GENERATE_VIDEO` lewat aplikasi dengan tambalan `setDownloadBehavior` — **butuh 1 kredit**; guard 2026-11-02 sudah 1/1 sehingga menunggu izin owner (paling cepat 2026-11-03 WIB).
-2. Sambungkan guard/ledger ke jalur `FLOW_ADAPTER=real` agar setiap submit tercatat otomatis.
-3. Tambahkan jalur "unduh ulang tanpa submit" (downloadOnly) supaya kegagalan unduhan tidak pernah mengirim prompt kedua.
-4. `PLAN_CONTENT` nyata menunggu `DEEPSEEK_API_KEY`; pairing YouTube dari UI menunggu `GOOGLE_OAUTH_CLIENT_ID`.
-5. Menunggu owner lain: keputusan revisi multi-versi konten, smoke live YouTube, job rekonsiliasi terjadwal, lint (D7), `AGENTS.md`.
+1. **Tunggu review owner atas Slice 1** (kunci AI). Jangan menyentuh skema sebelum disetujui.
+2. Slice 2: planner mengembalikan `items[]` maks. 5; `PLAN_CONTENT` tidak meng-enqueue `GENERATE_VIDEO` selama rencana `pending`.
+3. Slice 3: migrasi `0003_plan_approvals.sql` (tanpa `asset_sha256` wajib) + `POST /api/v1/plans/:jobId/approve|reject` + publikasi satu gerbang.
+4. Slice 4: form permintaan di Campaigns + daftar approval batch.
+5. Retest unduhan `GENERATE_VIDEO` lewat aplikasi — **butuh 1 kredit**; guard 2026-11-02 sudah 1/1 sehingga menunggu izin owner (paling cepat 2026-11-03 WIB).
+6. Sambungkan guard/ledger ke jalur `FLOW_ADAPTER=real`; tambahkan jalur "unduh ulang tanpa submit" (downloadOnly).
+7. Menunggu owner lain: pairing YouTube (`GOOGLE_OAUTH_CLIENT_ID`), keputusan revisi multi-versi konten, smoke live YouTube, lint (D7), `AGENTS.md`.
 
 ## Asumsi Terbuka (jangan dibangun di atasnya tanpa verifikasi)
 
@@ -84,7 +88,7 @@ Status fase: **P3 PARTIAL** (pembuatan via aplikasi VERIFIED; unduhan via aplika
 - Klasifikasi resmi scope `youtube.upload` dan batas unggahan per channel (tidak dipublikasikan).
 - Status publikasi app OAuth hanya diketahui dari laporan owner lewat `YOUTUBE_APP_STATUS`.
 - DPAPI hanya teruji di Windows 10 host ini; OAuth/refresh/resume hanya dengan `fetch` palsu.
-- Adapter DeepSeek belum diuji live; sumber API key belum diputuskan.
+- Adapter DeepSeek belum diuji live; kunci kini dapat diisi lewat DPAPI tetapi belum ada kunci nyata dari owner.
 - Dashboard hanya diuji di Chromium desktop (viewport ~818px).
 - Revisi konten multi-versi tidak dapat disimpan (PK `content_items` = `id`); `version` selalu 1.
 - Unduhan lewat worker baru terbukti dengan ekspresi Playwright terpisah (bukan jalur handler penuh) setelah tambalan.

@@ -1,17 +1,19 @@
 # Modul — Local API (App, Route, Composition Root)
 
-**Status:** P1–P5 backend (mock publish) + worker loop + dispatch jadwal + produksi konten + pemicu konten manual + CLI kesiapan COMPLETED (2026-10-31) · aksi connect dari UI COMPLETED (2026-11-01, runner proses lokal) · commit `debdaaf`, `4b513ab`, `6ad9547`, `7d13431`, `bfc7c72`, `77fbb9c`, `1f27cd5`, `bb1ba57`, `bbfe83a`
-**Sumber:** kode aktual (E1). Keputusan: `ADR-0001` (konfigurasi), `ADR-0003` D15, `ADR-0004` (worker + registry), `ADR-0005` (publikasi mock), `ADR-0006` (dispatch jadwal), `ADR-0007` (produksi konten per slot).
+**Status:** P1–P5 backend (mock publish) + worker loop + dispatch jadwal + produksi konten + pemicu konten manual + CLI kesiapan COMPLETED (2026-10-31) · aksi connect dari UI COMPLETED (2026-11-01, runner proses lokal) · kredensial AI (kunci DeepSeek DPAPI + planner lazy) COMPLETED (2026-11-02, ADR-0011) · commit `debdaaf`, `4b513ab`, `6ad9547`, `7d13431`, `bfc7c72`, `77fbb9c`, `1f27cd5`, `bb1ba57`, `bbfe83a`, `1dfcadf`
+**Sumber:** kode aktual (E1). Keputusan: `ADR-0001` (konfigurasi), `ADR-0003` D15, `ADR-0004` (worker + registry), `ADR-0005` (publikasi mock), `ADR-0006` (dispatch jadwal), `ADR-0007` (produksi konten per slot), `ADR-0011` (kredensial AI).
 
 ## Peta Berkas
 
 | Berkas | Tanggung jawab |
 |---|---|
-| `apps/local-api/src/config.ts` | Skema env (Zod), `AppConfig`, `loadAiCredentials` (key hanya dari env, tidak masuk `AppConfig`) |
-| `apps/local-api/src/app.ts` | `buildApp`: Fastify, error envelope, registrasi route, `workerActive` untuk health |
+| `apps/local-api/src/config.ts` | Skema env (Zod), `AppConfig`, `loadAiCredentials` (fallback env; tidak masuk `AppConfig`) |
+| `apps/local-api/src/ai-credentials.ts` | `AiCredentialManager`: store DPAPI `deepseek-api-key` menang atas env; `refresh`/`resolve`/`save`/`status`/`isConfigured`; `status()` tidak pernah memuat nilai kunci |
+| `apps/local-api/src/lazy-planner.ts` | `createLazyPlanner`: resolusi kunci per `plan()`, cache `Planner` per nilai kunci, tanpa kunci → `AUTH` |
+| `apps/local-api/src/app.ts` | `buildApp`: Fastify, error envelope, registrasi route, `workerActive` untuk health, `aiCredentials` opsional (default DPAPI) |
 | `apps/local-api/src/handlers.ts` | `buildHandlerRegistry`: satu-satunya titik pendaftaran handler |
-| `apps/local-api/src/server.ts` | Composition root: migrasi → recovery → registry → dispatcher/worker → listen → start; shutdown berurutan |
-| `apps/local-api/src/routes/*.ts` | Route HTTP per area (health, jobs, campaigns, approvals, schedules, accounts, content) |
+| `apps/local-api/src/server.ts` | Composition root: migrasi → recovery → kredensial AI → registry → dispatcher/worker → listen → start; shutdown berurutan |
+| `apps/local-api/src/routes/*.ts` | Route HTTP per area (health, jobs, campaigns, approvals, schedules, accounts, content, ai) |
 | `apps/local-api/src/errors.ts` | `errorEnvelope` bersama (`{ error: { code, message, requestId, details? } }`) |
 | `apps/local-api/src/preflight.ts` | Logika murni `collectPreflightChecks` — status PASS/WARN/FAIL tanpa akses jaringan dan tanpa mencetak rahasia |
 | `apps/local-api/src/preflight-youtube.ts` | CLI `preflight:youtube` — probe database read-only, akun, blob DPAPI, aset media; exit 0/1/2 |
@@ -22,13 +24,15 @@
 
 ```text
 loadConfig → createLogger → openDatabase → runMigrations → runStartupRecovery
-→ loadAiCredentials (opsional) → buildPublisher (opt-in mock) → buildHandlerRegistry
-→ Dispatcher(worker_<pid>) → Worker → Scheduler + ScheduleDispatchLoop → buildApp → listen
+→ createAiCredentialManager + refresh (store DPAPI → env) → buildPublisher (opt-in mock)
+→ buildHandlerRegistry (planner lazy selalu) → Dispatcher(worker_<pid>) → Worker
+→ Scheduler + ScheduleDispatchLoop → buildApp → listen
 → worker.start() (bila WORKER_ENABLED) → dispatchLoop.start() (bila syarat S8 terpenuhi)
 ```
 
-- `buildHandlerRegistry`: `GENERATE_VIDEO` selalu terdaftar (default `MockVideoGenerator` dengan `outputRoot = MEDIA_ROOT`); `PLAN_CONTENT` **hanya** bila `DEEPSEEK_API_KEY` ada (`createPlanner` + `createDeepSeekClient`); `PUBLISH` **hanya** bila `publisher` disuntikkan (dari `YOUTUBE_ADAPTER=mock|api`).
-- Tanpa key: log peringatan tanpa nilai key, job `PLAN_CONTENT` akan berakhir `NEEDS_ATTENTION` + `NO_HANDLER`.
+- `buildHandlerRegistry`: `GENERATE_VIDEO` selalu terdaftar (default `MockVideoGenerator` dengan `outputRoot = MEDIA_ROOT`); `PLAN_CONTENT` **selalu** terdaftar dan memakai `createLazyPlanner` (kunci diresolusi per job — ADR-0011 A3); `PUBLISH` **hanya** bila `publisher` disuntikkan (dari `YOUTUBE_ADAPTER=mock|api`).
+- Tanpa kunci: `PLAN_CONTENT` tetap terdaftar; job berakhir `NEEDS_ATTENTION` + `AUTH`; produksi terjadwal **ditahan** sampai kunci diisi (`aiCredentials.isConfigured()`), sedangkan publikasi konten lama tetap berjalan.
+- Kegagalan membaca store DPAPI: `storeError=true`, fallback env, peringatan boot; API tidak gagal start.
 - Tanpa adapter: `YOUTUBE_ADAPTER=off` (default) → log peringatan, job `PUBLISH` berakhir `NEEDS_ATTENTION` + `NO_HANDLER`.
 - `YOUTUBE_ADAPTER=mock` → `MockYouTubeAdapter` + log peringatan bahwa publikasi **PALSU** (ADR-0005 Y9).
 - `YOUTUBE_ADAPTER=api` → `createYouTubeApiPublisher` (ADR-0008 A4–A7): aset dari `media_assets`, token DPAPI, `resolveUpload` dari `publish_attempts.external_post_id`, dan `accountId` = satu-satunya akun YouTube (agar `capabilities().authStatus` jujur; lebih dari satu akun → `disconnected`).
@@ -37,7 +41,7 @@ loadConfig → createLogger → openDatabase → runMigrations → runStartupRec
 - Shutdown (`SIGINT`/`SIGTERM`): `dispatchLoop.stop()` → `worker.stop()` → `app.close()` → `db.close()` (dispatch lebih dulu agar tidak ada job baru).
 - `workerId = worker_<pid>`; satu worker per proses, satu job per siklus (ADR-0004 W8).
 
-## Route Terdaftar (26)
+## Route Terdaftar (28)
 
 | Area | Route |
 |---|---|
@@ -58,6 +62,8 @@ loadConfig → createLogger → openDatabase → runMigrations → runStartupRec
 | Connect Flow | `POST /api/v1/connections/flow/login` — 202 mulai `flow:login`; 412 `CONNECT_PREFLIGHT_FAILED` bila browser/channel tidak siap; 409 `CONNECT_ACTION_IN_PROGRESS` |
 | Connect YouTube | `POST /api/v1/connections/youtube/pair` — body ketat berisi **tepat satu** `accountId` atau `label`; 202; 400 `ACCOUNT_NOT_FOUND`/`ACCOUNT_UNSUPPORTED`; 412 `MISSING_CREDENTIALS` bila `GOOGLE_OAUTH_CLIENT_ID` kosong |
 | Connect stop | `POST /api/v1/connections/actions/:kind/stop` — 200 hentikan; 409 `CONNECT_ACTION_NOT_RUNNING` |
+| AI status | `GET /api/v1/ai/status` — `{configured, source: 'store'|'env'|'none', storeError}`; memuat kunci bila belum pernah dibaca; tidak pernah memuat nilai kunci |
+| AI credential | `POST /api/v1/ai/credentials` — body `.strict()` `{apiKey: string 10–200}` → 200 `{configured:true, source:'store'}`; menyimpan ke DPAPI `deepseek-api-key`; 400 `VALIDATION_ERROR` untuk field tambahan/panjang salah |
 
 ## Aksi Connect dari UI (`connect-runner.ts`)
 
@@ -85,7 +91,7 @@ loadConfig → createLogger → openDatabase → runMigrations → runStartupRec
 | `YOUTUBE_APP_STATUS` | `unknown` | `testing`/`production`/`unknown`; `testing` dicatat `error` saat boot (ADR-0008 O3) |
 | `FLOW_ADAPTER` | `mock` | `real` = `FlowPlaywrightGenerator` (tab Video) via CDP; default mock tidak memakai kredit. **Jalur ini belum memakai guard/ledger `flow-usage`** (ADR-0010 F33) — kredit yang dipakai worker tidak tercatat otomatis |
 | `FLOW_CDP_ENDPOINT` | `http://127.0.0.1:9222` | **Wajib loopback**; endpoint non-loopback ditolak config |
-| `DEEPSEEK_API_KEY` | — | Hanya lewat env; tidak pernah dilog/dipersistensi |
+| `DEEPSEEK_API_KEY` | — | **Fallback**; kunci dari DPAPI (`POST /api/v1/ai/credentials`) menang. Tidak pernah dilog/dipersistensi ke DB |
 
 ## Perintah
 
@@ -107,3 +113,4 @@ Argumen script diteruskan apa adanya; jangan memakai `--` pemisah (`--` ikut men
 - Pemicu `PLAN_CONTENT` manual ada di `POST /api/v1/content` (idempoten via `requestId`); pembatalan job dan pembacaan attempt publikasi tersedia lewat `POST /api/v1/jobs/:id/cancel` dan `GET /api/v1/jobs/:id/events`.
 - Produksi konten ikut berhenti bila adapter publikasi tidak terdaftar, karena loop dispatch digerbangi adapter (ADR-0006 S8).
 - Aksi connect **tidak** menyelesaikan konflik profil: `flow:login` gagal bila Chrome/CDP lain sudah memakai profil Flow yang sama (`Opening in existing browser session`). Menghentikan Chrome milik owner bukan wewenang API; kondisi ini diteruskan ke UI sebagai error aksi + catatan.
+- Alur approval rencana kerja (rencana `items[]` + satu gerbang pembuatan/publikasi) **belum ada**; Slice 1 hanya menyediakan kredensial AI (ADR-0011). `approvals.asset_sha256 NOT NULL` masih menghalangi approval tahap rencana.

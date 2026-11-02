@@ -40,7 +40,7 @@ Kode keluar `preflight:youtube`: `0` = lulus/peringatan, `1` = ada item FAIL, `2
 
 ## 3. Konfigurasi
 
-Nilai rahasia **hanya** dari environment; jangan pernah ditulis ke berkas repo, chat, atau log.
+Nilai rahasia **hanya** dari environment atau DPAPI (kunci AI lewat UI); jangan pernah ditulis ke berkas repo, chat, atau log.
 
 | Variabel | Default | Rahasia | Catatan |
 |---|---|---|---|
@@ -53,7 +53,7 @@ Nilai rahasia **hanya** dari environment; jangan pernah ditulis ke berkas repo, 
 | `YOUTUBE_ADAPTER` | `off` | — | `off` · `mock` (palsu) · `api` (nyata) |
 | `YOUTUBE_UPLOAD_PRIVACY` | `private` | — | `private` · `unlisted` · `public` |
 | `YOUTUBE_APP_STATUS` | `unknown` | — | `production` · `testing` · `unknown`; `testing` dilarang (ADR-0008 O3) |
-| `DEEPSEEK_API_KEY` | — | **ya** | tanpa ini planner tidak aktif, `PLAN_CONTENT` tidak terdaftar |
+| `DEEPSEEK_API_KEY` | — | **ya** | **fallback** bila DPAPI kosong; kunci dari UI tersimpan di DPAPI `deepseek-api-key` dan menang. Tanpa keduanya, job `PLAN_CONTENT` berakhir `AUTH` dan produksi terjadwal ditahan (ADR-0011) |
 | `GOOGLE_OAUTH_CLIENT_ID` | — | **ya** | wajib untuk pairing dan adapter `api` |
 | `GOOGLE_OAUTH_CLIENT_SECRET` | — | **ya** (opsional) | opsional untuk OAuth client Desktop |
 
@@ -91,7 +91,7 @@ corepack pnpm start
 
 Langkah pemicu unggahan — pilih salah satu:
 
-- **Manual:** `POST /api/v1/content` dengan `{ "campaignId": "<id>", "requestId": "<unik>" }` (perlu `DEEPSEEK_API_KEY`).
+- **Manual:** `POST /api/v1/content` dengan `{ "campaignId": "<id>", "requestId": "<unik>" }` (perlu kunci AI: DPAPI lewat Connections atau `DEEPSEEK_API_KEY`).
 - **Terjadwal:** biarkan loop dispatcher membuat job `PUBLISH` saat slot jatuh tempo.
 
 Jika campaign memakai `approvalMode=required`, setujui lewat

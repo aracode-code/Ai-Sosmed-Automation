@@ -9,7 +9,7 @@
 | Tipe | Aplikasi desktop lokal Windows, satu pengguna utama | VERIFIED (HLD §2.3) |
 | Deployment | Windows PC lokal; packaging Electron/Tauri belum dipilih | VERIFIED (HLD §4, LLD §19) |
 | Dokumen induk | `HLD.md` v1.0 dan `LLD.md` v1.0 (keduanya berstatus Draft) | VERIFIED |
-| Implementasi kode | **P1 + P2 + P3 mock + P4 backend + P4b/P4c otomatisasi + P5 mock + adapter YouTube API (A1–A7) + CLI preflight + dashboard (approval beraksi) + sesi Flow/login selesai** — 8 paket + `apps/local-api` + `apps/dashboard`, 419 test hijau | VERIFIED (commit `debdaaf` … `5dce5b9`, 2026-11-01) |
+| Implementasi kode | **P1 + P2 + P3 mock + P4 backend + P4b/P4c otomatisasi + P5 mock + adapter YouTube API (A1–A7) + CLI preflight + dashboard (approval beraksi) + sesi Flow/login + kredensial AI (DPAPI)** — 8 paket + `apps/local-api` + `apps/dashboard`, 458 test hijau | VERIFIED (commit `debdaaf` … `1dfcadf`, 2026-11-02) |
 
 ## Tujuan Produk
 
@@ -90,8 +90,8 @@ Belum dibuat (P3 penuh–P7): adapter Flow nyata, `packages/integrations/*`, rea
 - Scheduler: `next_run_at` persisten, kuota harian per akun+platform, pause lewat `settings` — tidak menghapus jadwal (ADR-0003 D10–D14).
 - P3 saat ini memakai generator **mock** (MP4-shaped, bukan video yang dapat diputar); Flow asli menunggu OD-1 (ADR-0003 D16–D17).
 - Status job: 15 status (termasuk `COMPLETED` untuk job langkah); publication tetap berakhir `PUBLISHED`.
-- Worker: loop in-process, satu job per siklus, `WORKER_INTERVAL_MS` default 1000, `WORKER_ENABLED=false` = API baca-saja; `PLAN_CONTENT` hanya terdaftar bila `DEEPSEEK_API_KEY` tersedia (ADR-0004).
-- `DEEPSEEK_API_KEY` hanya dibaca dari environment dan **tidak** masuk `AppConfig` (aman dilog); nilainya tidak pernah ditulis ke output/log/state.
+- Worker: loop in-process, satu job per siklus, `WORKER_INTERVAL_MS` default 1000, `WORKER_ENABLED=false` = API baca-saja; `PLAN_CONTENT` selalu terdaftar, tetapi tanpa kunci AI job berakhir `NEEDS_ATTENTION` + `AUTH` (ADR-0011).
+- Kunci AI DeepSeek disimpan di DPAPI `deepseek-api-key` (diisi lewat Connections) dan **menang** atas `DEEPSEEK_API_KEY` env; nilai tidak pernah masuk `AppConfig` maupun output/log/state (ADR-0011).
 - `MEDIA_ROOT` (default `./data/media`) adalah satu-satunya akar media: `outputRoot` generator = akar validasi.
 - Publikasi: `PUBLISH` mencatat `publish_attempts` sebelum aksi eksternal; status akhir hanya dari `adapter.getStatus`; `processing`/`unknown` → `NEEDS_ATTENTION` (ADR-0005).
 - Adapter YouTube saat ini **mock** (`YOUTUBE_ADAPTER=mock`, default `off`); post id `mock_yt_*` dan upload nyata UNVERIFIED (ADR-0005).

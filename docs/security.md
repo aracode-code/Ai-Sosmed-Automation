@@ -38,7 +38,7 @@ Celah yang tercatat di atas adalah pekerjaan P7; jangan menganggapnya selesai.
 
 | Secret | Lokasi penyimpanan | Rotasi |
 |---|---|---|
-| `DEEPSEEK_API_KEY` | environment | ganti nilai, restart proses |
+| `DEEPSEEK_API_KEY` | DPAPI `%LOCALAPPDATA%\saa\credentials\deepseek-api-key.bin` (diisi lewat Connections) atau environment (fallback) | ganti lewat Connections, atau ganti nilai env lalu restart proses |
 | `GOOGLE_OAUTH_CLIENT_ID` | environment | buat OAuth client baru di Google Cloud, pairing ulang |
 | `GOOGLE_OAUTH_CLIENT_SECRET` | environment (opsional untuk Desktop app) | reset secret di Google Cloud, pairing ulang |
 | Refresh token YouTube | blob DPAPI `%LOCALAPPDATA%\saa\credentials\youtube-<accountId>.bin` | cabut akses di akun Google, lalu pairing ulang |

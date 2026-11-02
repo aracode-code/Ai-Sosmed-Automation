@@ -1,6 +1,6 @@
 # Modul — Dashboard (`apps/dashboard`)
 
-**Status:** PARTIAL — UI untuk Jobs/Campaigns/Approvals (aksi setujui/tolak), Accounts, dan Connections **beraksi** (login Flow + pairing YouTube dari UI, 2026-11-01); reauth akun tetap CLI
+**Status:** PARTIAL — UI untuk Jobs/Campaigns/Approvals (aksi setujui/tolak), Accounts, dan Connections **beraksi** (login Flow + pairing YouTube dari UI, 2026-11-01; kunci AI DeepSeek via DPAPI, 2026-11-02); reauth akun tetap CLI
 **Sumber:** kode aktual (E1). Keputusan: `ADR-0009` (U1–U8, U7 direvisi). Kontrak data: `LLD.md` §6 (route lokal).
 
 ## Peta Berkas
@@ -13,7 +13,7 @@
 | `apps/dashboard/src/App.tsx` | Shell: sidebar (Overview/Jobs/Campaigns/Approvals/Accounts; default Overview), badge health, tombol muat ulang, `onChanged` untuk refresh setelah keputusan |
 | `apps/dashboard/src/components.tsx` | `StatusPill`, `EmptyState`, `ErrorBox`, `Loading`, `Section`, formatter |
 | `apps/dashboard/src/ApprovalDialog.tsx` | Dialog tinjau: detail konten, pilih aset `valid`, pilih akun `connected`, alasan, kirim approve/reject |
-| `apps/dashboard/src/pages/ConnectionsPage.tsx` | Status koneksi + **aksi connect**: tombol buka jendela login Flow, form pairing (akun terdaftar atau label baru), panel status/ fase/ log aksi dengan tombol Hentikan, polling 2 s selama aksi berjalan |
+| `apps/dashboard/src/pages/ConnectionsPage.tsx` | Status koneksi + **aksi connect**: tombol buka jendela login Flow, form pairing (akun terdaftar atau label baru), panel status/ fase/ log aksi dengan tombol Hentikan, polling 2 s selama aksi berjalan; **kunci AI (DeepSeek)**: pill status DPAPI/environment, input password tulis-saja, simpan via `POST /api/v1/ai/credentials` (ADR-0011) |
 | `apps/dashboard/src/pages/OverviewPage.tsx` | Halaman awal: kartu ringkasan, **tren 7/14/30 hari** (bar job dibuat/terbit/gagal, mode kompak >14 hari), maks. 5 campaign terbaru, dan kegagalan terbaru |
 | `apps/dashboard/src/pages/JobsPage.tsx` | Kartu ringkasan + panel kegagalan + daftar job + filter status + panel detail (spesifikasi, **percobaan publikasi**, **riwayat aksi**) dengan tombol **Retry job** (`NEEDS_ATTENTION`) dan **Batalkan** (bukan terminal, bukan `PUBLISHING`/`VERIFYING`) |
 | `apps/dashboard/src/pages/CampaignsPage.tsx` | Daftar campaign + detail konten per versi |

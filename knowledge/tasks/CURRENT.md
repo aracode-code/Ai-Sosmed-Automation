@@ -1,70 +1,66 @@
 # CURRENT — Task Aktif
 
 **Session:** SESSION-2026-11-02-1
-**Updated:** 2026-11-02T07:20:00+07:00
-**Change class:** MEDIUM (perbaikan `flow-generator` + test; tanpa schema/migrasi/route)
+**Updated:** 2026-11-02T07:36:00+07:00
+**Change class:** MEDIUM (manager kredensial + planner lazy + 2 route + UI; tanpa schema/migrasi)
 
 ## Active Task
 
-Owner memilih **smoke lewat aplikasi (P3)**: job `GENERATE_VIDEO` dengan `FLOW_ADAPTER=real` agar worker benar-benar memanggil Flow, lalu verifikasi media tersimpan. Hasil: pembuatan nyata **berhasil** (video Veo 3.1 - Lite, 9:16, satu kredit), tetapi unduhan worker tertahan **dialog "Save As" native Chrome**; media dipulihkan dari URL video bertanda tangan dan dicatat sebagai aset `valid`. Job **tidak** ditandai COMPLETED (dieskalasi jujur ke `NEEDS_ATTENTION`).
+Owner meminta alur **permintaan → rencana kerja → persetujuan → agen bekerja**, dengan kunci DeepSeek diisi dari UI. Slice 1 (prasyarat) **selesai dan diverifikasi**: kunci disimpan terenkripsi DPAPI lewat halaman Connections, planner meresolusi kunci per job, dan produksi konten terjadwal ditahan selama kunci belum ada.
 
 | Field | Nilai |
 |---|---|
-| Job | `job_0705ff16-ab0c-45bd-aac1-48d240e6f1fb` → `NEEDS_ATTENTION`, `last_error_code=UI_CHANGED` |
-| Konten | `cnt_smoke_p3_20261102` (campaign `cmp_6773ab06-…`, dibuat lewat repository aplikasi karena `DEEPSEEK_API_KEY` tidak ada) |
-| Media | `data/media/job_0705ff16-ab0c-45bd-aac1-48d240e6f1fb/flow-video.mp4` — **3.466.852 byte**, `ftyp isom`, sha256 `59df3899…8051`, `durationMs=null` (ffprobe tidak tersedia) |
-| Status | **P3 PARTIAL** — pembuatan via worker TERVERIFIKASI; unduhan via worker belum (fix sudah ditulis, belum diuji end-to-end karena butuh kredit baru) |
+| Slice | **Slice 1** — kredensial AI + planner lazy + input UI (ADR-0011) |
+| Keputusan owner | Setujui **sekali per rencana** · **satu gerbang** (setelah rencana disetujui, pembuatan + publikasi otomatis) · kunci **DPAPI via UI** |
+| Status | **COMPLETED (Slice 1)** — slice 2–4 (rencana ber-approval + migrasi) **belum dimulai**, menunggu review owner |
 | Mode eksekusi | SINGLE-WRITER sequential, L1 |
+| Commit kode | `1dfcadf` |
 
 ## Bukti Sesi Ini (aktual 2026-11-02 WIB)
 
 | Bukti | Hasil |
 |---|---|
-| Enqueue | `PLAN_CONTENT` tidak tersedia (tanpa `DEEPSEEK_API_KEY`); campaign/konten/job disisipkan lewat repository aplikasi (`insertCampaign`, `upsertContentItem`, `insertJobIdempotent`) dengan skrip sementara yang sudah dihapus |
-| Worker nyata | API `FLOW_ADAPTER=real FLOW_CDP_ENDPOINT=http://127.0.0.1:9222 WORKER_INTERVAL_MS=1000` pada port 4317; job klaim → `GENERATING` |
-| Pembuatan Flow | Prompt bubble terkirim; muncul tile `FLOW-VIDEO-TILE` (poster `img` 288×512, alt "Thumbnail video yang dihasilkan"); editor menampilkan timeline **00–11** → video jadi |
-| Kegagalan unduhan | Dialog native **"Save As"** (`#32770`) terbuka → `waitForEvent('download')` tidak pernah menerima event; worker dihentikan manual sebelum timeout 120 s agar tidak retry (retry akan men-submit ulang = kredit kedua) |
-| Akar masalah | Saat attach ke Chrome profil pengguna, perilaku unduhan Chrome tidak disetel; klik `Download → 720p Ukuran asli` memicu dialog native |
-| Bukti perbaikan | Setelah `Browser.setDownloadBehavior {behavior:'allow', downloadPath, eventsEnabled:true}`, klik `Download → Ukuran asli` **memicu event `download`** (`Coffee_cup_on_wooden_table_f02d740a.mp4`) tanpa dialog (uji terkontrol, tanpa kredit) |
-| Perbaikan kode | `generateFlowMedia` menyetel `Browser.setDownloadBehavior` sebelum interaksi; typecheck exit 0 |
-| Pemulihan media | URL bertanda tangan `flow-content.google/video/<id>?Expires=…` → HTTP 200 `video/mp4` 3.466.852 byte → `validateMediaFile` (berkas aplikasi) → `upsertMediaAsset` `med_cnt_smoke_p3_20261102` `validationStatus=valid` |
-| Rekonsiliasi job | `ESCALATE` `GENERATING → NEEDS_ATTENTION`, lease dilepas, audit `job.manual_reconciliation` (alasan + sha256 + ukuran) |
-| Ledger kredit | Entri baru `2026-11-01T23:53:07.242Z` video `submitted=true` `succeeded`; pemakaian **1/1** untuk 2026-11-02 WIB; dua entri lama dipulihkan setelah bug pemanggilan `parseLedger({raw})` (sempat terbuang, sudah diperbaiki) |
-| Quality gate | typecheck 10 paket + `tests/tsconfig.json` exit 0 · **53 file / 443 test** hijau (`vitest run --no-file-parallelism`) |
+| Presedensi kunci | `createAiCredentialManager`: store DPAPI dibaca lebih dulu, env fallback; `save()` menimpa cache sehingga kunci baru berlaku tanpa restart |
+| Planner lazy | `createLazyPlanner`: kunci diresolusi per `plan()`; tanpa kunci → `AppError('AUTH')` → `NEEDS_ATTENTION` tanpa retry; `Planner` di-cache per nilai kunci |
+| Route | `GET /api/v1/ai/status` → `{configured, source, storeError}`; `POST /api/v1/ai/credentials` body `.strict()` `{apiKey 10–200}` → `200 {configured:true, source:'store'}`; nilai kunci tidak pernah dikembalikan |
+| Wiring | `server.ts`: `refresh()` saat boot, peringatan `storeError`/belum terkonfigurasi, planner **selalu** terdaftar, enqueue produksi digerbangi `aiCredentials.isConfigured()`; `app.ts` mendaftarkan route dengan store DPAPI default |
+| UI | Section "Kunci AI (DeepSeek)" di Connections: pill status (`terkonfigurasi (DPAPI|environment)`/`belum diisi`), input password, tombol nonaktif < 10 karakter, error/berhasil, peringatan `storeError` |
+| Test baru | `ai-credentials.test.ts` 7 · `lazy-planner.test.ts` 4 · `ai-credentials-route.test.ts` 4 → **56 file / 458 test** hijau |
+| Smoke UI | Headless 1280×900 (viewport terpakai 1044 px): status `belum diisi → terkonfigurasi (DPAPI)`, kunci tidak ada di DOM/log, input dikosongkan; berkas DPAPI scratch 262 byte; store asli tidak tersentuh; scratch (`data/tmp-slice1`) dihapus |
+| Quality gate | `corepack pnpm typecheck` exit 0 (10 paket + `tests/tsconfig.json`) · `vitest run --no-file-parallelism` **56 file / 458 test** hijau |
 
 ## Temuan yang Mengikat
 
 | Temuan | Dampak |
 |---|---|
-| Panel Setelan dirender **asinkron** | Klik `tune` tidak menjamin tombol model/radio ada; ekspresi rasio wajib menunggu (maks. 15×200 ms) |
-| `Simpan` menutup panel | Verifikasi `aria-checked` harus di dalam ekspresi yang sama **sebelum** `Simpan`; membuka panel lagi untuk verifikasi menutupi komposer (`kotak prompt tidak terlihat`) |
-| Setelan agen "Konfirmasi sebelum membuat" | Default `Selalu` membuat agen berhenti minta konfirmasi; untuk pembuatan otomatis project harus `Jangan pernah` (diubah manual lewat UI) |
-| Hasil video = tile, bukan `<video>` | `MEDIA_PROBE` mengembalikan poster `img` (`/asb/`, 288×512); `OPEN_CARD_MENU` bekerja pada kartu tile |
-| Unduhan butuh perilaku CDP | Tanpa `Browser.setDownloadBehavior`, Chrome memunculkan dialog native dan event `download` tidak pernah tiba |
-| Jalur aplikasi ≠ ledger | `FlowPlaywrightGenerator` tidak memanggil guard/ledger `flow-usage`; kredit lewat aplikasi tidak tercatat otomatis (dicatat manual sesi ini) |
-| `PLAN_CONTENT` butuh `DEEPSEEK_API_KEY` | Tanpa key, produksi konten otomatis tidak bisa dipakai; smoke memakai enqueue manual |
+| Kunci di store **menang** atas env | Nilai yang diketik owner langsung dipakai; env tetap fallback untuk CI/headless |
+| Planner selalu terdaftar | Tanpa kunci, job `PLAN_CONTENT` berakhir `AUTH` (bukan `NO_HANDLER`); job lama perlu retry manual setelah kunci diisi |
+| Gerbang produksi di `server.ts` | Slot tidak menghasilkan job `PLAN_CONTENT` yang pasti gagal selama kunci belum ada; publikasi konten lama tetap jalan |
+| `sendJson` selalu mem-parse JSON | Endpoint simpan mengembalikan `200` JSON, bukan `204` |
+| Store rusak tidak fatal | `storeError` dilaporkan di status + log; API tetap boot memakai env |
+| Approval aset tidak bisa dipakai untuk rencana | `approvals.asset_sha256 NOT NULL` — slice 3 butuh migrasi `0003_plan_approvals.sql` |
 
 ## Impact Map
 
-- **Diubah:** `packages/browser-engine/src/flow-generator.ts` (perilaku unduhan CDP), `packages/browser-engine/src/flow-ratio.test.ts` (12 test, ekspresi rasio async + verifikasi satu langkah).
-- **DB lokal (data, gitignored):** `media_assets` +1 baris, `jobs` 1 baris dieskalasi, `audit_logs` +1, `data/flow-usage.json` +1 entri video.
-- **Tidak berubah:** schema/migrasi (3 berkas, 12 tabel), route (26), paket/workspace.
+- **Kode baru:** `apps/local-api/src/ai-credentials.ts`, `lazy-planner.ts`, `routes/ai-credentials.ts` + 3 berkas test.
+- **Kode diubah:** `apps/local-api/src/app.ts`, `server.ts`, `apps/dashboard/src/types.ts`, `pages/ConnectionsPage.tsx`.
+- **Tidak berubah:** schema/migrasi (3 berkas, 12 tabel), paket/workspace, lockfile.
+- **Route:** 26 → **28**.
 
 ## Drift Tercatat
 
-- **P3 PARTIAL**: pembuatan via worker terverifikasi; unduhan via worker **belum** (fix belum diuji end-to-end; perlu 1 kredit baru dengan izin owner).
-- **Ledger aplikasi**: kredit via aplikasi tidak dicatat otomatis — perlu wiring `onSubmit`/guard ke `FlowPlaywrightGenerator` (backlog).
-- **Durasi media** `null` karena ffprobe tidak terpasang; `validateMediaFile` menerima `probe` opsional.
-- Halaman Flow project kini berada di mode editor (`/edit/<id>`) setelah tile diklik; buka ulang project sebelum smoke berikutnya.
-- P4 PARTIAL (reauth), P5 PARTIAL (unggah nyata), P7 auth/`Origin` belum; `AGENTS.md` tetap untracked.
+- Alur approval rencana kerja **belum ada** (slice 2–4); desain disetujui owner, menunggu review setelah Slice 1.
+- `PLAN_CONTENT` live dengan kunci nyata belum diuji (belum ada kunci DeepSeek milik owner).
+- Temuan lama tetap: P3 PARTIAL (unduhan via worker belum diuji ulang), P4 PARTIAL (reauth), P5 PARTIAL (unggah nyata), P7 auth/`Origin`, `content_items` PK drift, ledger kredit jalur aplikasi, lint (D7), `AGENTS.md` untracked.
 
 ## Next Session Handoff
 
-1. Minta izin owner untuk **1 kredit** guna menguji ulang jalur aplikasi end-to-end setelah fix `Browser.setDownloadBehavior` (guard 1/hari sudah 1/1 hari ini → tunggu 2026-11-03 WIB).
-2. Sebelum smoke: buka project Flow yang bersih, set "Konfirmasi sebelum membuat" = `Jangan pernah`, pastikan komposer terlihat dan tidak ada panel terbuka.
-3. Tambahkan guard/ledger ke `FlowPlaywrightGenerator` (maks. 1/hari + konfirmasi) agar jalur aplikasi tidak melewati batas kredit.
-4. `PLAN_CONTENT` end-to-end masih menunggu `DEEPSEEK_API_KEY` di environment proses API.
-5. Rekonsiliasi job `NEEDS_ATTENTION` yang sudah punya aset `valid`: **jangan** klik retry (akan men-submit ulang); putuskan kebijakan (retry tanpa submit / tandai selesai manual) sebelum UI retry dipakai.
+1. **Tunggu review owner atas Slice 1**; jangan menyentuh skema sebelum disetujui.
+2. Slice 2 (setelah disetujui): planner mengembalikan `items[]` (maks. 5), `PLAN_CONTENT` tidak meng-enqueue `GENERATE_VIDEO` selama rencana `pending`.
+3. Slice 3: migrasi `0003_plan_approvals.sql` (tanpa `asset_sha256` wajib) + `POST /api/v1/plans/:jobId/approve|reject` + publikasi satu gerbang.
+4. Slice 4: form permintaan di Campaigns + daftar approval batch di UI.
+5. Isi kunci DeepSeek lewat Connections → retry job `PLAN_CONTENT` `AUTH` bila ada → uji satu siklus nyata (biaya sesuai guard Flow).
+6. Rekonsiliasi job `NEEDS_ATTENTION` yang sudah punya aset `valid`: **jangan** klik retry (akan men-submit ulang).
 
 ## Team Scope
 

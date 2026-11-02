@@ -3,8 +3,8 @@
   "mode": "LIGHTWEIGHT_GREP",
   "status": "DEGRADED",
   "reason": "Tidak ada tool SQLite index di runtime ini (`sqlite_query_tool` missing). Pencarian memakai ripgrep terhadap source aktual; tidak ada code.db.",
-  "indexed_commit": "bea64d11adbf7517b12168395fa3d5c36040656f",
-  "indexed_at": "2026-11-02T07:15:00+07:00",
+  "indexed_commit": "1dfcadf01f3e145d79ad7d62b6f90fecf6c13e3f",
+  "indexed_at": "2026-11-02T07:36:00+07:00",
   "scope": [
     "apps/local-api/src/**",
     "apps/dashboard/src/**",
@@ -20,18 +20,18 @@
     "docs/**"
   ],
   "counts": {
-    "files": 162,
-    "test_files": 53,
+    "files": 168,
+    "test_files": 56,
     "symbols": null,
     "imports": null,
-    "apis": 26,
+    "apis": 28,
     "db_objects": 12,
-    "tests": 443
+    "tests": 458
   },
   "validation": {
-    "last_validated_at": "2026-11-02T07:15:00+07:00",
+    "last_validated_at": "2026-11-02T07:36:00+07:00",
     "result": "partial",
-    "note": "Scope = git ls-files (ts/tsx) pada commit bea64d1: 162 file (termasuk 53 file test) + docs/. Metadata simbol/import null karena tanpa index SQLite. Endpoint 26, tabel 12, test 443 (vitest aktual). Perubahan sesi: flow-generator (setDownloadBehavior + set rasio satu ekspresi), flow-ratio.test. Tidak ada berkas sumber baru → jumlah tidak berubah."
+    "note": "Scope = git ls-files (ts/tsx) pada commit 1dfcadf: 168 file (termasuk 56 file test) + docs/. Metadata simbol/import null karena tanpa index SQLite. Endpoint 28, tabel 12, test 458 (vitest aktual). Perubahan sesi: ai-credentials, lazy-planner, routes/ai-credentials (2 route baru) + wiring app/server + UI Connections; 3 berkas test baru."
   },
   "fallback": {
     "engine": "LIGHTWEIGHT_GREP",
