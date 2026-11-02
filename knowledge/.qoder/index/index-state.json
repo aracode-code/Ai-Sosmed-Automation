@@ -3,8 +3,8 @@
   "mode": "LIGHTWEIGHT_GREP",
   "status": "DEGRADED",
   "reason": "Tidak ada tool SQLite index di runtime ini (`sqlite_query_tool` missing). Pencarian memakai ripgrep terhadap source aktual; tidak ada code.db.",
-  "indexed_commit": "1656c9f413679de34aa0e42b552f3ef5c5d67ea4",
-  "indexed_at": "2026-11-02T08:22:19+07:00",
+  "indexed_commit": "4650d906c6b178dde35849c227ff62a3c5a87e73",
+  "indexed_at": "2026-11-02T09:05:00+07:00",
   "scope": [
     "apps/local-api/src/**",
     "apps/dashboard/src/**",
@@ -20,7 +20,7 @@
     "docs/**"
   ],
   "counts": {
-    "files": 172,
+    "files": 173,
     "test_files": 57,
     "symbols": null,
     "imports": null,
@@ -29,9 +29,9 @@
     "tests": 489
   },
   "validation": {
-    "last_validated_at": "2026-11-02T08:22:19+07:00",
+    "last_validated_at": "2026-11-02T09:05:00+07:00",
     "result": "partial",
-    "note": "Scope = git ls-files (ts/tsx) pada commit 1656c9f: 172 file (termasuk 57 file test) + docs/. Metadata simbol/import null karena tanpa index SQLite. Endpoint 31, tabel 13, test 489 (vitest aktual). Perubahan sesi: filter `jobType`/`campaignId` pada GET /api/v1/jobs (route + repository), halaman Campaigns dengan form permintaan PLAN_CONTENT, daftar job rencana, dan komponen PlanReviewPanel (approve/reject via /api/v1/plans/:jobId)."
+    "note": "Scope = git ls-files (ts/tsx) pada commit 4650d90: 173 file (termasuk 57 file test) + docs/. Metadata simbol/import null karena tanpa index SQLite. Endpoint 31, tabel 13, test 489 (vitest aktual). Perubahan sesi: komponen CreateCampaignForm.tsx + wiring di CampaignsPage.tsx + kelas form-grid/check-row di styles.css (POST /api/v1/campaigns dari UI)."
   },
   "fallback": {
     "engine": "LIGHTWEIGHT_GREP",

@@ -1,19 +1,19 @@
 # CURRENT — Task Aktif
 
 **Session:** SESSION-2026-11-02-1
-**Updated:** 2026-11-02T08:45:00+07:00
-**Change class:** MEDIUM (Slice 4 UI) + uji live (tanpa perubahan kode)
+**Updated:** 2026-11-02T09:00:00+07:00
+**Change class:** SMALL (form buat campaign di UI)
 
 ## Active Task
 
-Owner meminta alur **permintaan → rencana kerja → persetujuan → agen bekerja**. **Slice 1** (kunci DeepSeek via DPAPI + planner lazy), **Slice 2** (rencana batch `items[]` + gerbang `PLAN_CONTENT`), **Slice 3** (approval tahap rencana + publikasi satu gerbang), dan **Slice 4** (form permintaan + keputusan rencana di Campaigns) **selesai**. **Uji live DeepSeek** dengan kunci nyata (2026-11-02) juga **VERIFIED** untuk jalur rencana → approve → generate (Flow mock, 0 kredit). Owner menyetujui desain: **setujui sekali per rencana**, **satu gerbang** (setelah rencana disetujui pembuatan + publikasi otomatis), kunci AI via DPAPI.
+Owner meminta alur **permintaan → rencana kerja → persetujuan → agen bekerja**. **Slice 1** (kunci DeepSeek via DPAPI + planner lazy), **Slice 2** (rencana batch `items[]` + gerbang `PLAN_CONTENT`), **Slice 3** (approval tahap rencana + publikasi satu gerbang), dan **Slice 4** (form permintaan + keputusan rencana di Campaigns) **selesai**. **Uji live DeepSeek** dengan kunci nyata (2026-11-02) juga **VERIFIED** untuk jalur rencana → approve → generate (Flow mock, 0 kredit). Owner menyetujui desain: **setujui sekali per rencana**, **satu gerbang** (setelah rencana disetujui pembuatan + publikasi otomatis), kunci AI via DPAPI. Follow-up yang diminta owner: **form "Buat campaign" di UI** — **COMPLETED** (`4650d90`), sehingga alur pertama-kali tidak lagi butuh curl.
 
 | Field | Nilai |
 |---|---|
-| Slice | **Slice 4** — form permintaan + keputusan rencana di Campaigns |
-| Status | **COMPLETED (Slice 4)** — alur approval rencana kerja Slice 1–4 tuntas; menunggu instruksi owner |
+| Slice | **S5** — form "Buat campaign" di Campaigns |
+| Status | **COMPLETED (S5)** — alur pertama-kali (buat campaign → minta rencana → setujui) dapat dijalankan penuh dari UI |
 | Mode eksekusi | SINGLE-WRITER sequential, L1 |
-| Commit kode | `1656c9f` |
+| Commit kode | `4650d90` |
 
 ## Bukti Sesi Ini (aktual 2026-11-02 WIB)
 
@@ -29,6 +29,9 @@ Owner meminta alur **permintaan → rencana kerja → persetujuan → agen beker
 | Smoke UI | Playwright headless (Chrome, 1440×1000) + DB scratch: form tampil, job rencana dibuat (`QUEUED` → `NEEDS_ATTENTION` karena kunci DeepSeek belum ada), panel menampilkan `bindingHash` + item, aksi **Tolak** sukses → notice dan status konten `rejected`; tidak ada kredensial di body/UI |
 | Secret scan | Diff hanya memuat peringatan CRLF; tidak ada nilai rahasia |
 | Uji live DeepSeek | Kunci nyata via Connections (`source:'store'`); campaign scratch `required` → `POST /api/v1/content` → `PLAN_CONTENT` `COMPLETED` ±2 s dengan **2 item** (caption YouTube Short); approve `bindingHash` `37d51ee5…e612b` → `plan_approvals` + 2 konten `approved` + 2 `GENERATE_VIDEO` `COMPLETED`; aset `valid` 10.459 B / 7.823 B; Flow mock → **0 kredit**; DB/media scratch dihapus, API dihentikan |
+| Form buat campaign (S5) | `CreateCampaignForm.tsx`: nama/niche (maks. 120), select `required|automatic`, checkbox 6 platform (default YouTube), tombol nonaktif sampai valid; `POST /api/v1/campaigns` → notice `campaignId`, form reset, campaign baru langsung dipilih + tabel disegarkan |
+| Smoke form (S5) | Chromium headless 1440×1100 pada API 4317 nyata: isi "Demo Form UI" + niche → notice `cmp_61cfedcc-… dibuat`, baris muncul & terpilih, section "Permintaan approval · Demo Form UI" tampil; screenshot `data/try-create-campaign.png` |
+| Quality gate (S5) | `corepack pnpm typecheck` exit 0 (10 paket + `tests/tsconfig.json`) · `vitest run --no-file-parallelism` **489/489** hijau (tidak ada perubahan backend/test) |
 
 ## Temuan yang Mengikat
 
@@ -42,13 +45,15 @@ Owner meminta alur **permintaan → rencana kerja → persetujuan → agen beker
 
 ## Impact Map
 
-- **Kode diubah:** `packages/database/src/repositories/jobs.ts` (+test); `apps/local-api/src/routes/jobs.ts`, `apps/local-api/src/app.test.ts`; `apps/dashboard/src/{App.tsx,types.ts,PlanReviewPanel.tsx,pages/CampaignsPage.tsx}`.
-- **Tidak berubah:** migrasi/skema DB, route rencana, handler workflow, scheduler, adapter YouTube/Flow, konfigurasi env, dependensi/lockfile.
+- **Kode diubah (S5):** `apps/dashboard/src/CreateCampaignForm.tsx` (baru), `apps/dashboard/src/pages/CampaignsPage.tsx`, `apps/dashboard/src/styles.css`.
+- **Kode diubah (Slice 4):** `packages/database/src/repositories/jobs.ts` (+test); `apps/local-api/src/routes/jobs.ts`, `apps/local-api/src/app.test.ts`; `apps/dashboard/src/{App.tsx,types.ts,PlanReviewPanel.tsx,pages/CampaignsPage.tsx}`.
+- **Tidak berubah:** migrasi/skema DB, route campaign/rencana, handler workflow, scheduler, adapter YouTube/Flow, konfigurasi env, dependensi/lockfile.
 - **Dependensi baru:** tidak ada.
 
 ## Drift Tercatat
 
 - Halaman Approvals belum menampilkan rencana yang menunggu keputusan (integrasi opsional, belum diminta).
+- UI campaign belum punya edit/aktif-nonaktif/hapus maupun form jadwal; campaign hanya dapat dibuat, belum dikelola.
 - Jalur live DeepSeek sudah teruji; yang belum: `GENERATE_VIDEO` dengan Flow **nyata** (unduhan masih bermasalah, butuh 1 kredit) dan siklus penuh dengan adapter publikasi nyata.
 - Temuan lama tetap: P3 PARTIAL (unduhan via worker belum diuji ulang), P4 PARTIAL (reauth), P5 PARTIAL (unggah nyata), P7 auth/`Origin`, `content_items` PK drift, ledger kredit jalur aplikasi, lint (D7), `AGENTS.md` untracked.
 

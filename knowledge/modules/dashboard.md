@@ -1,6 +1,6 @@
 # Modul — Dashboard (`apps/dashboard`)
 
-**Status:** PARTIAL — UI untuk Jobs/Campaigns (form permintaan rencana + keputusan rencana, `1656c9f`), Approvals (aksi setujui/tolak per-konten), Accounts, dan Connections **beraksi** (login Flow + pairing YouTube dari UI, 2026-11-01; kunci AI DeepSeek via DPAPI, 2026-11-02); reauth akun tetap CLI
+**Status:** PARTIAL — UI untuk Jobs/Campaigns (form buat campaign `4650d90`, form permintaan rencana + keputusan rencana `1656c9f`), Approvals (aksi setujui/tolak per-konten), Accounts, dan Connections **beraksi** (login Flow + pairing YouTube dari UI, 2026-11-01; kunci AI DeepSeek via DPAPI, 2026-11-02); reauth akun tetap CLI
 **Sumber:** kode aktual (E1). Keputusan: `ADR-0009` (U1–U8, U7 direvisi). Kontrak data: `LLD.md` §6 (route lokal).
 
 ## Peta Berkas
@@ -12,6 +12,7 @@
 | `apps/dashboard/src/types.ts` | Bentuk respons API yang dipakai UI (Job, Campaign, ContentItem, ContentDetail, AssetSummary, AccountSummary, Health) |
 | `apps/dashboard/src/App.tsx` | Shell: sidebar (Overview/Jobs/Campaigns/Approvals/Accounts; default Overview), badge health, tombol muat ulang, `onChanged` untuk refresh setelah keputusan |
 | `apps/dashboard/src/components.tsx` | `StatusPill`, `EmptyState`, `ErrorBox`, `Loading`, `Section`, formatter |
+| `apps/dashboard/src/CreateCampaignForm.tsx` | Form **Buat campaign**: nama, niche, mode approval (`required`/`automatic`), checkbox platform; `POST /api/v1/campaigns` → notice + pilih baris baru (`4650d90`) |
 | `apps/dashboard/src/ApprovalDialog.tsx` | Dialog tinjau: detail konten, pilih aset `valid`, pilih akun `connected`, alasan, kirim approve/reject |
 | `apps/dashboard/src/PlanReviewPanel.tsx` | Tinjauan rencana `PLAN_CONTENT`: memuat `GET /api/v1/plans/:jobId`, tabel item, `bindingHash`, alasan, kirim approve/reject; mode `automatic` baca-saja |
 | `apps/dashboard/src/pages/ConnectionsPage.tsx` | Status koneksi + **aksi connect**: tombol buka jendela login Flow, form pairing (akun terdaftar atau label baru), panel status/ fase/ log aksi dengan tombol Hentikan, polling 2 s selama aksi berjalan; **kunci AI (DeepSeek)**: pill status DPAPI/environment, input password tulis-saja, simpan via `POST /api/v1/ai/credentials` (ADR-0011) |
@@ -25,6 +26,7 @@
 ## Perilaku Penting
 
 - **Sumber data:** `GET /health`, `/api/v1/jobs` (termasuk filter `jobType`/`campaignId`), `/api/v1/jobs/:id/events`, `/api/v1/campaigns`, `/api/v1/campaigns/:id`, `/api/v1/accounts`, `/api/v1/connections`, `GET /api/v1/content/:id` (dialog approval), `GET /api/v1/plans/:jobId` (panel rencana), dan `GET /api/v1/dashboard/summary` (kartu ringkasan + tren).
+- **Buat campaign:** form di Campaigns mengirim `{name, niche, approvalMode, platforms}` ke `POST /api/v1/campaigns` (202 `{campaignId, status:'created'}`); tombol nonaktif sampai nama + niche terisi dan ≥1 platform dipilih; sukses mengosongkan form, menampilkan `campaignId`, memilih baris baru, dan memicu `onChanged`. Tidak ada form edit/status/hapus maupun form jadwal.
 - **Permintaan rencana (Campaigns):** tombol **Minta rencana** mengirim `{campaignId, notes?}` ke `POST /api/v1/content`; respons 202 `queued`/`duplicate` ditampilkan sebagai notice dan daftar job dimuat ulang. Form diblokir bila campaign tidak aktif atau tidak punya platform; campaign `automatic` diberi keterangan bahwa pembuatan berjalan otomatis.
 - **Daftar + keputusan rencana:** tabel 5 job `PLAN_CONTENT` terbaru (status, dibuat) dengan tombol *Tinjau*; `PlanReviewPanel` memuat rencana + item + `bindingHash`, menampilkan kolom alasan hanya untuk mode `required` dan belum diputuskan, lalu mengirim `{bindingHash, decidedBy:'local-user', reason?}`. `PLAN_MISMATCH`/`PLAN_ALREADY_DECIDED`/`PLAN_NOT_READY`/`PLAN_EMPTY`/`PLAN_INVALID` dipetakan ke pesan; setelah sukses panel memuat ulang dan `onChanged` menyegarkan daftar job/campaign.
 - **Aksi connect:** tombol memanggil `POST /api/v1/connections/flow/login` atau `/youtube/pair` lalu memantau `GET /api/v1/connections/actions` tiap 2 detik selama fase `running`/`waiting`. Fase `waiting` menandakan jendela browser menunggu login/consent manual — UI tidak mengisi kredensial. Tombol Hentikan memanggil `.../actions/:kind/stop`. Setelah aksi selesai, data koneksi dimuat ulang lewat `onChanged`.
@@ -48,10 +50,11 @@ corepack pnpm --filter @saa/dashboard typecheck
 
 ## Batas / Belum Ada
 
+- Campaign hanya bisa **dibuat**; edit, aktif/nonaktif, hapus, dan form jadwal belum ada di UI (dipakai lewat API/CLI).
 - Halaman **Approvals** masih per konten dengan binding aset; rencana yang menunggu keputusan hanya tampil di halaman Campaigns (integrasi ke Approvals belum diminta).
 - Panel rencana tidak menampilkan aset (media belum ada saat keputusan); yang ditampilkan hanya item + caption + status approval.
 - Alur **reauth** akun (token kedaluwarsa/`reauth_required`) belum ada di UI; pairing awal sudah bisa dimulai dari UI tetapi tetap dijalankan proses lokal CLI.
 - `GET /api/v1/dashboard/summary` dipakai halaman Jobs untuk lima kartu ringkasan (job aktif, perlu perhatian, menunggu approval, publikasi terbit, akun terhubung); kartu tidak menampilkan data sensitif.
-- Belum ada test UI otomatis; verifikasi manual di browser (ADR-0009 U8) — alur approve/reject per-konten, aksi connect, dan form/keputusan rencana sudah diuji pada DB demo (Slice 4 memakai Playwright headless 1440×1000).
+- Belum ada test UI otomatis; verifikasi manual di browser (ADR-0009 U8) — alur approve/reject per-konten, aksi connect, form/keputusan rencana (1440×1000), dan form buat campaign (1440×1100, DB nyata) sudah diuji.
 - Tailwind belum dipakai (ADR-0009 U4); router belum ada (U3).
 - Belum ada autentikasi/`Origin` check pada Local API yang dilayani UI (celah P7, `docs/security.md`).

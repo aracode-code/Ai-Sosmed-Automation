@@ -1,9 +1,9 @@
 # L0 — Active Context
 
 **Session:** SESSION-2026-11-02-1
-**Updated:** 2026-11-02T08:45:00+07:00
+**Updated:** 2026-11-02T09:00:00+07:00
 **Autonomy:** L1 (BALANCED)
-**Change class terakhir:** MEDIUM (Slice 4: filter job per campaign/tipe, form permintaan + keputusan rencana di Campaigns)
+**Change class terakhir:** SMALL (form "Buat campaign" di halaman Campaigns)
 
 ## Current Task
 
@@ -24,6 +24,7 @@
 | S2 | `df45977` | rencana batch `items[]` 1–5 + gerbang approval `PLAN_CONTENT` |
 | S3 | `8b9a512` | approval rencana (`plan_approvals`) + publikasi satu gerbang |
 | S4 | `1656c9f` | filter job per campaign/tipe + form permintaan & keputusan rencana di Campaigns |
+| S5 | `4650d90` | form "Buat campaign" di Campaigns (nama, niche, mode approval, platform) |
 
 Status fase: **P3 PARTIAL** (pembuatan via aplikasi VERIFIED; unduhan via aplikasi UNVERIFIED) · **P4 PARTIAL** (UI approval + aksi connect DONE; reauth belum) · **P4b/P4c COMPLETED** · **P5 PARTIAL** (A1–A7 DONE; unggahan nyata UNVERIFIED) · **Alur approval rencana kerja: Slice 1–4 DONE**.
 
@@ -36,7 +37,7 @@ Status fase: **P3 PARTIAL** (pembuatan via aplikasi VERIFIED; unduhan via aplika
 
 ## Fakta Aktif (terverifikasi)
 
-- 8 paket workspace + `apps/local-api` + `apps/dashboard`; **172 file TS/TSX** (termasuk 57 file test), **489 test hijau**; typecheck 10 paket + `tests/tsconfig.json` PASS.
+- 8 paket workspace + `apps/local-api` + `apps/dashboard`; **173 file TS/TSX** (termasuk 57 file test), **489 test hijau**; typecheck 10 paket + `tests/tsconfig.json` PASS.
 - Migrasi **4 berkas** (`0000_init` … `0003_plan_approvals`); **13 tabel** (termasuk `plan_approvals`); **31 route**.
 - Rantai otomatis: slot → `PLAN_CONTENT` → (approval rencana) → `GENERATE_VIDEO` per item → media valid → `PUBLISH` seluruh item rencana + produksi slot berikutnya; publikasi lebih dulu dalam satu tick.
 - Pipeline kedalaman satu: slot ditahan bila ada `PLAN_CONTENT` non-terminal atau **ada item rencana** yang belum punya job `PUBLISH`.
@@ -49,11 +50,12 @@ Status fase: **P3 PARTIAL** (pembuatan via aplikasi VERIFIED; unduhan via aplika
 - **Approval rencana (E1, `8b9a512`, Slice 3):** tabel `plan_approvals` (unique `plan_job_id`); binding `hashPlanBinding` = sha256 atas `[{contentId, contentVersion, captionHash}]` terurut `contentId` (tanpa aset — media belum ada saat approve). Route `GET /api/v1/plans/:jobId` (rencana + item + `bindingHash` + keputusan) dan `POST /api/v1/plans/:jobId/approve|reject` body `{bindingHash, decidedBy?, reason?}`; urutan tolak 404 → 409 `PLAN_NOT_READY`/`PLAN_EMPTY`/`PLAN_ALREADY_DECIDED`/`PLAN_MISMATCH` → (approve) 409 `PLAN_INVALID` bila ada item tanpa `videoPrompt`. Approve dalam satu transaksi: simpan keputusan, `approval_status` semua konten, `GENERATE_VIDEO` idempotent per item (`generate:<contentId>`, `parentJobId` = job rencana), audit `plan.approve`/`plan.reject`.
 - **Publikasi satu gerbang (E1, `8b9a512`):** mode `required` → bila ada approval rencana `approved` dengan binding cocok, **semua** item rencana (kecuali `rejected`) menjadi kandidat; tanpa itu jatuh ke approval per-konten (data lama). Handler `PUBLISH` memakai `getPlanGate` dan hanya memeriksa approval per-konten bila gerbang rencana tidak valid. Guard produksi menahan slot sampai **setiap** item rencana punya job `PUBLISH`.
 - **UI rencana kerja (E1, `1656c9f`, Slice 4):** Campaigns punya form "Minta rencana" → `POST /api/v1/content` (202 `queued`/`duplicate`), daftar job `PLAN_CONTENT` per campaign (`GET /api/v1/jobs?jobType=…&campaignId=…`, limit 5), dan `PlanReviewPanel` (`GET /api/v1/plans/:jobId` → Tolak/Setujui dengan `bindingHash`). Daftar job diperbarui lewat `refreshToken` setelah aksi. Mode `automatic` = tinjauan baca-saja (pembuatan sudah otomatis); mode `required` = keputusan wajib. Halaman Approvals **tetap** per-konten dan belum menampilkan rencana.
+- **UI buat campaign (E1, `4650d90`):** `CreateCampaignForm.tsx` di atas tabel Campaigns — input nama/niche (maks. 120), select mode `required|automatic`, checkbox 6 platform (default `youtube`), tombol nonaktif sampai nama+niche terisi dan ≥1 platform; submit `POST /api/v1/campaigns` → notice berisi `campaignId`, form direset, campaign baru langsung dipilih dan tabel disegarkan. Tidak ada form edit/status/delete campaign maupun form jadwal.
 - **Uji live DeepSeek (E1, 2026-11-02):** kunci nyata di DPAPI (diisi lewat Connections, `GET /api/v1/ai/status` → `{configured:true, source:'store'}`); campaign scratch `required` → `POST /api/v1/content` → job `job_a81dda0a-…` `COMPLETED` dalam ±2 s dengan **2 item** (topik + caption YouTube Short 9:16 + `videoPrompt`); `bindingHash` `37d51ee5…e612b`; approve → `plan_approvals` + semua konten `approved` + 2 job `GENERATE_VIDEO` (`job_f45e361e-…`, `job_e9a7f580-…`) keduanya `COMPLETED`; aset `valid` 10.459 B (sha256 `54dabacf…`) dan 7.823 B. Flow **mock**, jadi 0 kredit. Publikasi (adapter nyata) tidak dijalankan.
 - **Filter job (E1, `1656c9f`):** `GET /api/v1/jobs` menerima `jobType` (divalidasi terhadap `JOB_TYPES`) dan `campaignId`; keduanya opsional dan terikat ke query repository `listJobs` — diperlukan agar daftar rencana dapat ditemukan setelah muat ulang (tanpa endpoint baru).
 - **Konfigurasi (E1):** `YOUTUBE_ADAPTER=off|mock|api`, `YOUTUBE_UPLOAD_PRIVACY`, `YOUTUBE_APP_STATUS=testing|production|unknown` (status *Internal* diwakili `production`).
 - **Preflight (E1, `bbfe83a`):** `preflight:youtube` — tanpa jaringan, tanpa mencetak rahasia; exit 0 lulus/peringatan, 1 FAIL, 2 konfigurasi.
-- **Dashboard (E1, `8e27b27`, `406f1f5`, `acdcf17`, `1656c9f`):** `apps/dashboard` React 18 + Vite 6, dev `localhost:5174`, proxy `/api` + `/health` → `127.0.0.1:4317`; halaman Overview/Jobs/Campaigns/Approvals/Accounts/Connections; **aksi approve/reject per-konten** memakai binding dari `GET /api/v1/content/:id` (UI tidak menghitung hash), diblokir tanpa aset `valid`/akun `connected`, `APPROVAL_MISMATCH` → minta muat ulang; **Connections beraksi** (login Flow + pairing dari UI); **Campaigns beraksi** (form permintaan rencana + daftar job rencana + panel keputusan rencana). Tanpa router, tanpa Tailwind, tanpa test UI.
+- **Dashboard (E1, `8e27b27`, `406f1f5`, `acdcf17`, `1656c9f`, `4650d90`):** `apps/dashboard` React 18 + Vite 6, dev `localhost:5174`, proxy `/api` + `/health` → `127.0.0.1:4317`; halaman Overview/Jobs/Campaigns/Approvals/Accounts/Connections; **aksi approve/reject per-konten** memakai binding dari `GET /api/v1/content/:id` (UI tidak menghitung hash), diblokir tanpa aset `valid`/akun `connected`, `APPROVAL_MISMATCH` → minta muat ulang; **Connections beraksi** (login Flow + pairing dari UI); **Campaigns beraksi** (form "Buat campaign" → `POST /api/v1/campaigns` lalu baris baru langsung dipilih, form permintaan rencana + daftar job rencana + panel keputusan rencana). Tanpa router, tanpa Tailwind, tanpa test UI.
 - **Endpoint detail konten (E1, `5e8184b`):** `GET /api/v1/content/:id?version=n` → konten (default versi tertinggi pada baris itu), `campaign {platforms, approvalMode}`, `assets` tanpa `path`, `captionHash` server-side, `accounts` kandidat; 7 test.
 - **Drift skema (2026-11-01):** `content_items` PK `id` tunggal vs LLD §5 `unique(id, version)` → versi baru untuk id yang sama gagal; `version` saat ini selalu 1; menunggu keputusan owner.
 - **Sesi Flow (E1, `fd62314`; diverifikasi 2026-11-02):** `playwright` + Chromium/Chrome (`FLOW_BROWSER_CHANNEL`, default `chrome`); profil `%LOCALAPPDATA%\saa\browser\flow-profile` (`FLOW_PROFILE_DIR` absolut); `openFlowSession` memegang `.worker-lock.json` dan melepasnya pada close/launch gagal/goto gagal; `flow:login [--check]` — login manual headed, tanpa mengisi kredensial atau menembus CAPTCHA; `DEFAULT_FLOW_URL = https://flow.google.com/`. Login dari UI berakhir `succeeded`; `flow:inspect` pada project `445c6cd0-…` melihat komposer "Apa yang ingin Anda buat?" → **sesi valid & persisten**.
@@ -100,5 +102,5 @@ Status fase: **P3 PARTIAL** (pembuatan via aplikasi VERIFIED; unduhan via aplika
 - Revisi konten multi-versi tidak dapat disimpan (PK `content_items` = `id`); `version` selalu 1.
 - Unduhan lewat worker baru terbukti dengan ekspresi Playwright terpisah (bukan jalur handler penuh) setelah tambalan.
 - Batch > 1 item sudah diuji live dengan kunci DeepSeek (2 item → approve → 2 job generate → 2 media valid) memakai Flow **mock**; publikasi nyata dan Flow nyata belum.
-- UI rencana kerja baru diuji pada Chromium desktop (Playwright headless 1440×1000) dengan DB scratch; halaman Approvals belum menampilkan rencana, dan tombol retry di Jobs tetap berbahaya untuk job yang sudah submit prompt.
+- UI rencana kerja baru diuji pada Chromium desktop (Playwright headless 1440×1000) dengan DB scratch; halaman Approvals belum menampilkan rencana, dan tombol retry di Jobs tetap berbahaya untuk job yang sudah submit prompt. Form "Buat campaign" diuji pada Chromium headless 1440×1100 dengan campaign nyata di DB aplikasi.
 - Lint belum dipilih; pairing akun tetap CLI.
