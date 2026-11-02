@@ -10,7 +10,14 @@ import {
   formatTime,
   shortId
 } from '../components';
-import type { DashboardSummary, Job, JobTimeline, ListResponse } from '../types';
+import type {
+  AssetSummary,
+  ContentDetail,
+  DashboardSummary,
+  Job,
+  JobTimeline,
+  ListResponse
+} from '../types';
 
 const FILTERS = [
   'ALL',
@@ -40,6 +47,11 @@ export function JobsPage({ refreshToken }: { refreshToken: number }): JSX.Elemen
   const detail = useApi<Job>(selectedId === null ? null : `/api/v1/jobs/${selectedId}?t=${token}`);
   const timeline = useApi<JobTimeline>(
     selectedId === null ? null : `/api/v1/jobs/${selectedId}/events?t=${token}`
+  );
+  const contentId = detail.data?.contentId ?? null;
+  /** Aset hasil produksi; konten bisa sudah dihapus sehingga galat tidak ditampilkan. */
+  const content = useApi<ContentDetail>(
+    contentId === null ? null : `/api/v1/content/${contentId}?t=${token}`
   );
 
   const byJobStatus = summary.data?.jobs.byStatus ?? {};
@@ -276,6 +288,9 @@ export function JobsPage({ refreshToken }: { refreshToken: number }): JSX.Elemen
           {detail.error !== null ? <ErrorBox message={detail.error} /> : null}
           {actionError !== null ? <ErrorBox message={actionError} /> : null}
           {detail.data !== null ? <JobDetail job={detail.data} /> : null}
+          {content.data !== null && content.data.assets.length > 0 ? (
+            <JobResult assets={content.data.assets} />
+          ) : null}
           {timeline.loading ? <Loading /> : null}
           {timeline.error !== null ? <ErrorBox message={timeline.error} /> : null}
           {timeline.data !== null && timeline.data.attempts.length > 0 ? (
@@ -334,6 +349,53 @@ export function JobsPage({ refreshToken }: { refreshToken: number }): JSX.Elemen
           ) : null}
         </Section>
       ) : null}
+    </div>
+  );
+}
+
+const FILE_EXTENSION: Record<string, string> = {
+  'video/mp4': '.mp4',
+  'image/png': '.png',
+  'image/jpeg': '.jpg'
+};
+
+function formatBytes(value: number): string {
+  if (value < 1024) return `${value} B`;
+  if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KB`;
+  return `${(value / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+/** Pratinjau berkas hasil generasi; berkas disajikan Local API dengan validasi MEDIA_ROOT. */
+function JobResult({ assets }: { assets: AssetSummary[] }): JSX.Element {
+  return (
+    <div className="panel-pad">
+      <p className="detail-label">Hasil generasi</p>
+      <div className="media-results">
+        {assets.map((asset) => {
+          const url = `/api/v1/media/${encodeURIComponent(asset.id)}/file`;
+          const fileName = `${asset.id}${FILE_EXTENSION[asset.mimeType] ?? ''}`;
+          return (
+            <figure key={asset.id} className="media-card">
+              {asset.mimeType.startsWith('image/') ? (
+                <img className="media-preview" src={url} alt={`Hasil ${asset.id}`} />
+              ) : (
+                <video className="media-preview" src={url} controls preload="metadata" />
+              )}
+              <figcaption className="media-meta">
+                <span className="mono">{asset.mimeType}</span>
+                <span>{formatBytes(asset.sizeBytes)}</span>
+                <StatusPill value={asset.validationStatus} />
+                <span className="mono" title={asset.sha256}>
+                  {asset.sha256.slice(0, 12)}…
+                </span>
+                <a className="btn" href={url} download={fileName}>
+                  Unduh
+                </a>
+              </figcaption>
+            </figure>
+          );
+        })}
+      </div>
     </div>
   );
 }

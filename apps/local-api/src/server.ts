@@ -174,7 +174,8 @@ async function main(): Promise<void> {
     logger,
     version: '0.1.0',
     workerActive: () => worker.isRunning,
-    aiCredentials
+    aiCredentials,
+    mediaRoot
   });
 
   const shutdown = async (signal: string): Promise<void> => {

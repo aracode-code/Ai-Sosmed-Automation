@@ -5,6 +5,7 @@ const TONES: Record<string, string> = {
   COMPLETED: 'ok',
   connected: 'ok',
   approved: 'ok',
+  valid: 'ok',
   not_required: 'muted',
   NEEDS_ATTENTION: 'warn',
   RETRY_WAIT: 'warn',

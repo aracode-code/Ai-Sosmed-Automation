@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { resolve } from 'node:path';
 import Fastify, {
   type FastifyError,
   type FastifyInstance,
@@ -22,6 +23,7 @@ import { contentRoutes } from './routes/content';
 import { dashboardRoutes } from './routes/dashboard';
 import { healthRoutes } from './routes/health';
 import { jobRoutes } from './routes/jobs';
+import { mediaRoutes } from './routes/media';
 import { planRoutes } from './routes/plans';
 import { scheduleRoutes } from './routes/schedules';
 
@@ -39,6 +41,8 @@ export interface BuildAppOptions {
   hasYouTubeCredentials?: () => boolean;
   /** Manager kunci AI; default DPAPI pada mesin ini. */
   aiCredentials?: AiCredentialManager;
+  /** Akar media absolut; default `resolve(config.mediaRoot)`. */
+  mediaRoot?: string;
 }
 
 export function buildApp(options: BuildAppOptions): FastifyInstance {
@@ -109,6 +113,10 @@ export function buildApp(options: BuildAppOptions): FastifyInstance {
     ...(workerActive === undefined ? {} : { workerActive })
   });
   void app.register(jobRoutes, { db, now });
+  void app.register(mediaRoutes, {
+    db,
+    mediaRoot: options.mediaRoot ?? resolve(options.config.mediaRoot)
+  });
   void app.register(campaignRoutes, { db });
   void app.register(contentRoutes, { db, now });
   void app.register(dashboardRoutes, { db, now });
