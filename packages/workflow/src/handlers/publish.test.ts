@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import {
   AppError,
   hashCaption,
+  hashPlanBinding,
   type PublishRequest,
   type PublishResult
 } from '@saa/domain';
@@ -16,6 +17,7 @@ import {
   insertCampaign,
   insertJob,
   insertMediaAsset,
+  insertPlanApproval,
   insertSocialAccount,
   openDatabase,
   runMigrations,
@@ -119,6 +121,92 @@ function seed(db: DatabaseHandle, options: SeedOptions = {}) {
   }
 
   return { campaign, content, asset, account };
+}
+
+interface PlanSeedOptions {
+  approvedCaption?: unknown;
+  approvalStatus?: 'approved' | 'rejected';
+}
+
+/** Konten dari rencana: tidak ada baris `approvals` per item, hanya keputusan tahap rencana. */
+function seedPlanContent(db: DatabaseHandle, options: PlanSeedOptions = {}) {
+  seq += 1;
+  const status = options.approvalStatus ?? 'approved';
+  const campaign = insertCampaign(
+    db.raw,
+    {
+      name: 'Edukasi AI',
+      niche: 'edukasi teknologi',
+      approvalMode: 'required',
+      platforms: ['youtube']
+    },
+    T0
+  );
+  const planJob = insertJob(
+    db.raw,
+    {
+      jobType: 'PLAN_CONTENT',
+      idempotencyKey: `plan-publish-${seq}`,
+      payload: {},
+      campaignId: campaign.id,
+      status: 'COMPLETED'
+    },
+    T0
+  );
+
+  const caption = {
+    youtube: {
+      caption: 'Dasar AI dalam 30 detik',
+      contentFormat: 'short_video',
+      title: 'Dasar AI'
+    }
+  };
+  const content = upsertContentItem(db.raw, {
+    id: `cnt_${planJob.id}_1`,
+    campaignId: campaign.id,
+    topic: 'Dasar AI',
+    prompt: { planJobId: planJob.id, videoPrompt: 'Animasi dasar AI', aspectRatio: '9:16' },
+    caption,
+    approvalStatus: status
+  });
+
+  insertMediaAsset(db.raw, {
+    id: `med_${content.id}`,
+    contentId: content.id,
+    path: `content/${content.id}/video.mp4`,
+    sha256: ASSET_SHA,
+    mimeType: 'video/mp4',
+    sizeBytes: 4_096,
+    durationMs: 30_000,
+    validationStatus: 'valid'
+  });
+
+  const account = insertSocialAccount(db.raw, {
+    platform: 'youtube',
+    label: 'YouTube utama',
+    connectionStatus: 'connected'
+  });
+
+  insertPlanApproval(
+    db.raw,
+    {
+      planJobId: planJob.id,
+      campaignId: campaign.id,
+      bindingHash: hashPlanBinding([
+        {
+          contentId: content.id,
+          contentVersion: content.version,
+          captionHash: hashCaption(options.approvedCaption ?? caption)
+        }
+      ]),
+      itemCount: 1,
+      decision: status,
+      decidedBy: 'owner'
+    },
+    T0
+  );
+
+  return { campaign, content, account };
 }
 
 function enqueuePublish(
@@ -430,5 +518,51 @@ describe('PUBLISH handler', () => {
     const result = await dispatcherWith(db, new MockYouTubeAdapter()).runOnce();
 
     expect(result?.status).toBe('PUBLISHED');
+  });
+
+  it('rencana yang disetujui menggantikan approval per item', async () => {
+    const db = tempDb();
+    const seeded = seedPlanContent(db);
+    const job = enqueuePublish(db, {
+      campaignId: seeded.campaign.id,
+      contentId: seeded.content.id,
+      accountId: seeded.account.id
+    });
+
+    const result = await dispatcherWith(db, new MockYouTubeAdapter()).runOnce();
+
+    expect(result?.status).toBe('PUBLISHED');
+    expect(getPublishAttemptByKey(db.raw, `publish:${job.id}`)?.status).toBe('published');
+  });
+
+  it('rencana yang berubah setelah disetujui tidak lolos lewat gerbang rencana', async () => {
+    const db = tempDb();
+    const seeded = seedPlanContent(db, { approvedCaption: { youtube: { caption: 'caption lama' } } });
+    const job = enqueuePublish(db, {
+      campaignId: seeded.campaign.id,
+      contentId: seeded.content.id,
+      accountId: seeded.account.id
+    });
+
+    const result = await dispatcherWith(db, new MockYouTubeAdapter()).runOnce();
+
+    expect(result?.status).toBe('FAILED');
+    expect(result?.lastErrorCode).toBe('VALIDATION');
+    expect(attemptRows(db, job.id)).toBe(0);
+  });
+
+  it('konten dari rencana yang ditolak tidak pernah dipublikasikan', async () => {
+    const db = tempDb();
+    const seeded = seedPlanContent(db, { approvalStatus: 'rejected' });
+    enqueuePublish(db, {
+      campaignId: seeded.campaign.id,
+      contentId: seeded.content.id,
+      accountId: seeded.account.id
+    });
+
+    const result = await dispatcherWith(db, new MockYouTubeAdapter()).runOnce();
+
+    expect(result?.status).toBe('FAILED');
+    expect(result?.lastErrorCode).toBe('VALIDATION');
   });
 });

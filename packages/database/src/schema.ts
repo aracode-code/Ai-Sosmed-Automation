@@ -149,8 +149,30 @@ export const approvals = sqliteTable(
   (t) => [index('idx_approvals_content').on(t.contentId, t.contentVersion)]
 );
 
-export const publishAttempts = sqliteTable(
-  'publish_attempts',
+export const planApprovals = sqliteTable(
+  'plan_approvals',
+  {
+    id: text('id').primaryKey(),
+    planJobId: text('plan_job_id')
+      .notNull()
+      .references(() => jobs.id),
+    campaignId: text('campaign_id')
+      .notNull()
+      .references(() => campaigns.id),
+    bindingHash: text('binding_hash').notNull(),
+    itemCount: integer('item_count').notNull(),
+    decision: text('decision').notNull(),
+    decidedAt: text('decided_at').notNull(),
+    decidedBy: text('decided_by').notNull(),
+    reason: text('reason')
+  },
+  (t) => [
+    uniqueIndex('uq_plan_approvals_plan').on(t.planJobId),
+    index('idx_plan_approvals_campaign').on(t.campaignId)
+  ]
+);
+
+export const publishAttempts = sqliteTable(  'publish_attempts',
   {
     id: text('id').primaryKey(),
     jobId: text('job_id')

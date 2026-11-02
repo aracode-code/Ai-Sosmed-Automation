@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest';
 import {
   checkApprovalBinding,
   hashCaption,
+  hashPlanBinding,
+  planApprovalAllows,
+  planJobIdOfPrompt,
   stableStringify,
   type ApprovalBinding
 } from './index';
@@ -77,5 +80,42 @@ describe('hashCaption', () => {
 
   it('stableStringify mengurutkan key bersarang', () => {
     expect(stableStringify({ b: 1, a: { d: 2, c: 3 } })).toBe('{"a":{"c":3,"d":2},"b":1}');
+  });
+});
+
+describe('approval tahap rencana', () => {
+  const ITEMS = [
+    { contentId: 'cnt_b', contentVersion: 1, captionHash: 'b'.repeat(64) },
+    { contentId: 'cnt_a', contentVersion: 1, captionHash: 'a'.repeat(64) }
+  ];
+
+  it('hash rencana tidak bergantung pada urutan item', () => {
+    expect(hashPlanBinding(ITEMS)).toBe(hashPlanBinding([...ITEMS].reverse()));
+  });
+
+  it('hash rencana berubah bila caption satu item berubah atau item bertambah', () => {
+    const changed = [{ ...ITEMS[0]!, captionHash: 'c'.repeat(64) }, ITEMS[1]!];
+    expect(hashPlanBinding(changed)).not.toBe(hashPlanBinding(ITEMS));
+    expect(hashPlanBinding([...ITEMS, { ...ITEMS[0]!, contentId: 'cnt_c' }])).not.toBe(
+      hashPlanBinding(ITEMS)
+    );
+  });
+
+  it('rencana hanya berlaku bila approved dan binding masih cocok', () => {
+    const hash = hashPlanBinding(ITEMS);
+    expect(planApprovalAllows({ decision: 'approved', bindingHash: hash }, ITEMS)).toBe(true);
+    expect(planApprovalAllows({ decision: 'rejected', bindingHash: hash }, ITEMS)).toBe(false);
+    expect(planApprovalAllows({ decision: 'approved', bindingHash: 'x'.repeat(64) }, ITEMS)).toBe(
+      false
+    );
+    expect(planApprovalAllows(null, ITEMS)).toBe(false);
+  });
+
+  it('planJobIdOfPrompt hanya membaca metadata rencana yang valid', () => {
+    expect(planJobIdOfPrompt({ planJobId: 'job_1', videoPrompt: 'x' })).toBe('job_1');
+    expect(planJobIdOfPrompt({ videoPrompt: 'x' })).toBeNull();
+    expect(planJobIdOfPrompt({ planJobId: '   ' })).toBeNull();
+    expect(planJobIdOfPrompt(null)).toBeNull();
+    expect(planJobIdOfPrompt('job_1')).toBeNull();
   });
 });

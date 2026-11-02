@@ -1,5 +1,6 @@
-import type { ContentItem } from '@saa/domain';
+import { planJobIdOfPrompt, type ContentItem } from '@saa/domain';
 import type { SqliteDatabase } from '../client';
+import { hasJobForContent } from './jobs';
 
 interface ContentRow {
   id: string;
@@ -99,4 +100,41 @@ export function setContentApprovalStatus(
     .prepare('UPDATE content_items SET approval_status = @status WHERE id = @id AND version = @version')
     .run(params);
   return info.changes > 0;
+}
+
+function escapeLike(value: string): string {
+  return value.replace(/[\\%_]/g, (char) => `\\${char}`);
+}
+
+/**
+ * Seluruh item satu rencana. `planJobId` hanya ada di `prompt_json` (tanpa kolom),
+ * jadi LIKE dipakai sebagai penyaring awal dan kecocokan tepat diverifikasi di JS.
+ */
+export function listContentByPlanJob(raw: SqliteDatabase, planJobId: string): ContentItem[] {
+  const rows = raw
+    .prepare(
+      `SELECT * FROM content_items
+       WHERE prompt_json LIKE @pattern ESCAPE '\\'
+       ORDER BY id ASC`
+    )
+    .all({ pattern: `%"planJobId":"${escapeLike(planJobId)}"%` }) as ContentRow[];
+  return rows.map(toContent).filter((item) => planJobIdOfPrompt(item.prompt) === planJobId);
+}
+
+/**
+ * Konten yang masih menahan slot produksi berikutnya: seluruh item rencana yang sama
+ * (bukan hanya konten terbaru) harus sudah punya job PUBLISH. Konten yang ditolak
+ * reviewer dikecualikan karena tidak akan pernah terbit.
+ */
+export function listPlanContentsAwaitingPublish(
+  raw: SqliteDatabase,
+  newest: ContentItem
+): ContentItem[] {
+  const planJobId = planJobIdOfPrompt(newest.prompt);
+  const contents = planJobId === null ? [newest] : listContentByPlanJob(raw, planJobId);
+  return contents.filter(
+    (item) =>
+      item.approvalStatus !== 'rejected' &&
+      !hasJobForContent(raw, { contentId: item.id, jobType: 'PUBLISH' })
+  );
 }

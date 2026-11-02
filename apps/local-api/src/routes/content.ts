@@ -6,10 +6,10 @@ import {
   getContentItem,
   getJobByIdempotencyKey,
   hasActiveJobForCampaign,
-  hasJobForContent,
   insertJobIdempotent,
   listContentByCampaign,
   listMediaByContent,
+  listPlanContentsAwaitingPublish,
   listSocialAccounts,
   type DatabaseHandle
 } from '@saa/database';
@@ -95,17 +95,16 @@ export const contentRoutes: FastifyPluginAsync<ContentRoutesDeps> = async (app, 
         );
     }
     const newest = listContentByCampaign(deps.db.raw, campaign.id)[0];
-    if (
-      newest !== undefined &&
-      !hasJobForContent(deps.db.raw, { contentId: newest.id, jobType: 'PUBLISH' })
-    ) {
+    const waiting = newest === undefined ? [] : listPlanContentsAwaitingPublish(deps.db.raw, newest);
+    if (waiting.length > 0) {
       return reply
         .status(409)
         .send(
           errorEnvelope(
             'PIPELINE_BUSY',
-            `konten ${newest.id} belum punya job PUBLISH; slot produksi berikutnya ditahan`,
-            requestId
+            `konten ${waiting[0]!.id} belum punya job PUBLISH; slot produksi berikutnya ditahan`,
+            requestId,
+            waiting.map((content) => content.id)
           )
         );
     }

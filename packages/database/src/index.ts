@@ -9,6 +9,7 @@ export * from './repositories/content';
 export * from './repositories/dashboard';
 export * from './repositories/jobs';
 export * from './repositories/media';
+export * from './repositories/plan-approvals';
 export * from './repositories/publish-attempts';
 export * from './repositories/schedules';
 export * from './repositories/settings';

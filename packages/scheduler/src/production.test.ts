@@ -121,6 +121,54 @@ describe('produksi konten per slot', () => {
     ]);
   });
 
+  it('menahan slot sampai seluruh item rencana punya job PUBLISH', () => {
+    const db = openMigrated();
+    const { campaign, schedule } = seed(db);
+    const planJob = insertJob(db.raw, {
+      jobType: 'PLAN_CONTENT',
+      idempotencyKey: `plan:${campaign.id}`,
+      payload: { campaignId: campaign.id },
+      campaignId: campaign.id,
+      status: 'COMPLETED'
+    });
+
+    const first = upsertContentItem(db.raw, {
+      id: `cnt_${planJob.id}_1`,
+      campaignId: campaign.id,
+      topic: 'topik 1',
+      prompt: { planJobId: planJob.id },
+      caption: { youtube: { caption: 'satu' } },
+      approvalStatus: 'approved'
+    });
+    const second = upsertContentItem(db.raw, {
+      id: `cnt_${planJob.id}_2`,
+      campaignId: campaign.id,
+      topic: 'topik 2',
+      prompt: { planJobId: planJob.id },
+      caption: { youtube: { caption: 'dua' } },
+      approvalStatus: 'approved'
+    });
+
+    // Hanya item pertama yang sudah punya job publikasi.
+    insertJob(db.raw, {
+      jobType: 'PUBLISH',
+      idempotencyKey: `publish:${first.id}:v1:acc:youtube`,
+      payload: {},
+      campaignId: campaign.id,
+      contentId: first.id
+    });
+    expect(enqueueDueContentPlan(db, schedule, CONTEXT)).toEqual([]);
+
+    insertJob(db.raw, {
+      jobType: 'PUBLISH',
+      idempotencyKey: `publish:${second.id}:v1:acc:youtube`,
+      payload: {},
+      campaignId: campaign.id,
+      contentId: second.id
+    });
+    expect(enqueueDueContentPlan(db, schedule, CONTEXT)).toHaveLength(1);
+  });
+
   it('menahan slot saat masih ada PLAN_CONTENT yang belum selesai', () => {
     const db = openMigrated();
     const { campaign, schedule } = seed(db);

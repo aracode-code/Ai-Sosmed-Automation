@@ -21,12 +21,13 @@ afterEach(() => {
 });
 
 describe('migrasi', () => {
-  it('menerapkan migrasi awal sekali dan membuat 12 tabel', () => {
+  it('menerapkan migrasi awal sekali dan membuat 13 tabel', () => {
     const db = tempDb();
     expect(runMigrations(db.raw)).toEqual([
       '0000_init.sql',
       '0001_campaign_platforms.sql',
-      '0002_scheduler_and_approval.sql'
+      '0002_scheduler_and_approval.sql',
+      '0003_plan_approvals.sql'
     ]);
 
     const tables = (db.raw
@@ -41,6 +42,7 @@ describe('migrasi', () => {
       'job_dependencies',
       'jobs',
       'media_assets',
+      'plan_approvals',
       'publish_attempts',
       'schedules',
       'schema_migrations',
@@ -56,7 +58,8 @@ describe('migrasi', () => {
     expect(appliedMigrations(db.raw)).toEqual([
       '0000_init.sql',
       '0001_campaign_platforms.sql',
-      '0002_scheduler_and_approval.sql'
+      '0002_scheduler_and_approval.sql',
+      '0003_plan_approvals.sql'
     ]);
   });
 

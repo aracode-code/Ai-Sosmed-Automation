@@ -52,6 +52,19 @@ export interface Approval extends ApprovalBinding {
   reason: string | null;
 }
 
+/** Keputusan tahap rencana: satu baris per job `PLAN_CONTENT`, tanpa syarat aset. */
+export interface PlanApproval {
+  id: string;
+  planJobId: string;
+  campaignId: string;
+  bindingHash: string;
+  itemCount: number;
+  decision: ApprovalDecision;
+  decidedAt: string;
+  decidedBy: string;
+  reason: string | null;
+}
+
 export interface Schedule extends ScheduleConfig {
   id: string;
   campaignId: string;

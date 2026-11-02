@@ -3,9 +3,9 @@ import {
   getCampaign,
   getJobByIdempotencyKey,
   hasActiveJobForCampaign,
-  hasJobForContent,
   insertJobIdempotent,
   listContentByCampaign,
+  listPlanContentsAwaitingPublish,
   type DatabaseHandle
 } from '@saa/database';
 import type { EnqueueContext, EnqueueFn } from './scheduler';
@@ -17,7 +17,8 @@ export interface ContentProductionOptions {
 /**
  * Produksi konten per slot: satu `PLAN_CONTENT` untuk setiap jadwal due yang
  * pipelinenya kosong. Menahan slot berikutnya selama masih ada perencanaan
- * berjalan atau konten terbaru belum punya job publikasi (kedalaman 1).
+ * berjalan atau ada item rencana berjalan yang belum punya job publikasi
+ * (kedalaman 1 per rencana, bukan hanya konten terbaru).
  */
 export function enqueueDueContentPlan(
   db: DatabaseHandle,
@@ -33,10 +34,7 @@ export function enqueueDueContentPlan(
   }
 
   const newest = listContentByCampaign(db.raw, campaign.id)[0];
-  if (
-    newest !== undefined &&
-    !hasJobForContent(db.raw, { contentId: newest.id, jobType: 'PUBLISH' })
-  ) {
+  if (newest !== undefined && listPlanContentsAwaitingPublish(db.raw, newest).length > 0) {
     return [];
   }
 

@@ -2,16 +2,19 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { hashCaption, type PlatformId } from '@saa/domain';
+import { hashCaption, hashPlanBinding, type PlatformId } from '@saa/domain';
 import {
   insertApproval,
   insertCampaign,
+  insertJob,
   insertMediaAsset,
+  insertPlanApproval,
   insertSchedule,
   insertSocialAccount,
   listJobs,
   openDatabase,
   runMigrations,
+  setContentApprovalStatus,
   upsertContentItem,
   type DatabaseHandle
 } from '@saa/database';
@@ -216,5 +219,139 @@ describe('enqueueDuePublicationJobs', () => {
     const { schedule } = seed(db, { caption: { tiktok: { caption: 'caption tiktok' } } });
 
     expect(enqueueDuePublicationJobs(db, schedule, CONTEXT, ['youtube'])).toEqual([]);
+  });
+});
+
+interface PlanSeedOptions {
+  approvalMode?: 'automatic' | 'required';
+  planApproval?: 'approved' | 'rejected' | null;
+  bindingFromChangedCaption?: boolean;
+}
+
+/** Rencana dua item: seluruh konten berbagi `planJobId` dan masing-masing punya aset valid. */
+function seedPlan(db: DatabaseHandle, options: PlanSeedOptions = {}) {
+  const approvalMode = options.approvalMode ?? 'required';
+  const campaign = insertCampaign(db.raw, {
+    name: 'Edukasi AI',
+    niche: 'teknologi',
+    approvalMode,
+    platforms: ['youtube']
+  });
+  const planJob = insertJob(db.raw, {
+    jobType: 'PLAN_CONTENT',
+    idempotencyKey: `plan:${campaign.id}`,
+    payload: { campaignId: campaign.id },
+    campaignId: campaign.id,
+    status: 'COMPLETED'
+  });
+
+  const contents = [1, 2].map((index) => {
+    const content = upsertContentItem(db.raw, {
+      id: `cnt_${planJob.id}_${index}`,
+      campaignId: campaign.id,
+      topic: `topik ${index}`,
+      prompt: { planJobId: planJob.id, videoPrompt: `video ${index}`, aspectRatio: '9:16' },
+      caption: { youtube: { caption: `caption ${index}`, title: `judul ${index}` } },
+      approvalStatus: approvalMode === 'automatic' ? 'not_required' : 'pending'
+    });
+    insertMediaAsset(db.raw, {
+      id: `med_${content.id}`,
+      contentId: content.id,
+      path: `content/${content.id}/video.mp4`,
+      sha256: SHA,
+      mimeType: 'video/mp4',
+      sizeBytes: 1024,
+      validationStatus: 'valid'
+    });
+    return content;
+  });
+
+  if (options.planApproval !== null && options.planApproval !== undefined) {
+    const decision = options.planApproval;
+    const binding = contents.map((content, index) => ({
+      contentId: content.id,
+      contentVersion: content.version,
+      captionHash:
+        options.bindingFromChangedCaption === true && index === 0
+          ? hashCaption({ youtube: { caption: 'caption diubah setelah review' } })
+          : hashCaption(content.caption)
+    }));
+    insertPlanApproval(db.raw, {
+      planJobId: planJob.id,
+      campaignId: campaign.id,
+      bindingHash: hashPlanBinding(binding),
+      itemCount: contents.length,
+      decision,
+      decidedBy: 'owner'
+    });
+    for (const content of contents) {
+      setContentApprovalStatus(db.raw, {
+        id: content.id,
+        version: content.version,
+        status: decision
+      });
+    }
+  }
+
+  insertSocialAccount(db.raw, {
+    platform: 'youtube',
+    label: 'YouTube utama',
+    connectionStatus: 'connected'
+  });
+
+  const schedule = insertSchedule(db.raw, {
+    campaignId: campaign.id,
+    mode: 'fixed',
+    minMinutes: 60,
+    timezone: 'Asia/Jakarta',
+    dailyLimit: 2,
+    nextRunAt: T0
+  });
+
+  return { campaign, contents, planJob, schedule };
+}
+
+describe('enqueueDuePublicationJobs — satu gerbang rencana', () => {
+  it('rencana disetujui menerbitkan seluruh item tanpa approval per item', () => {
+    const db = openMigrated();
+    const { contents, schedule } = seedPlan(db, { planApproval: 'approved' });
+
+    const jobIds = enqueueDuePublicationJobs(db, schedule, CONTEXT, ['youtube']);
+
+    expect(jobIds).toHaveLength(2);
+    const jobs = listJobs(db.raw).items.filter((job) => job.jobType === 'PUBLISH');
+    expect(jobs.map((job) => job.contentId).sort()).toEqual(contents.map((c) => c.id).sort());
+    expect(jobs).toHaveLength(2);
+  });
+
+  it('rencana pending tidak menerbitkan apa pun walau media sudah siap', () => {
+    const db = openMigrated();
+    const { schedule } = seedPlan(db, { planApproval: null });
+
+    expect(enqueueDuePublicationJobs(db, schedule, CONTEXT, ['youtube'])).toEqual([]);
+  });
+
+  it('rencana yang berubah setelah disetujui tidak menerbitkan item', () => {
+    const db = openMigrated();
+    const { schedule } = seedPlan(db, {
+      planApproval: 'approved',
+      bindingFromChangedCaption: true
+    });
+
+    expect(enqueueDuePublicationJobs(db, schedule, CONTEXT, ['youtube'])).toEqual([]);
+  });
+
+  it('rencana ditolak tidak menerbitkan item', () => {
+    const db = openMigrated();
+    const { schedule } = seedPlan(db, { planApproval: 'rejected' });
+
+    expect(enqueueDuePublicationJobs(db, schedule, CONTEXT, ['youtube'])).toEqual([]);
+  });
+
+  it('mode automatic menerbitkan seluruh item rencana tanpa keputusan manusia', () => {
+    const db = openMigrated();
+    const { schedule } = seedPlan(db, { approvalMode: 'automatic', planApproval: null });
+
+    expect(enqueueDuePublicationJobs(db, schedule, CONTEXT, ['youtube'])).toHaveLength(2);
   });
 });

@@ -59,3 +59,41 @@ export function stableStringify(value: unknown): string {
 export function hashCaption(caption: unknown): string {
   return createHash('sha256').update(stableStringify(caption)).digest('hex');
 }
+
+/** Satu item dalam rencana; aset belum ada saat rencana disetujui, jadi hanya caption yang mengikat. */
+export interface PlanBindingItem {
+  contentId: string;
+  contentVersion: number;
+  captionHash: string;
+}
+
+/**
+ * Hash seluruh item satu rencana. Urutan id tidak menentukan, tetapi menambah,
+ * menghapus, atau mengubah caption item mana pun membatalkan persetujuan rencana.
+ */
+export function hashPlanBinding(items: readonly PlanBindingItem[]): string {
+  const canonical = [...items]
+    .sort((a, b) => (a.contentId < b.contentId ? -1 : a.contentId > b.contentId ? 1 : 0))
+    .map((item) => ({
+      contentId: item.contentId,
+      contentVersion: item.contentVersion,
+      captionHash: item.captionHash
+    }));
+  return createHash('sha256').update(stableStringify(canonical)).digest('hex');
+}
+
+/** Rencana hanya menggerbangi konten bila disetujui dan binding-nya masih cocok. */
+export function planApprovalAllows(
+  approval: { decision: ApprovalDecision; bindingHash: string } | null,
+  items: readonly PlanBindingItem[]
+): boolean {
+  if (approval === null || approval.decision !== 'approved') return false;
+  return approval.bindingHash === hashPlanBinding(items);
+}
+
+/** Id job rencana dibaca dari `prompt_json` konten; konten lama tanpa metadata → null. */
+export function planJobIdOfPrompt(prompt: unknown): string | null {
+  if (prompt === null || typeof prompt !== 'object' || Array.isArray(prompt)) return null;
+  const value = (prompt as { planJobId?: unknown }).planJobId;
+  return typeof value === 'string' && value.trim() !== '' ? value : null;
+}

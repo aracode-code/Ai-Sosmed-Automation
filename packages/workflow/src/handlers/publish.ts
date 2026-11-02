@@ -15,6 +15,7 @@ import {
   getCampaign,
   getContentItem,
   getLatestApproval,
+  getPlanGate,
   getPublishAttemptByKey,
   getSocialAccount,
   insertPublishAttempt,
@@ -123,33 +124,37 @@ export function createPublishHandler(deps: PublishDeps): JobHandler {
         );
       }
 
-      const approval = getLatestApproval(deps.db.raw, {
-        contentId: content.id,
-        contentVersion: content.version,
-        accountId: account.id,
-        platform
-      });
-      if (approval === null) {
-        throw new AppError(
-          'VALIDATION',
-          `tidak ada approval untuk ${content.id} v${content.version} → ${account.id}/${platform}`
-        );
-      }
+      // Satu gerbang: rencana yang disetujui menggantikan approval per item selama binding
+      // rencana (seluruh id + caption) masih cocok dengan konten saat ini.
+      if (!getPlanGate(deps.db.raw, content).ok) {
+        const approval = getLatestApproval(deps.db.raw, {
+          contentId: content.id,
+          contentVersion: content.version,
+          accountId: account.id,
+          platform
+        });
+        if (approval === null) {
+          throw new AppError(
+            'VALIDATION',
+            `tidak ada approval untuk ${content.id} v${content.version} → ${account.id}/${platform}`
+          );
+        }
 
-      // Approval terikat pada 6 elemen; salah satu berubah = wajib review ulang.
-      const binding = checkApprovalBinding(approval, {
-        contentId: content.id,
-        contentVersion: content.version,
-        assetSha256: asset.sha256,
-        captionHash: hashCaption(content.caption),
-        accountId: account.id,
-        platform
-      });
-      if (!binding.ok) {
-        throw new AppError(
-          'VALIDATION',
-          `approval tidak lagi mengikat: ${binding.mismatches.join(', ')}`
-        );
+        // Approval terikat pada 6 elemen; salah satu berubah = wajib review ulang.
+        const binding = checkApprovalBinding(approval, {
+          contentId: content.id,
+          contentVersion: content.version,
+          assetSha256: asset.sha256,
+          captionHash: hashCaption(content.caption),
+          accountId: account.id,
+          platform
+        });
+        if (!binding.ok) {
+          throw new AppError(
+            'VALIDATION',
+            `approval tidak lagi mengikat: ${binding.mismatches.join(', ')}`
+          );
+        }
       }
     } else if (content.approvalStatus === 'rejected') {
       throw new AppError('VALIDATION', `konten ${content.id} ditolak reviewer`);
