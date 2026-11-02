@@ -97,7 +97,7 @@ Status fase: **P3 PARTIAL** (pembuatan via aplikasi VERIFIED; unduhan via aplika
 3. Jalankan siklus penuh dengan adapter publikasi nyata setelah unduhan Flow stabil (belum ada izin/kredit).
 4. **Mode gambar:** uji tab **Gambar** Flow nyata (berbayar/kredit, belum diizinkan) dan implementasikan adapter publikasi media gambar (butuh keputusan platform, P6) — saat ini media gambar hanya dihasilkan + divalidasi, tidak pernah diterbitkan.
 5. Pertimbangkan menampilkan rencana yang menunggu keputusan di halaman Approvals (kini hanya per-konten) — belum diminta owner.
-6. Menunggu owner lain: pairing YouTube (`GOOGLE_OAUTH_CLIENT_ID`), keputusan revisi multi-versi konten, smoke live YouTube, lint (D7), `AGENTS.md`.
+6. Menunggu owner lain: pairing YouTube (`GOOGLE_OAUTH_CLIENT_ID`), keputusan revisi multi-versi konten, smoke live YouTube, lint (D7). `AGENTS.md` dan `hs_err_pid21080.log` kini terlacak (commit `d635e07`).
 
 ## Asumsi Terbuka (jangan dibangun di atasnya tanpa verifikasi)
 

@@ -3,7 +3,7 @@
   "project": "AI Social Media Automation Agent",
   "project_root": "F:/AiSosmedAutomation",
   "branch": "main",
-  "commit": "4ebdc9d",
+  "commit": "d635e07",
   "status": "PARTIAL",
   "autonomy": "L1",
   "runtime": {
@@ -39,14 +39,14 @@
   "last_session_id": "SESSION-2026-11-02-1",
   "last_scan": "2026-11-02T09:55:00+07:00",
   "last_index": "2026-11-02T09:55:00+07:00",
-  "last_updated": "2026-11-02T09:55:00+07:00",
+  "last_updated": "2026-11-02T10:34:10+07:00",
   "last_validation": "2026-11-02 — typecheck 10 paket + tests/tsconfig PASS; vitest 58 file / 506 test; smoke live GET /api/v1/media/med_cnt_smoke_p3_20261102/file 200 video/mp4 3.466.852 B sha256 59df3899…; UI Jobs Chromium headless 1126×792 menampilkan video 7 s + metadata + Unduh",
   "last_test_status": "506 passed / 0 failed (tanpa paralelisme)",
   "last_command": "berkas hasil generasi di job",
   "last_command_status": "COMPLETED",
   "open_wave": null,
   "dirty": true,
-  "dirty_reason": "AGENTS.md masih untracked (keputusan owner); retest unduhan Flow belum dijalankan (butuh 1 kredit); tab Gambar Flow dan publikasi media gambar belum ada; halaman Approvals masih per-konten; cabang pratinjau <img> belum diuji visual",
+  "dirty_reason": "retest unduhan Flow belum dijalankan (butuh 1 kredit); tab Gambar Flow dan publikasi media gambar belum ada; halaman Approvals masih per-konten; cabang pratinjau <img> belum diuji visual",
   "drift_detected": false,
   "next_step": "Uji tab Gambar Flow (berkredit, menunggu izin) dan adapter publikasi gambar (P6); retest unduhan Flow butuh 1 kredit; pertimbangkan edit/status/delete campaign dan form jadwal di UI"
 }

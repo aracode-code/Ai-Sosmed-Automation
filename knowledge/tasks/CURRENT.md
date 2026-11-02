@@ -51,7 +51,7 @@ Fitur sebelumnya (**S6 dua mode generasi video/gambar**, `81dd916`, ADR-0012) te
 
 - Pratinjau `<img>` belum diuji visual (tidak ada aset gambar di DB nyata); route PNG/JPEG lolos unit test.
 - Smoke UI memakai viewport 1126×792 (browser otomasi), bukan 1440 seperti smoke sebelumnya — dicatat apa adanya.
-- Temuan lama tetap: P3 PARTIAL (unduhan via worker belum diuji ulang), P4 PARTIAL (reauth), P5 PARTIAL (unggah nyata), P7 auth/`Origin`, `content_items` PK drift, ledger kredit jalur aplikasi, lint (D7), `AGENTS.md` untracked, publikasi media gambar (P6).
+- Temuan lama tetap: P3 PARTIAL (unduhan via worker belum diuji ulang), P4 PARTIAL (reauth), P5 PARTIAL (unggah nyata), P7 auth/`Origin`, `content_items` PK drift, ledger kredit jalur aplikasi, lint (D7), publikasi media gambar (P6).
 
 ## Next Session Handoff
 
