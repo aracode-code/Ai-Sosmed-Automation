@@ -1,12 +1,12 @@
 # CURRENT — Task Aktif
 
 **Session:** SESSION-2026-11-02-1
-**Updated:** 2026-11-02T08:22:19+07:00
-**Change class:** MEDIUM (filter job per campaign/tipe, form permintaan + keputusan rencana di UI)
+**Updated:** 2026-11-02T08:45:00+07:00
+**Change class:** MEDIUM (Slice 4 UI) + uji live (tanpa perubahan kode)
 
 ## Active Task
 
-Owner meminta alur **permintaan → rencana kerja → persetujuan → agen bekerja**. **Slice 1** (kunci DeepSeek via DPAPI + planner lazy), **Slice 2** (rencana batch `items[]` + gerbang `PLAN_CONTENT`), **Slice 3** (approval tahap rencana + publikasi satu gerbang), dan **Slice 4** (form permintaan + keputusan rencana di Campaigns) **selesai**. Owner menyetujui desain: **setujui sekali per rencana**, **satu gerbang** (setelah rencana disetujui pembuatan + publikasi otomatis), kunci AI via DPAPI.
+Owner meminta alur **permintaan → rencana kerja → persetujuan → agen bekerja**. **Slice 1** (kunci DeepSeek via DPAPI + planner lazy), **Slice 2** (rencana batch `items[]` + gerbang `PLAN_CONTENT`), **Slice 3** (approval tahap rencana + publikasi satu gerbang), dan **Slice 4** (form permintaan + keputusan rencana di Campaigns) **selesai**. **Uji live DeepSeek** dengan kunci nyata (2026-11-02) juga **VERIFIED** untuk jalur rencana → approve → generate (Flow mock, 0 kredit). Owner menyetujui desain: **setujui sekali per rencana**, **satu gerbang** (setelah rencana disetujui pembuatan + publikasi otomatis), kunci AI via DPAPI.
 
 | Field | Nilai |
 |---|---|
@@ -28,6 +28,7 @@ Owner meminta alur **permintaan → rencana kerja → persetujuan → agen beker
 | Quality gate | `corepack pnpm typecheck` exit 0 (10 paket + `tests/tsconfig.json`) · `vitest run --no-file-parallelism` **489/489** hijau |
 | Smoke UI | Playwright headless (Chrome, 1440×1000) + DB scratch: form tampil, job rencana dibuat (`QUEUED` → `NEEDS_ATTENTION` karena kunci DeepSeek belum ada), panel menampilkan `bindingHash` + item, aksi **Tolak** sukses → notice dan status konten `rejected`; tidak ada kredensial di body/UI |
 | Secret scan | Diff hanya memuat peringatan CRLF; tidak ada nilai rahasia |
+| Uji live DeepSeek | Kunci nyata via Connections (`source:'store'`); campaign scratch `required` → `POST /api/v1/content` → `PLAN_CONTENT` `COMPLETED` ±2 s dengan **2 item** (caption YouTube Short); approve `bindingHash` `37d51ee5…e612b` → `plan_approvals` + 2 konten `approved` + 2 `GENERATE_VIDEO` `COMPLETED`; aset `valid` 10.459 B / 7.823 B; Flow mock → **0 kredit**; DB/media scratch dihapus, API dihentikan |
 
 ## Temuan yang Mengikat
 
@@ -48,15 +49,15 @@ Owner meminta alur **permintaan → rencana kerja → persetujuan → agen beker
 ## Drift Tercatat
 
 - Halaman Approvals belum menampilkan rencana yang menunggu keputusan (integrasi opsional, belum diminta).
-- `PLAN_CONTENT` live dengan kunci nyata belum diuji (belum ada kunci DeepSeek milik owner) — smoke UI berakhir `NEEDS_ATTENTION`/`AUTH` sesuai desain.
+- Jalur live DeepSeek sudah teruji; yang belum: `GENERATE_VIDEO` dengan Flow **nyata** (unduhan masih bermasalah, butuh 1 kredit) dan siklus penuh dengan adapter publikasi nyata.
 - Temuan lama tetap: P3 PARTIAL (unduhan via worker belum diuji ulang), P4 PARTIAL (reauth), P5 PARTIAL (unggah nyata), P7 auth/`Origin`, `content_items` PK drift, ledger kredit jalur aplikasi, lint (D7), `AGENTS.md` untracked.
 
 ## Next Session Handoff
 
 1. **Tunggu instruksi owner**; alur Slice 1–4 selesai dan tidak ada slice berikutnya yang disetujui.
-2. Isi kunci DeepSeek lewat Connections → uji satu siklus nyata (biaya sesuai guard Flow).
+2. Siklus live DeepSeek sudah VERIFIED (Flow mock, 0 kredit); tidak perlu diulang tanpa tujuan baru.
 3. Rekonsiliasi job `NEEDS_ATTENTION` yang sudah punya aset `valid`: **jangan** klik retry (akan men-submit ulang).
-4. Retest unduhan `GENERATE_VIDEO` lewat aplikasi **butuh 1 kredit** — menunggu izin owner.
+4. Retest unduhan `GENERATE_VIDEO` lewat Flow nyata **butuh 1 kredit** — menunggu izin owner; setelah itu baru siklus penuh dengan publikasi nyata.
 
 ## Team Scope
 

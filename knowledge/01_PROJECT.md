@@ -93,6 +93,7 @@ Belum dibuat (P3 penuh–P7): adapter Flow nyata, `packages/integrations/*`, rea
 - Status job: 15 status (termasuk `COMPLETED` untuk job langkah); publication tetap berakhir `PUBLISHED`.
 - Worker: loop in-process, satu job per siklus, `WORKER_INTERVAL_MS` default 1000, `WORKER_ENABLED=false` = API baca-saja; `PLAN_CONTENT` selalu terdaftar, tetapi tanpa kunci AI job berakhir `NEEDS_ATTENTION` + `AUTH` (ADR-0011).
 - Kunci AI DeepSeek disimpan di DPAPI `deepseek-api-key` (diisi lewat Connections) dan **menang** atas `DEEPSEEK_API_KEY` env; nilai tidak pernah masuk `AppConfig` maupun output/log/state (ADR-0011).
+- Uji live DeepSeek (2026-11-02): satu siklus `PLAN_CONTENT` nyata (Flow mock, 0 kredit) menghasilkan rencana 2 item dalam ±2 s; approve membangkitkan 2 job `GENERATE_VIDEO` mock yang `COMPLETED` dengan aset `valid`. Jalur AI produksi terverifikasi; Flow nyata dan publikasi nyata belum.
 - `MEDIA_ROOT` (default `./data/media`) adalah satu-satunya akar media: `outputRoot` generator = akar validasi.
 - Publikasi: `PUBLISH` mencatat `publish_attempts` sebelum aksi eksternal; status akhir hanya dari `adapter.getStatus`; `processing`/`unknown` → `NEEDS_ATTENTION` (ADR-0005).
 - Adapter YouTube saat ini **mock** (`YOUTUBE_ADAPTER=mock`, default `off`); post id `mock_yt_*` dan upload nyata UNVERIFIED (ADR-0005).

@@ -23,12 +23,14 @@ LLD §9 menetapkan agent memakai DeepSeek sebagai planner dengan output JSON ter
 | D9 | P2 **tidak** menyambungkan planner ke dispatcher; handler `PLAN_CONTENT` (butuh record campaign/aset) menjadi follow-up | Kontrak dibekukan lebih dulu; wiring butuh schema konten yang belum ada | Saat wiring: `PlannerOutputError` wajib berakhir `NEEDS_ATTENTION` |
 | D10 | Test P2 memakai LLM skrip + `fetch` palsu; tidak ada panggilan DeepSeek nyata. Status uji live = **UNVERIFIED** | Tidak ada API key; test tidak boleh menyentuh jaringan | Owner menyediakan key (sumber env vs Credential Manager belum diputuskan) |
 
+**Diperbarui 2026-11-02:** sumber kunci diputuskan di ADR-0011 (DPAPI `deepseek-api-key` lewat UI, env sebagai fallback) dan **uji live DeepSeek VERIFIED** — satu siklus `PLAN_CONTENT` dengan kunci nyata mengembalikan 2 item dalam ±2 s, tanpa panggilan jaringan pada test suite.
+
 ## Konsekuensi
 
 - Paket keenam `@saa/agent-core` bergantung pada `@saa/domain` + `zod`; tidak mengimpor `database`/`workflow`, sehingga arah dependensi tetap.
 - `AI_OUTPUT_INVALID` adalah kelas implementasi tambahan di luar tabel LLD §15; ditambahkan karena §15 tidak punya kelas untuk output AI dan §9.3 menetapkan `NEEDS_ATTENTION`.
 - Capability `unknown` tidak memblokir rencana; keputusan akhir tetap di approval/verifikasi. Risiko ini dicatat, bukan disembunyikan.
-- Adapter DeepSeek belum pernah diuji terhadap API nyata.
+- Adapter DeepSeek sudah diuji terhadap API nyata (2026-11-02, `PLAN_CONTENT` 2 item); test suite tetap memakai `fetch` palsu.
 
 ## Tidak Diputuskan di Sini
 

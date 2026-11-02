@@ -31,11 +31,11 @@ Arah dependensi: `@saa/agent-core` → `@saa/domain` + `zod`. Tidak mengimpor da
 ```bash
 corepack pnpm --filter @saa/agent-core typecheck
 corepack pnpm exec vitest run packages/agent-core     # 34 test
-corepack pnpm exec vitest run --no-file-parallelism   # seluruh workspace (466 test per 2026-11-02)
+corepack pnpm exec vitest run --no-file-parallelism   # seluruh workspace (489 test per 2026-11-02)
 ```
 
 ## Belum Ada (P2+)
 
 - ~~Wiring planner ke dispatcher (`PLAN_CONTENT`)~~ DONE 2026-10-30 (`826a732`) — lihat `modules/workflow.md`.
-- Uji live DeepSeek (butuh keputusan sumber API key).
+- ~~Uji live DeepSeek~~ DONE 2026-11-02 — kunci lewat DPAPI (`source:'store'`), satu siklus `PLAN_CONTENT` nyata menghasilkan 2 item dalam ±2 s (Flow mock, 0 kredit); lihat `logs/2026-11-02.md`.
 - Kanal peringatan untuk target dengan capability `unknown` (saat ini hanya `unsupported` yang memblokir).
