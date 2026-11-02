@@ -9,7 +9,7 @@
 | Tipe | Aplikasi desktop lokal Windows, satu pengguna utama | VERIFIED (HLD §2.3) |
 | Deployment | Windows PC lokal; packaging Electron/Tauri belum dipilih | VERIFIED (HLD §4, LLD §19) |
 | Dokumen induk | `HLD.md` v1.0 dan `LLD.md` v1.0 (keduanya berstatus Draft) | VERIFIED |
-| Implementasi kode | **P1 + P2 + P3 mock + P4 backend + P4b/P4c otomatisasi + P5 mock + adapter YouTube API (A1–A7) + CLI preflight + dashboard (approval beraksi) + sesi Flow/login + kredensial AI (DPAPI)** — 8 paket + `apps/local-api` + `apps/dashboard`, 458 test hijau | VERIFIED (commit `debdaaf` … `1dfcadf`, 2026-11-02) |
+| Implementasi kode | **P1 + P2 + P3 mock + P4 backend + P4b/P4c otomatisasi + P5 mock + adapter YouTube API (A1–A7) + CLI preflight + dashboard (approval beraksi) + sesi Flow/login + kredensial AI (DPAPI) + rencana batch `items[]`** — 8 paket + `apps/local-api` + `apps/dashboard`, 466 test hijau | VERIFIED (commit `debdaaf` … `df45977`, 2026-11-02) |
 
 ## Tujuan Produk
 

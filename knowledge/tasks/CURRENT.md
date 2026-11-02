@@ -1,66 +1,74 @@
 # CURRENT — Task Aktif
 
 **Session:** SESSION-2026-11-02-1
-**Updated:** 2026-11-02T07:36:00+07:00
-**Change class:** MEDIUM (manager kredensial + planner lazy + 2 route + UI; tanpa schema/migrasi)
+**Updated:** 2026-11-02T07:46:00+07:00
+**Change class:** MEDIUM (skema planner batch + handler PLAN_CONTENT; tanpa schema/migrasi)
 
 ## Active Task
 
-Owner meminta alur **permintaan → rencana kerja → persetujuan → agen bekerja**, dengan kunci DeepSeek diisi dari UI. Slice 1 (prasyarat) **selesai dan diverifikasi**: kunci disimpan terenkripsi DPAPI lewat halaman Connections, planner meresolusi kunci per job, dan produksi konten terjadwal ditahan selama kunci belum ada.
+Owner meminta alur **permintaan → rencana kerja → persetujuan → agen bekerja**, dengan kunci DeepSeek diisi dari UI. **Review Slice 1 lolos tanpa cacat penghambat**, dan **Slice 2 selesai**: planner dapat mengembalikan `items[]` (maks. 5 video), dan `PLAN_CONTENT` tidak meng-enqueue `GENERATE_VIDEO` selama rencana menunggu approval.
 
 | Field | Nilai |
 |---|---|
-| Slice | **Slice 1** — kredensial AI + planner lazy + input UI (ADR-0011) |
+| Slice | **Slice 2** — rencana batch + gerbang approval (tanpa migrasi) |
 | Keputusan owner | Setujui **sekali per rencana** · **satu gerbang** (setelah rencana disetujui, pembuatan + publikasi otomatis) · kunci **DPAPI via UI** |
-| Status | **COMPLETED (Slice 1)** — slice 2–4 (rencana ber-approval + migrasi) **belum dimulai**, menunggu review owner |
+| Status | **COMPLETED (Slice 2)** — slice 3–4 **belum dimulai**, menunggu review owner |
 | Mode eksekusi | SINGLE-WRITER sequential, L1 |
-| Commit kode | `1dfcadf` |
+| Commit kode | `df45977` |
+
+## Review Slice 1 (sebelum Slice 2)
+
+| Temuan | Status |
+|---|---|
+| Status AI dipanggil sebelum `refresh()` | Aman — route memanggil `resolve()` lebih dulu sehingga cache terisi |
+| Validasi panjang kunci ganda (route + manager) | Disengaja: route memvalidasi batas HTTP, manager menjaga invariant store |
+| Store DPAPI default dibuat di `buildApp` | Dapat diinjeksi di test; tidak ada kredensial nyata yang disentuh test |
+| Cacat penghambat | **TIDAK ADA** |
 
 ## Bukti Sesi Ini (aktual 2026-11-02 WIB)
 
 | Bukti | Hasil |
 |---|---|
-| Presedensi kunci | `createAiCredentialManager`: store DPAPI dibaca lebih dulu, env fallback; `save()` menimpa cache sehingga kunci baru berlaku tanpa restart |
-| Planner lazy | `createLazyPlanner`: kunci diresolusi per `plan()`; tanpa kunci → `AppError('AUTH')` → `NEEDS_ATTENTION` tanpa retry; `Planner` di-cache per nilai kunci |
-| Route | `GET /api/v1/ai/status` → `{configured, source, storeError}`; `POST /api/v1/ai/credentials` body `.strict()` `{apiKey 10–200}` → `200 {configured:true, source:'store'}`; nilai kunci tidak pernah dikembalikan |
-| Wiring | `server.ts`: `refresh()` saat boot, peringatan `storeError`/belum terkonfigurasi, planner **selalu** terdaftar, enqueue produksi digerbangi `aiCredentials.isConfigured()`; `app.ts` mendaftarkan route dengan store DPAPI default |
-| UI | Section "Kunci AI (DeepSeek)" di Connections: pill status (`terkonfigurasi (DPAPI|environment)`/`belum diisi`), input password, tombol nonaktif < 10 karakter, error/berhasil, peringatan `storeError` |
-| Test baru | `ai-credentials.test.ts` 7 · `lazy-planner.test.ts` 4 · `ai-credentials-route.test.ts` 4 → **56 file / 458 test** hijau |
-| Smoke UI | Headless 1280×900 (viewport terpakai 1044 px): status `belum diisi → terkonfigurasi (DPAPI)`, kunci tidak ada di DOM/log, input dikosongkan; berkas DPAPI scratch 262 byte; store asli tidak tersentuh; scratch (`data/tmp-slice1`) dihapus |
-| Quality gate | `corepack pnpm typecheck` exit 0 (10 paket + `tests/tsconfig.json`) · `vitest run --no-file-parallelism` **56 file / 458 test** hijau |
+| Skema batch | `planItemSchema` (`topic`, `videoPrompt`, `targets`); `items` 1–5; field tunggal lama tetap valid (satu item) |
+| Kebijakan | `checkPlanAgainstCampaign` memvalidasi target **per item** (`items[0].…`), platform campaign, duplikat, capability `unsupported`, batas caption; `enforceApproval` tidak berubah |
+| Normalisasi | `planItemsOf` menyatukan bentuk batch dan bentuk tunggal; bentuk tunggal mempertahankan `aspectRatio` model bila tidak ada target |
+| Prompt + budget | Prompt menjelaskan dua bentuk yang saling eksklusif; `maxTokens` default 1200 → **2400** agar 5 item + caption muat |
+| Handler | Konten per item: batch `cnt_<jobId>_<n>` (1-based), tunggal tetap `cnt_<jobId>`; `prompt_json` memuat `planJobId`, `itemIndex`, `itemCount` (bahan Slice 3) |
+| Gerbang approval | `approvalRequired=true` → `approval_status=pending`, **0 job** `GENERATE_VIDEO`; otomatis → job per item (`generate:<contentId>`) |
+| Idempotensi | Replay handler batch: 2 konten + 2 job anak, tanpa duplikat (unique `(id, version)` + `insertJobIdempotent`) |
+| Test baru | plan 4 tambahan (total 14), planner 1 (total 7), plan-content 3 (total 9) → **56 file / 466 test** hijau |
+| Quality gate | `corepack pnpm typecheck` exit 0 (10 paket + `tests/tsconfig.json`) · `vitest run --no-file-parallelism` **466/466** hijau |
 
 ## Temuan yang Mengikat
 
 | Temuan | Dampak |
 |---|---|
-| Kunci di store **menang** atas env | Nilai yang diketik owner langsung dipakai; env tetap fallback untuk CI/headless |
-| Planner selalu terdaftar | Tanpa kunci, job `PLAN_CONTENT` berakhir `AUTH` (bukan `NO_HANDLER`); job lama perlu retry manual setelah kunci diisi |
-| Gerbang produksi di `server.ts` | Slot tidak menghasilkan job `PLAN_CONTENT` yang pasti gagal selama kunci belum ada; publikasi konten lama tetap jalan |
-| `sendJson` selalu mem-parse JSON | Endpoint simpan mengembalikan `200` JSON, bukan `204` |
-| Store rusak tidak fatal | `storeError` dilaporkan di status + log; API tetap boot memakai env |
-| Approval aset tidak bisa dipakai untuk rencana | `approvals.asset_sha256 NOT NULL` — slice 3 butuh migrasi `0003_plan_approvals.sql` |
+| Batch = satu job `PLAN_CONTENT` berisi 1–5 konten | Job transisi `COMPLETED` dengan `content_id` = item pertama; item lain ditemukan lewat `prompt_json.planJobId`/id |
+| Rencana `pending` tidak punya job `GENERATE_VIDEO` | Sesuai desain; pembuatan baru berjalan setelah Slice 3 menambahkan approval rencana |
+| Guard produksi kedalaman satu tetap berlaku | Selama konten terbaru belum punya job `PUBLISH`, slot berikutnya ditahan — termasuk rencana pending (interim sampai Slice 3) |
+| Publikasi masih memilih **konten terbaru saja** | Batch > 1 item: Slice 2 membuat semua item setelah approval otomatis, tetapi enqueuer publikasi hanya memilih satu; **single-gate publish milik Slice 3** |
+| `planJobId` di `prompt_json` | Menghindari ketergantungan pada pola id saat Slice 3 mencari seluruh item satu rencana |
 
 ## Impact Map
 
-- **Kode baru:** `apps/local-api/src/ai-credentials.ts`, `lazy-planner.ts`, `routes/ai-credentials.ts` + 3 berkas test.
-- **Kode diubah:** `apps/local-api/src/app.ts`, `server.ts`, `apps/dashboard/src/types.ts`, `pages/ConnectionsPage.tsx`.
-- **Tidak berubah:** schema/migrasi (3 berkas, 12 tabel), paket/workspace, lockfile.
-- **Route:** 26 → **28**.
+- **Kode diubah:** `packages/agent-core/src/{plan,prompts,planner}.ts` + test; `packages/workflow/src/handlers/plan-content.ts` + test.
+- **Tidak berubah:** schema/migrasi (3 berkas, 12 tabel), route (28), paket/workspace, lockfile, UI.
+- **Dependensi baru:** tidak ada.
 
 ## Drift Tercatat
 
-- Alur approval rencana kerja **belum ada** (slice 2–4); desain disetujui owner, menunggu review setelah Slice 1.
+- Approval tahap rencana **belum ada** (Slice 3); `approvals.asset_sha256 NOT NULL` masih menjadi penghalang teknis.
+- Publikasi batch belum ada: enqueuer masih memilih konten terbaru (Slice 3 "satu gerbang").
 - `PLAN_CONTENT` live dengan kunci nyata belum diuji (belum ada kunci DeepSeek milik owner).
 - Temuan lama tetap: P3 PARTIAL (unduhan via worker belum diuji ulang), P4 PARTIAL (reauth), P5 PARTIAL (unggah nyata), P7 auth/`Origin`, `content_items` PK drift, ledger kredit jalur aplikasi, lint (D7), `AGENTS.md` untracked.
 
 ## Next Session Handoff
 
-1. **Tunggu review owner atas Slice 1**; jangan menyentuh skema sebelum disetujui.
-2. Slice 2 (setelah disetujui): planner mengembalikan `items[]` (maks. 5), `PLAN_CONTENT` tidak meng-enqueue `GENERATE_VIDEO` selama rencana `pending`.
-3. Slice 3: migrasi `0003_plan_approvals.sql` (tanpa `asset_sha256` wajib) + `POST /api/v1/plans/:jobId/approve|reject` + publikasi satu gerbang.
-4. Slice 4: form permintaan di Campaigns + daftar approval batch di UI.
-5. Isi kunci DeepSeek lewat Connections → retry job `PLAN_CONTENT` `AUTH` bila ada → uji satu siklus nyata (biaya sesuai guard Flow).
-6. Rekonsiliasi job `NEEDS_ATTENTION` yang sudah punya aset `valid`: **jangan** klik retry (akan men-submit ulang).
+1. **Tunggu review owner atas Slice 2**; jangan menyentuh skema sebelum disetujui.
+2. Slice 3: migrasi `0003_plan_approvals.sql` (approval tahap rencana tanpa `asset_sha256` wajib) + `POST /api/v1/plans/:jobId/approve|reject` + enqueue `GENERATE_VIDEO` untuk **seluruh item** setelah approve + publikasi satu gerbang.
+3. Slice 4: form permintaan di Campaigns + daftar approval batch di UI.
+4. Isi kunci DeepSeek lewat Connections → uji satu siklus nyata (biaya sesuai guard Flow).
+5. Rekonsiliasi job `NEEDS_ATTENTION` yang sudah punya aset `valid`: **jangan** klik retry (akan men-submit ulang).
 
 ## Team Scope
 

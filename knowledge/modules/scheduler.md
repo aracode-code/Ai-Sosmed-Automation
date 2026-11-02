@@ -42,7 +42,7 @@ Ringkasan hasil: `{paused, due, seeded, shifted, quotaSkipped, enqueued, failed[
 7. Key idempoten `publish:<contentId>:v<version>:<accountId>:<platform>`; job yang sudah ada dilewati.
 8. Job dibuat `QUEUED`, payload `{contentId, campaignId, accountId, platform}` — kontrak handler `PUBLISH`.
 
-Konsekuensi yang disadari: hanya konten terbaru, satu batch per slot, slot tetap maju walau tidak ada job (ADR-0006 S3/S7).
+Konsekuensi yang disadari: hanya konten terbaru, satu batch per slot, slot tetap maju walau tidak ada job (ADR-0006 S3/S7). Sejak rencana batch 2026-11-02 (`df45977`) satu `PLAN_CONTENT` dapat menghasilkan 1–5 konten; enqueuer publikasi **belum** mengiterasi semuanya — single-gate publish menunggu Slice 3.
 
 ## Produksi Konten per Slot (P4c)
 

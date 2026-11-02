@@ -11,7 +11,7 @@
 | `packages/workflow/src/worker.ts` | Loop polling in-process: siklus berkala tanpa tumpang tindih, `unref`, error ditelan + dicatat |
 | `packages/workflow/src/retry.ts` | `classify` (retry/escalate/fail/cancel), backoff eksponensial + jitter, `retryAfterMs` |
 | `packages/workflow/src/recovery.ts` | Lease kedaluwarsa saat startup: reversibel → `QUEUED`, `PUBLISHING`/`VERIFYING` → `NEEDS_ATTENTION` |
-| `packages/workflow/src/handlers/plan-content.ts` | Langkah PLAN_CONTENT: planner → konten + job `GENERATE_VIDEO` |
+| `packages/workflow/src/handlers/plan-content.ts` | Langkah PLAN_CONTENT: planner → 1–5 konten (+ job `GENERATE_VIDEO` bila tidak menunggu approval) |
 | `packages/workflow/src/handlers/generate-video.ts` | Langkah GENERATE_VIDEO: generator → validasi media → aset |
 | `packages/workflow/src/handlers/publish.ts` | Langkah PUBLISH: approval binding → attempt → adapter → reconcile `getStatus` (rinci: `modules/youtube.md`) |
 | `packages/workflow/src/index.ts` | Re-export publik |
@@ -23,9 +23,11 @@ Arah dependensi: `@saa/workflow` → `@saa/agent-core`, `@saa/browser-engine`, `
 - Payload: `{ campaignId, notes? }`; campaign wajib ada dan punya platform target, kalau tidak → `VALIDATION` → `FAILED`.
 - Transisi: `START_PLANNING` → `PLANNING`; selesai `STEP_COMPLETED` → `COMPLETED`.
 - Pemetaan keputusan planner: `needs_human` → `ESCALATE` + `PLANNER_NEEDS_HUMAN`; `wait` → `RETRY_WAIT` dengan `run_at = now + 6 jam` + `PLANNER_WAIT`; `revise_metadata` → `PlannerOutputError`; `create_video` → simpan konten.
-- Konten: id `cnt_<jobId>`, versi 1, `approval_status` `pending`/`not_required`, caption dipetakan per platform.
-- Job anak: `GENERATE_VIDEO` idempotent (`generate:<contentId>`), payload membawa `contentId`, `videoPrompt`, `aspectRatio`, `targets`.
-- **Rasio** ditentukan policy `aspectRatioForTargets` (`@saa/domain`, ADR-0010 F17): TikTok/Instagram/Threads `9:16`; YouTube/Facebook `16:9` kecuali `contentFormat` short/reel/story/klip; X `16:9`; campuran → `9:16`. `plan.aspectRatio` hanya dipakai bila planner tidak menghasilkan target.
+- **Bentuk rencana:** `planItemsOf(plan)` menerima `items` 1–5 atau bentuk tunggal lama; handler menolak 0 item / > 5 item sebagai `PlannerOutputError`.
+- Konten: id batch `cnt_<jobId>_<n>` (1-based), bentuk tunggal tetap `cnt_<jobId>`; versi 1; `approval_status` `pending`/`not_required`; caption dipetakan per platform dari target item. `prompt_json` memuat `planJobId`, `itemIndex`, `itemCount` untuk pencarian item satu rencana (bahan Slice 3).
+- **Gerbang approval:** `approvalRequired=true` → semua konten `pending` dan **tidak ada** job `GENERATE_VIDEO`; `false` → satu job idempotent (`generate:<contentId>`) per item dengan payload `contentId`, `videoPrompt`, `aspectRatio`, `targets`. Job `PLAN_CONTENT` sendiri tetap `COMPLETED` dengan `content_id` = item pertama.
+- **Konsekuensi interim:** publikasi (enqueuer scheduler) dan guard produksi masih memilih konten terbaru; batch > 1 item baru diterbitkan seluruhnya setelah Slice 3 (single-gate publish).
+- **Rasio** ditentukan policy `aspectRatioForTargets` (`@saa/domain`, ADR-0010 F17): TikTok/Instagram/Threads `9:16`; YouTube/Facebook `16:9` kecuali `contentFormat` short/reel/story/klip; X `16:9`; campuran → `9:16`. `plan.aspectRatio` hanya dipakai bila planner tidak menghasilkan target (bentuk tunggal).
 
 ## GENERATE_VIDEO
 

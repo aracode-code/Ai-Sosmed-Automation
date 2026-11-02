@@ -7,7 +7,7 @@
 
 | Berkas | Tanggung jawab |
 |---|---|
-| `packages/agent-core/src/plan.ts` | Skema input/output planner (`PlannerInput`, `PlanDecision`), 4 jenis keputusan, `checkPlanAgainstCampaign`, `enforceApproval`, `DEFAULT_CAPTION_LIMIT = 2200` |
+| `packages/agent-core/src/plan.ts` | Skema input/output planner (`PlannerInput`, `PlanDecision`), 4 jenis keputusan, rencana batch `items` 1–5 (`planItemSchema`, `MAX_PLAN_ITEMS`), `planItemsOf`, `checkPlanAgainstCampaign`, `enforceApproval`, `DEFAULT_CAPTION_LIMIT = 2200` |
 | `packages/agent-core/src/llm.ts` | Interface transport-agnostic `LlmClient`/`LlmRequest`/`LlmResponse` |
 | `packages/agent-core/src/deepseek.ts` | `createDeepSeekClient` berbasis `fetch`: base URL `https://api.deepseek.com`, model default `deepseek-chat`, timeout 60 s, JSON mode, pemetaan HTTP → `ErrorClass` |
 | `packages/agent-core/src/prompts.ts` | `SYSTEM_PROMPT` (aturan mengikat), `buildPlannerMessages`, `buildRepairPrompt` |
@@ -19,7 +19,8 @@ Arah dependensi: `@saa/agent-core` → `@saa/domain` + `zod`. Tidak mengimpor da
 
 ## Perilaku Penting
 
-- **Alur planner:** validasi `PlannerInput` → `complete` (jsonMode, temperature 0.2, maxTokens 1200) → buang code fence → `JSON.parse` → `planDecisionSchema` → `checkPlanAgainstCampaign` → `enforceApproval`.
+- **Alur planner:** validasi `PlannerInput` → `complete` (jsonMode, temperature 0.2, maxTokens **2400**) → buang code fence → `JSON.parse` → `planDecisionSchema` → `checkPlanAgainstCampaign` → `enforceApproval`. `maxTokens` naik dari 1200 agar 5 item + caption muat.
+- **Bentuk rencana:** `items` (1–5, masing-masing `topic`/`videoPrompt`/`targets`) **atau** field tunggal lama (`topic`/`videoPrompt`/`aspectRatio`/`targets`); keduanya dinormalkan `planItemsOf`. Policy memvalidasi target per item (prefix `items[n].`) dan tetap menolak platform di luar campaign, duplikat, capability `unsupported`, serta caption melebihi batas.
 - **Kegagalan:** input invalid → `PlannerError` (`VALIDATION`, model tidak dipanggil); output invalid/kebijakan dilanggar setelah 1 perbaikan → `PlannerOutputError` (`AI_OUTPUT_INVALID` → retry policy `escalate` → `NEEDS_ATTENTION`).
 - **Pemetaan HTTP DeepSeek:** 401/403 → `AUTH`; 429 → `RATE_LIMIT` + `retryAfterMs` dari header; 408/504 → `TRANSIENT_NETWORK`; 5xx, envelope rusak, konten kosong → `EXTERNAL_5XX`; 4xx lain → `VALIDATION`.
 - **Rahasia:** key hanya hidup di closure adapter; tidak pernah masuk pesan error, log, atau payload hasil.
@@ -29,8 +30,8 @@ Arah dependensi: `@saa/agent-core` → `@saa/domain` + `zod`. Tidak mengimpor da
 
 ```bash
 corepack pnpm --filter @saa/agent-core typecheck
-corepack pnpm vitest run packages/agent-core     # 29 test
-corepack pnpm test                                # seluruh workspace (235 test per 2026-10-30)
+corepack pnpm exec vitest run packages/agent-core     # 34 test
+corepack pnpm exec vitest run --no-file-parallelism   # seluruh workspace (466 test per 2026-11-02)
 ```
 
 ## Belum Ada (P2+)

@@ -3,8 +3,8 @@
   "mode": "LIGHTWEIGHT_GREP",
   "status": "DEGRADED",
   "reason": "Tidak ada tool SQLite index di runtime ini (`sqlite_query_tool` missing). Pencarian memakai ripgrep terhadap source aktual; tidak ada code.db.",
-  "indexed_commit": "1dfcadf01f3e145d79ad7d62b6f90fecf6c13e3f",
-  "indexed_at": "2026-11-02T07:36:00+07:00",
+  "indexed_commit": "df45977cb257310e76ae34a20584b3dc2e84bf2e",
+  "indexed_at": "2026-11-02T07:49:00+07:00",
   "scope": [
     "apps/local-api/src/**",
     "apps/dashboard/src/**",
@@ -26,12 +26,12 @@
     "imports": null,
     "apis": 28,
     "db_objects": 12,
-    "tests": 458
+    "tests": 466
   },
   "validation": {
-    "last_validated_at": "2026-11-02T07:36:00+07:00",
+    "last_validated_at": "2026-11-02T07:49:00+07:00",
     "result": "partial",
-    "note": "Scope = git ls-files (ts/tsx) pada commit 1dfcadf: 168 file (termasuk 56 file test) + docs/. Metadata simbol/import null karena tanpa index SQLite. Endpoint 28, tabel 12, test 458 (vitest aktual). Perubahan sesi: ai-credentials, lazy-planner, routes/ai-credentials (2 route baru) + wiring app/server + UI Connections; 3 berkas test baru."
+    "note": "Scope = git ls-files (ts/tsx) pada commit df45977: 168 file (termasuk 56 file test) + docs/. Metadata simbol/import null karena tanpa index SQLite. Endpoint 28, tabel 12, test 466 (vitest aktual). Perubahan sesi: plan schema batch items[] + planItemsOf + handler PLAN_CONTENT per item/gerbang approval; tanpa file/route/tabel baru."
   },
   "fallback": {
     "engine": "LIGHTWEIGHT_GREP",
