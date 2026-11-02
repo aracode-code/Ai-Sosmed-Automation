@@ -108,11 +108,21 @@ const RATIO_MODEL_PATTERN: Record<FlowMediaKind, string> = {
  * karena berada di footer panel, di luar section model.
  */
 export function buildSetRatioExpression(kind: FlowMediaKind, ratio: FlowAspectRatio): string {
-  return `(() => {
-    const tune = [...document.querySelectorAll('button')].find((el) => (el.textContent || '').trim() === 'tune');
-    if (!tune) return 'panel-tidak-ada';
-    tune.click();
-    const model = [...document.querySelectorAll('button')].find((el) => /${RATIO_MODEL_PATTERN[kind]}/i.test(el.getAttribute('aria-label') || ''));
+  // Panel dirender asinkron: klik `tune` saja tidak menjamin tombol model sudah ada.
+  // Karena itu pembukaan panel bersifat kondisional dan pencarian model ditunggu.
+  return `(async () => {
+    const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+    const findModel = () => [...document.querySelectorAll('button')].find((el) => /${RATIO_MODEL_PATTERN[kind]}/i.test(el.getAttribute('aria-label') || ''));
+    const panelOpen = () => [...document.querySelectorAll('button')].some((el) => (el.textContent || '').trim() === 'Simpan');
+    if (!findModel()) {
+      if (!panelOpen()) {
+        const tune = [...document.querySelectorAll('button')].find((el) => (el.textContent || '').trim() === 'tune');
+        if (!tune) return 'panel-tidak-ada';
+        tune.click();
+      }
+      for (let i = 0; i < 15 && !findModel(); i += 1) await wait(200);
+    }
+    const model = findModel();
     if (!model) return 'model-tidak-ada';
     let scope = model;
     let radios = [];
@@ -126,33 +136,12 @@ export function buildSetRatioExpression(kind: FlowMediaKind, ratio: FlowAspectRa
     const radio = radios.find((el) => (el.textContent || '').includes(${JSON.stringify(ratio)}));
     if (!radio) return 'rasio-tidak-ada';
     radio.click();
+    await wait(300);
+    if (radio.getAttribute('aria-checked') !== 'true') return 'rasio-belum-aktif';
     const save = [...document.querySelectorAll('button')].find((el) => (el.textContent || '').trim() === 'Simpan');
     if (!save) return 'simpan-tidak-ada';
     save.click();
     return 'ok';
-  })()`;
-}
-
-/** Membuka panel lagi dan memastikan radio yang diminta benar-benar aktif. */
-export function buildVerifyRatioExpression(kind: FlowMediaKind, ratio: FlowAspectRatio): string {
-  return `(() => {
-    const tune = [...document.querySelectorAll('button')].find((el) => (el.textContent || '').trim() === 'tune');
-    if (!tune) return 'panel-tidak-ada';
-    tune.click();
-    const model = [...document.querySelectorAll('button')].find((el) => /${RATIO_MODEL_PATTERN[kind]}/i.test(el.getAttribute('aria-label') || ''));
-    if (!model) return 'model-tidak-ada';
-    let scope = model;
-    let radios = [];
-    for (let depth = 0; depth < 3 && scope.parentElement; depth++) {
-      scope = scope.parentElement;
-      const owners = [...scope.querySelectorAll('button')].filter((el) => /model default pembuatan/i.test(el.getAttribute('aria-label') || '')).length;
-      const found = [...scope.querySelectorAll('[role="radio"]')];
-      if (owners === 1 && found.length > 0) { radios = found; break; }
-    }
-    if (radios.length === 0) return 'scope-tidak-ditemukan';
-    const radio = radios.find((el) => (el.textContent || '').includes(${JSON.stringify(ratio)}));
-    if (!radio) return 'rasio-tidak-ada';
-    return radio.getAttribute('aria-checked') === 'true' ? 'ok' : 'rasio-belum-aktif';
   })()`;
 }
 
@@ -195,18 +184,14 @@ export async function applyAspectRatio(
   kind: FlowMediaKind,
   ratio: FlowAspectRatio
 ): Promise<void> {
+  // Verifikasi aria-checked dilakukan di dalam ekspresi yang sama, sebelum
+  // `Simpan` ditekan: `Simpan` menutup panel, sehingga membukanya lagi untuk
+  // verifikasi berisiko meninggalkan panel terbuka dan menutupi komposer.
   const setState = await page.evaluate<string>(buildSetRatioExpression(kind, ratio));
   await page.waitForTimeout(800);
   if (setState !== 'ok') {
     await closeSettingsPanelIfOpen(page);
     throw new AppError('UI_CHANGED', `rasio ${ratio} tidak dapat diterapkan (${setState})`);
-  }
-
-  const verifyState = await page.evaluate<string>(buildVerifyRatioExpression(kind, ratio));
-  await page.waitForTimeout(400);
-  await closeSettingsPanelIfOpen(page);
-  if (verifyState !== 'ok') {
-    throw new AppError('UI_CHANGED', `verifikasi rasio ${ratio} gagal (${verifyState})`);
   }
 }
 
@@ -225,6 +210,15 @@ export async function generateFlowMedia(options: FlowGenerateOptions): Promise<F
     );
   }
   const page = flowPage as unknown as PageLike;
+
+  // Chrome yang di-attach memakai profil pengguna: tanpa perilaku ini, klik
+  // Download membuka dialog "Save As" native dan event `download` tidak pernah tiba.
+  const cdp = await browser.newBrowserCDPSession();
+  await cdp.send('Browser.setDownloadBehavior', {
+    behavior: 'allow',
+    downloadPath: options.outputDirectory,
+    eventsEnabled: true
+  });
 
   await assertNoChallenge(page);
 

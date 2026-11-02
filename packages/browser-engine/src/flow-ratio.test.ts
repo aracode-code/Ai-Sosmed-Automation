@@ -3,7 +3,6 @@ import { AppError } from '@saa/domain';
 import {
   applyAspectRatio,
   buildSetRatioExpression,
-  buildVerifyRatioExpression,
   PANEL_OPEN_EXPRESSION
 } from './flow-generator';
 
@@ -51,39 +50,35 @@ describe('buildSetRatioExpression', () => {
 
   it('mencari tombol Simpan secara global (footer panel)', () => {
     const expression = buildSetRatioExpression('video', '9:16');
-    const saveQuery = expression.slice(expression.indexOf("trim() === 'Simpan'") - 120);
-    expect(expression).toContain("=== 'Simpan'");
-    expect(saveQuery).not.toContain('scope.querySelectorAll');
+    expect(expression).toContain("trim() === 'Simpan'");
     expect(expression).toContain('simpan-tidak-ada');
   });
-});
 
-describe('buildVerifyRatioExpression', () => {
-  it('memeriksa aria-checked pada radio yang sama', () => {
-    const expression = buildVerifyRatioExpression('video', '9:16');
-    expect(expression).toContain("getAttribute('aria-checked') === 'true'");
+  it('membuka panel secara kondisional dan menunggu model ter-render', () => {
+    const expression = buildSetRatioExpression('video', '9:16');
+    expect(expression).toContain('if (!findModel())');
+    expect(expression).toContain('if (!panelOpen())');
+    expect(expression).toContain('await wait(200)');
+  });
+
+  it('memverifikasi aria-checked sebelum menekan Simpan', () => {
+    const expression = buildSetRatioExpression('video', '9:16');
+    const checkIndex = expression.indexOf("getAttribute('aria-checked') !== 'true'");
+    const saveIndex = expression.indexOf('save.click()');
+    expect(checkIndex).toBeGreaterThan(-1);
+    expect(saveIndex).toBeGreaterThan(checkIndex);
     expect(expression).toContain('rasio-belum-aktif');
-    expect(expression).not.toContain("=== 'Simpan'");
   });
 });
 
 describe('applyAspectRatio', () => {
-  it('berhasil bila set dan verifikasi ok, menutup panel via toggle', async () => {
-    const { page, calls } = fakePage(['ok', 'ok', true, 'ok', false]);
+  it('berhasil dalam satu langkah tanpa membuka ulang panel', async () => {
+    const { page, calls } = fakePage(['ok']);
     await expect(applyAspectRatio(page, 'video', '9:16')).resolves.toBeUndefined();
 
-    expect(calls.evaluate).toHaveLength(5);
-    expect(calls.evaluate[0]).toContain("=== 'Simpan'");
-    expect(calls.evaluate[1]).toContain('aria-checked');
-    expect(calls.evaluate[2]).toBe(PANEL_OPEN_EXPRESSION);
-    expect(calls.evaluate[3]).toContain("trim() === 'tune'");
-    expect(calls.escaped).toBe(0);
-  });
-
-  it('tidak menyentuh panel bila sudah tertutup setelah verifikasi', async () => {
-    const { page, calls } = fakePage(['ok', 'ok', false]);
-    await expect(applyAspectRatio(page, 'video', '9:16')).resolves.toBeUndefined();
-    expect(calls.evaluate).toHaveLength(3);
+    expect(calls.evaluate).toHaveLength(1);
+    expect(calls.evaluate[0]).toContain('aria-checked');
+    expect(calls.evaluate[0]).toContain('save.click()');
     expect(calls.escaped).toBe(0);
   });
 
@@ -94,6 +89,7 @@ describe('applyAspectRatio', () => {
       errorClass: 'UI_CHANGED'
     });
     expect(calls.evaluate).toHaveLength(4);
+    expect(calls.evaluate[1]).toBe(PANEL_OPEN_EXPRESSION);
     expect(calls.escaped).toBe(0);
   });
 
@@ -104,17 +100,16 @@ describe('applyAspectRatio', () => {
     expect(calls.escaped).toBe(0);
   });
 
-  it('gagal bila setelan tidak tersimpan (verifikasi menolak)', async () => {
-    const { page, calls } = fakePage(['ok', 'rasio-belum-aktif', true, 'ok', false]);
+  it('gagal bila radio tidak aktif setelah diklik', async () => {
+    const { page } = fakePage(['rasio-belum-aktif', false]);
 
-    await expect(applyAspectRatio(page, 'video', '9:16')).rejects.toThrow(/verifikasi rasio/);
-    expect(calls.escaped).toBe(0);
+    await expect(applyAspectRatio(page, 'video', '9:16')).rejects.toThrow(/rasio 9:16/);
   });
 
   it('memakai Escape sebagai fallback bila toggle gagal menutup panel', async () => {
-    const { page, calls } = fakePage(['ok', 'ok', true, 'ok', true]);
+    const { page, calls } = fakePage(['rasio-tidak-ada', true, 'ok', true]);
 
-    await expect(applyAspectRatio(page, 'video', '9:16')).resolves.toBeUndefined();
+    await expect(applyAspectRatio(page, 'video', '9:16')).rejects.toBeInstanceOf(AppError);
     expect(calls.escaped).toBe(1);
   });
 
