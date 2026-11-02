@@ -3,8 +3,8 @@
   "mode": "LIGHTWEIGHT_GREP",
   "status": "DEGRADED",
   "reason": "Tidak ada tool SQLite index di runtime ini (`sqlite_query_tool` missing). Pencarian memakai ripgrep terhadap source aktual; tidak ada code.db.",
-  "indexed_commit": "8b9a512a5ffb931299407264d2d925921f26477d",
-  "indexed_at": "2026-11-02T08:06:00+07:00",
+  "indexed_commit": "1656c9f413679de34aa0e42b552f3ef5c5d67ea4",
+  "indexed_at": "2026-11-02T08:22:19+07:00",
   "scope": [
     "apps/local-api/src/**",
     "apps/dashboard/src/**",
@@ -20,18 +20,18 @@
     "docs/**"
   ],
   "counts": {
-    "files": 171,
+    "files": 172,
     "test_files": 57,
     "symbols": null,
     "imports": null,
     "apis": 31,
     "db_objects": 13,
-    "tests": 486
+    "tests": 489
   },
   "validation": {
-    "last_validated_at": "2026-11-02T08:06:00+07:00",
+    "last_validated_at": "2026-11-02T08:22:19+07:00",
     "result": "partial",
-    "note": "Scope = git ls-files (ts/tsx) pada commit 8b9a512: 171 file (termasuk 57 file test) + docs/. Metadata simbol/import null karena tanpa index SQLite. Endpoint 31, tabel 13, test 486 (vitest aktual). Perubahan sesi: migrasi 0003_plan_approvals.sql + repositori plan-approvals + route /api/v1/plans/*, gerbang rencana di enqueuer publikasi, guard produksi per rencana, dan fallback approval per-konten di handler PUBLISH."
+    "note": "Scope = git ls-files (ts/tsx) pada commit 1656c9f: 172 file (termasuk 57 file test) + docs/. Metadata simbol/import null karena tanpa index SQLite. Endpoint 31, tabel 13, test 489 (vitest aktual). Perubahan sesi: filter `jobType`/`campaignId` pada GET /api/v1/jobs (route + repository), halaman Campaigns dengan form permintaan PLAN_CONTENT, daftar job rencana, dan komponen PlanReviewPanel (approve/reject via /api/v1/plans/:jobId)."
   },
   "fallback": {
     "engine": "LIGHTWEIGHT_GREP",

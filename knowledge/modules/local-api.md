@@ -47,7 +47,7 @@ loadConfig → createLogger → openDatabase → runMigrations → runStartupRec
 | Area | Route |
 |---|---|
 | Health | `GET /health`, `GET /api/v1/health` (`workers.active` dari worker nyata) |
-| Jobs | `GET /api/v1/jobs`, `GET /api/v1/jobs/:id` |
+| Jobs | `GET /api/v1/jobs` — filter opsional `status`, `jobType` (divalidasi `JOB_TYPES`), `campaignId`, `limit`, `cursor`; `GET /api/v1/jobs/:id` |
 | Campaigns | `POST /api/v1/campaigns`, `GET /api/v1/campaigns`, `GET /api/v1/campaigns/:id` |
 | Approvals | `POST /api/v1/content/:id/approve`, `POST /api/v1/content/:id/reject` |
 | Plans | `GET /api/v1/plans/:jobId` — rencana `PLAN_CONTENT` + `contents[]` + `bindingHash` + keputusan; 404 bila job tidak ada/bukan `PLAN_CONTENT`. `POST /api/v1/plans/:jobId/approve` dan `/reject` — body `{bindingHash, decidedBy?, reason?}`; 409 `PLAN_NOT_READY`/`PLAN_EMPTY`/`PLAN_ALREADY_DECIDED`/`PLAN_MISMATCH` (+`PLAN_INVALID` saat approve bila ada item tanpa `videoPrompt`); 201 `{approval, contentIds, enqueuedJobIds}` |
@@ -115,4 +115,4 @@ Argumen script diteruskan apa adanya; jangan memakai `--` pemisah (`--` ikut men
 - Pemicu `PLAN_CONTENT` manual ada di `POST /api/v1/content` (idempoten via `requestId`); pembatalan job dan pembacaan attempt publikasi tersedia lewat `POST /api/v1/jobs/:id/cancel` dan `GET /api/v1/jobs/:id/events`.
 - Produksi konten ikut berhenti bila adapter publikasi tidak terdaftar, karena loop dispatch digerbangi adapter (ADR-0006 S8).
 - Aksi connect **tidak** menyelesaikan konflik profil: `flow:login` gagal bila Chrome/CDP lain sudah memakai profil Flow yang sama (`Opening in existing browser session`). Menghentikan Chrome milik owner bukan wewenang API; kondisi ini diteruskan ke UI sebagai error aksi + catatan.
-- Approval rencana tersedia lewat API (`/api/v1/plans/:jobId`), tetapi **UI** belum punya form permintaan maupun daftar approval batch (Slice 4).
+- Approval rencana tersedia lewat API (`/api/v1/plans/:jobId`) dan UI Campaigns (form permintaan, daftar job `PLAN_CONTENT`, panel keputusan — `1656c9f`); halaman Approvals masih per-konten dan belum menampilkan rencana.

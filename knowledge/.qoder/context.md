@@ -1,13 +1,13 @@
 # L0 — Active Context
 
 **Session:** SESSION-2026-11-02-1
-**Updated:** 2026-11-02T08:06:00+07:00
+**Updated:** 2026-11-02T08:22:19+07:00
 **Autonomy:** L1 (BALANCED)
-**Change class terakhir:** MEDIUM (Slice 3: migrasi `plan_approvals`, route rencana approve/reject, publikasi satu gerbang)
+**Change class terakhir:** MEDIUM (Slice 4: filter job per campaign/tipe, form permintaan + keputusan rencana di Campaigns)
 
 ## Current Task
 
-**Slice 3 COMPLETED — approval tahap rencana + publikasi satu gerbang.** Approval kini diputuskan **sekali per rencana** lewat `POST /api/v1/plans/:jobId/approve|reject` dengan binding `hashPlanBinding` (contentId + versi + hash caption, tanpa aset karena media belum ada). Approve membangkitkan `GENERATE_VIDEO` untuk **seluruh item** rencana dan menandai semua konten `approved`; enqueuer publikasi menerbitkan **semua** item rencana yang lolos gerbang, dan handler `PUBLISH` menerima gerbang rencana dengan fallback approval per-konten untuk data lama. Slice 4 (form permintaan di Campaigns + daftar approval batch di UI) **belum dimulai** — menunggu instruksi owner. P3 tetap PARTIAL: retest unduhan `GENERATE_VIDEO` lewat worker masih menunggu 1 kredit.
+**Slice 4 COMPLETED — UI permintaan dan keputusan rencana di Campaigns.** Halaman Campaigns kini punya form **"Minta rencana"** (memanggil `POST /api/v1/content`, menampilkan job `queued`/`duplicate`), daftar **job `PLAN_CONTENT`** per campaign (difilter lewat `GET /api/v1/jobs?jobType=PLAN_CONTENT&campaignId=…`), dan panel `PlanReviewPanel` yang memuat `GET /api/v1/plans/:jobId` lalu mengirim approve/reject dengan `bindingHash` dari server. Campaign mode `automatic` menampilkan tinjauan **baca-saja** karena pembuatan sudah berjalan otomatis; mode `required` menampilkan kolom alasan dan tombol Tolak/Setujui rencana. Slice 1–4 alur approval rencana kerja **selesai**; langkah berikutnya menunggu instruksi owner. P3 tetap PARTIAL: retest unduhan `GENERATE_VIDEO` lewat worker masih menunggu 1 kredit.
 
 | Fase | Commit | Isi |
 |---|---|---|
@@ -23,8 +23,9 @@
 | AI | `1dfcadf` | kredensial AI DPAPI + planner lazy + input UI (ADR-0011) |
 | S2 | `df45977` | rencana batch `items[]` 1–5 + gerbang approval `PLAN_CONTENT` |
 | S3 | `8b9a512` | approval rencana (`plan_approvals`) + publikasi satu gerbang |
+| S4 | `1656c9f` | filter job per campaign/tipe + form permintaan & keputusan rencana di Campaigns |
 
-Status fase: **P3 PARTIAL** (pembuatan via aplikasi VERIFIED; unduhan via aplikasi UNVERIFIED) · **P4 PARTIAL** (UI approval + aksi connect DONE; reauth belum) · **P4b/P4c COMPLETED** · **P5 PARTIAL** (A1–A7 DONE; unggahan nyata UNVERIFIED) · **Alur approval rencana kerja: Slice 1–3 DONE, Slice 4 NOT STARTED**.
+Status fase: **P3 PARTIAL** (pembuatan via aplikasi VERIFIED; unduhan via aplikasi UNVERIFIED) · **P4 PARTIAL** (UI approval + aksi connect DONE; reauth belum) · **P4b/P4c COMPLETED** · **P5 PARTIAL** (A1–A7 DONE; unggahan nyata UNVERIFIED) · **Alur approval rencana kerja: Slice 1–4 DONE**.
 
 ## Konteks Minimum
 
@@ -35,7 +36,7 @@ Status fase: **P3 PARTIAL** (pembuatan via aplikasi VERIFIED; unduhan via aplika
 
 ## Fakta Aktif (terverifikasi)
 
-- 8 paket workspace + `apps/local-api` + `apps/dashboard`; **171 file TS/TSX** (termasuk 57 file test), **486 test hijau**; typecheck 10 paket + `tests/tsconfig.json` PASS.
+- 8 paket workspace + `apps/local-api` + `apps/dashboard`; **172 file TS/TSX** (termasuk 57 file test), **489 test hijau**; typecheck 10 paket + `tests/tsconfig.json` PASS.
 - Migrasi **4 berkas** (`0000_init` … `0003_plan_approvals`); **13 tabel** (termasuk `plan_approvals`); **31 route**.
 - Rantai otomatis: slot → `PLAN_CONTENT` → (approval rencana) → `GENERATE_VIDEO` per item → media valid → `PUBLISH` seluruh item rencana + produksi slot berikutnya; publikasi lebih dulu dalam satu tick.
 - Pipeline kedalaman satu: slot ditahan bila ada `PLAN_CONTENT` non-terminal atau **ada item rencana** yang belum punya job `PUBLISH`.
@@ -47,10 +48,11 @@ Status fase: **P3 PARTIAL** (pembuatan via aplikasi VERIFIED; unduhan via aplika
 - **Rencana batch (E1, `df45977`):** `planDecisionSchema.items` 1–5 (`topic`, `videoPrompt`, `targets`) atau bentuk tunggal lama; `planItemsOf` menormalkan keduanya; `checkPlanAgainstCampaign` memvalidasi target per item; `maxTokens` planner default 2400. `PLAN_CONTENT`: konten batch `cnt_<jobId>_<n>` (tunggal tetap `cnt_<jobId>`), `prompt_json` memuat `planJobId`/`itemIndex`/`itemCount`; `approvalRequired=true` → semua konten `pending` dan **0** job `GENERATE_VIDEO`; otomatis → job generate per item.
 - **Approval rencana (E1, `8b9a512`, Slice 3):** tabel `plan_approvals` (unique `plan_job_id`); binding `hashPlanBinding` = sha256 atas `[{contentId, contentVersion, captionHash}]` terurut `contentId` (tanpa aset — media belum ada saat approve). Route `GET /api/v1/plans/:jobId` (rencana + item + `bindingHash` + keputusan) dan `POST /api/v1/plans/:jobId/approve|reject` body `{bindingHash, decidedBy?, reason?}`; urutan tolak 404 → 409 `PLAN_NOT_READY`/`PLAN_EMPTY`/`PLAN_ALREADY_DECIDED`/`PLAN_MISMATCH` → (approve) 409 `PLAN_INVALID` bila ada item tanpa `videoPrompt`. Approve dalam satu transaksi: simpan keputusan, `approval_status` semua konten, `GENERATE_VIDEO` idempotent per item (`generate:<contentId>`, `parentJobId` = job rencana), audit `plan.approve`/`plan.reject`.
 - **Publikasi satu gerbang (E1, `8b9a512`):** mode `required` → bila ada approval rencana `approved` dengan binding cocok, **semua** item rencana (kecuali `rejected`) menjadi kandidat; tanpa itu jatuh ke approval per-konten (data lama). Handler `PUBLISH` memakai `getPlanGate` dan hanya memeriksa approval per-konten bila gerbang rencana tidak valid. Guard produksi menahan slot sampai **setiap** item rencana punya job `PUBLISH`.
-- **Celah tersisa (E1):** UI belum punya form permintaan rencana maupun daftar approval batch (Slice 4); approval rencana hanya bisa diputuskan lewat API.
+- **UI rencana kerja (E1, `1656c9f`, Slice 4):** Campaigns punya form "Minta rencana" → `POST /api/v1/content` (202 `queued`/`duplicate`), daftar job `PLAN_CONTENT` per campaign (`GET /api/v1/jobs?jobType=…&campaignId=…`, limit 5), dan `PlanReviewPanel` (`GET /api/v1/plans/:jobId` → Tolak/Setujui dengan `bindingHash`). Daftar job diperbarui lewat `refreshToken` setelah aksi. Mode `automatic` = tinjauan baca-saja (pembuatan sudah otomatis); mode `required` = keputusan wajib. Halaman Approvals **tetap** per-konten dan belum menampilkan rencana.
+- **Filter job (E1, `1656c9f`):** `GET /api/v1/jobs` menerima `jobType` (divalidasi terhadap `JOB_TYPES`) dan `campaignId`; keduanya opsional dan terikat ke query repository `listJobs` — diperlukan agar daftar rencana dapat ditemukan setelah muat ulang (tanpa endpoint baru).
 - **Konfigurasi (E1):** `YOUTUBE_ADAPTER=off|mock|api`, `YOUTUBE_UPLOAD_PRIVACY`, `YOUTUBE_APP_STATUS=testing|production|unknown` (status *Internal* diwakili `production`).
 - **Preflight (E1, `bbfe83a`):** `preflight:youtube` — tanpa jaringan, tanpa mencetak rahasia; exit 0 lulus/peringatan, 1 FAIL, 2 konfigurasi.
-- **Dashboard (E1, `8e27b27`, `406f1f5`, `acdcf17`):** `apps/dashboard` React 18 + Vite 6, dev `localhost:5174`, proxy `/api` + `/health` → `127.0.0.1:4317`; halaman Overview/Jobs/Campaigns/Approvals/Accounts/Connections; **aksi approve/reject** memakai binding dari `GET /api/v1/content/:id` (UI tidak menghitung hash), diblokir tanpa aset `valid`/akun `connected`, `APPROVAL_MISMATCH` → minta muat ulang; **Connections beraksi** (login Flow + pairing dari UI). Tanpa router, tanpa Tailwind, tanpa test UI.
+- **Dashboard (E1, `8e27b27`, `406f1f5`, `acdcf17`, `1656c9f`):** `apps/dashboard` React 18 + Vite 6, dev `localhost:5174`, proxy `/api` + `/health` → `127.0.0.1:4317`; halaman Overview/Jobs/Campaigns/Approvals/Accounts/Connections; **aksi approve/reject per-konten** memakai binding dari `GET /api/v1/content/:id` (UI tidak menghitung hash), diblokir tanpa aset `valid`/akun `connected`, `APPROVAL_MISMATCH` → minta muat ulang; **Connections beraksi** (login Flow + pairing dari UI); **Campaigns beraksi** (form permintaan rencana + daftar job rencana + panel keputusan rencana). Tanpa router, tanpa Tailwind, tanpa test UI.
 - **Endpoint detail konten (E1, `5e8184b`):** `GET /api/v1/content/:id?version=n` → konten (default versi tertinggi pada baris itu), `campaign {platforms, approvalMode}`, `assets` tanpa `path`, `captionHash` server-side, `accounts` kandidat; 7 test.
 - **Drift skema (2026-11-01):** `content_items` PK `id` tunggal vs LLD §5 `unique(id, version)` → versi baru untuk id yang sama gagal; `version` saat ini selalu 1; menunggu keputusan owner.
 - **Sesi Flow (E1, `fd62314`; diverifikasi 2026-11-02):** `playwright` + Chromium/Chrome (`FLOW_BROWSER_CHANNEL`, default `chrome`); profil `%LOCALAPPDATA%\saa\browser\flow-profile` (`FLOW_PROFILE_DIR` absolut); `openFlowSession` memegang `.worker-lock.json` dan melepasnya pada close/launch gagal/goto gagal; `flow:login [--check]` — login manual headed, tanpa mengisi kredensial atau menembus CAPTCHA; `DEFAULT_FLOW_URL = https://flow.google.com/`. Login dari UI berakhir `succeeded`; `flow:inspect` pada project `445c6cd0-…` melihat komposer "Apa yang ingin Anda buat?" → **sesi valid & persisten**.
@@ -78,10 +80,10 @@ Status fase: **P3 PARTIAL** (pembuatan via aplikasi VERIFIED; unduhan via aplika
 
 ## Langkah Berikutnya
 
-1. Slice 4 (bila diminta owner): form permintaan rencana di halaman Campaigns + daftar approval batch (`GET /api/v1/plans/:jobId`) dengan tombol setujui/tolak.
-2. Uji live `PLAN_CONTENT` dengan kunci DeepSeek nyata; satu siklus rencana → approve → generate → publish (biaya sesuai guard Flow).
-3. Retest unduhan `GENERATE_VIDEO` lewat aplikasi — **butuh 1 kredit**; guard 2026-11-02 sudah 1/1 sehingga menunggu izin owner (paling cepat 2026-11-03 WIB).
-4. Sambungkan guard/ledger ke jalur `FLOW_ADAPTER=real`; tambahkan jalur "unduh ulang tanpa submit" (downloadOnly).
+1. Uji live `PLAN_CONTENT` dengan kunci DeepSeek nyata; satu siklus rencana → approve → generate → publish (biaya sesuai guard Flow).
+2. Retest unduhan `GENERATE_VIDEO` lewat aplikasi — **butuh 1 kredit**; guard 2026-11-02 sudah 1/1 sehingga menunggu izin owner (paling cepat 2026-11-03 WIB).
+3. Sambungkan guard/ledger ke jalur `FLOW_ADAPTER=real`; tambahkan jalur "unduh ulang tanpa submit" (downloadOnly).
+4. Pertimbangkan menampilkan rencana yang menunggu keputusan di halaman Approvals (kini hanya per-konten) — belum diminta owner.
 5. Menunggu owner lain: pairing YouTube (`GOOGLE_OAUTH_CLIENT_ID`), keputusan revisi multi-versi konten, smoke live YouTube, lint (D7), `AGENTS.md`.
 
 ## Asumsi Terbuka (jangan dibangun di atasnya tanpa verifikasi)
@@ -97,5 +99,5 @@ Status fase: **P3 PARTIAL** (pembuatan via aplikasi VERIFIED; unduhan via aplika
 - Revisi konten multi-versi tidak dapat disimpan (PK `content_items` = `id`); `version` selalu 1.
 - Unduhan lewat worker baru terbukti dengan ekspresi Playwright terpisah (bukan jalur handler penuh) setelah tambalan.
 - Batch > 1 item sudah diuji di level API, enqueuer, dan handler (approve → 2 job generate → 2 job publish), tetapi belum dijalankan end-to-end dengan kunci DeepSeek dan adapter publikasi nyata.
-- Approval rencana hanya dapat diputuskan lewat API; UI Slice 4 belum ada.
+- UI rencana kerja baru diuji pada Chromium desktop (Playwright headless 1440×1000) dengan DB scratch; halaman Approvals belum menampilkan rencana, dan tombol retry di Jobs tetap berbahaya untuk job yang sudah submit prompt.
 - Lint belum dipilih; pairing akun tetap CLI.
