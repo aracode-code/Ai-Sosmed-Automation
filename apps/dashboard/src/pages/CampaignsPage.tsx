@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { ApiError, sendJson, useApi } from '../api';
+import { CreateCampaignForm } from '../CreateCampaignForm';
 import { PlanReviewPanel } from '../PlanReviewPanel';
 import {
   EmptyState,
@@ -89,6 +90,13 @@ export function CampaignsPage({
 
   return (
     <div className="stack">
+      <CreateCampaignForm
+        onCreated={(campaignId) => {
+          setSelectedId(campaignId);
+          onChanged();
+        }}
+      />
+
       <Section title="Campaign">
         {list.loading ? <Loading /> : null}
         {list.error !== null ? <ErrorBox message={list.error} /> : null}
