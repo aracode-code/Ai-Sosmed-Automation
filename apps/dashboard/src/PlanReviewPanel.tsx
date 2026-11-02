@@ -89,8 +89,10 @@ export function PlanReviewPanel({
       );
       onDecided(
         decision === 'approved'
-          ? `Rencana disetujui; ${result.enqueuedJobIds.length} job GENERATE_VIDEO diantrekan.`
-          : 'Rencana ditolak; tidak ada job pembuatan video yang dibuat.'
+          ? `Rencana disetujui; ${result.enqueuedJobIds.length} job ${
+              data.campaign?.generationMode === 'image' ? 'GENERATE_IMAGE' : 'GENERATE_VIDEO'
+            } diantrekan.`
+          : 'Rencana ditolak; tidak ada job pembuatan media yang dibuat.'
       );
     } catch (caught) {
       setError(describeDecisionError(caught));
@@ -128,7 +130,10 @@ export function PlanReviewPanel({
                   <dt>Campaign</dt>
                   <dd>
                     {data.campaign.name}
-                    <span className="muted"> · {data.campaign.approvalMode}</span>
+                    <span className="muted">
+                      {' '}
+                      · {data.campaign.approvalMode} · {data.campaign.generationMode}
+                    </span>
                   </dd>
                 </>
               )}

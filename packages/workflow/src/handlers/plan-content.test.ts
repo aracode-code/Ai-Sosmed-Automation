@@ -35,7 +35,7 @@ afterEach(() => {
   while (cleanups.length > 0) cleanups.pop()?.();
 });
 
-function seededCampaign(db: DatabaseHandle) {
+function seededCampaign(db: DatabaseHandle, generationMode: 'video' | 'image' = 'video') {
   seq += 1;
   return insertCampaign(
     db.raw,
@@ -43,6 +43,7 @@ function seededCampaign(db: DatabaseHandle) {
       name: 'Edukasi AI',
       niche: 'edukasi teknologi',
       approvalMode: 'required',
+      generationMode,
       platforms: ['youtube', 'tiktok']
     },
     T0
@@ -180,6 +181,34 @@ describe('PLAN_CONTENT handler', () => {
       content_id: contentId,
       parent_job_id: job.id
     });
+  });
+
+  it('campaign image meng-enqueue GENERATE_IMAGE dan menyimpan mediaKind', async () => {
+    const db = tempDb();
+    const campaign = seededCampaign(db, 'image');
+    const job = enqueuePlan(db, campaign.id);
+
+    const result = await dispatcherWith(
+      db,
+      plannerReturning(
+        { ...planResponse, plan: { ...planResponse.plan, campaignId: campaign.id } }
+      )
+    ).runOnce();
+
+    expect(result?.status).toBe('COMPLETED');
+    const child = db.raw
+      .prepare("SELECT * FROM jobs WHERE job_type = 'GENERATE_IMAGE'")
+      .all() as { content_id: string }[];
+    expect(child).toHaveLength(1);
+    expect(child[0]?.content_id).toBe(`cnt_${job.id}`);
+
+    const videos = db.raw
+      .prepare("SELECT COUNT(*) AS n FROM jobs WHERE job_type = 'GENERATE_VIDEO'")
+      .get() as { n: number };
+    expect(videos.n).toBe(0);
+
+    const content = getContentItem(db.raw, `cnt_${job.id}`, 1);
+    expect(content?.prompt).toMatchObject({ mediaKind: 'image' });
   });
 
   it('menahan GENERATE_VIDEO selama rencana menunggu approval', async () => {

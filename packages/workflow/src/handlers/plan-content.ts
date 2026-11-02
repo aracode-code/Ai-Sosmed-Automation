@@ -156,6 +156,7 @@ export function createPlanContentHandler(deps: PlanContentDeps): JobHandler {
           decision: plan.decision,
           videoPrompt: item.videoPrompt,
           aspectRatio,
+          mediaKind: campaign.generationMode,
           rationale: plan.rationale,
           planJobId: ctx.job.id,
           itemIndex: index + 1,
@@ -175,7 +176,7 @@ export function createPlanContentHandler(deps: PlanContentDeps): JobHandler {
     if (!pending) {
       for (const { content, item, aspectRatio } of prepared) {
         insertJobIdempotent(deps.db.raw, {
-          jobType: 'GENERATE_VIDEO',
+          jobType: campaign.generationMode === 'image' ? 'GENERATE_IMAGE' : 'GENERATE_VIDEO',
           idempotencyKey: `generate:${content.id}`,
           campaignId: campaign.id,
           contentId: content.id,

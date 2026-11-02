@@ -1,5 +1,10 @@
 import { randomUUID } from 'node:crypto';
-import { PLATFORM_IDS, type Campaign, type PlatformId } from '@saa/domain';
+import {
+  PLATFORM_IDS,
+  type Campaign,
+  type GenerationMode,
+  type PlatformId
+} from '@saa/domain';
 import type { SqliteDatabase } from '../client';
 
 interface CampaignRow {
@@ -8,6 +13,7 @@ interface CampaignRow {
   niche: string;
   status: string;
   approval_mode: string;
+  generation_mode: string;
   platforms_json: string;
   created_at: string;
 }
@@ -31,6 +37,7 @@ function toCampaign(row: CampaignRow): Campaign {
     niche: row.niche,
     status: row.status,
     approvalMode: row.approval_mode === 'automatic' ? 'automatic' : 'required',
+    generationMode: row.generation_mode === 'image' ? 'image' : 'video',
     platforms: parsePlatforms(row.platforms_json),
     createdAt: row.created_at
   };
@@ -42,6 +49,8 @@ export interface InsertCampaignInput {
   niche: string;
   status?: string;
   approvalMode: 'automatic' | 'required';
+  /** Default video: campaign lama dan pemanggil lama tidak berubah perilaku. */
+  generationMode?: GenerationMode;
   platforms: PlatformId[];
 }
 
@@ -53,8 +62,8 @@ export function insertCampaign(
   const id = input.id ?? `cmp_${randomUUID()}`;
   raw
     .prepare(
-      `INSERT INTO campaigns (id, name, niche, status, approval_mode, platforms_json, created_at)
-       VALUES (@id, @name, @niche, @status, @approvalMode, @platformsJson, @now)`
+      `INSERT INTO campaigns (id, name, niche, status, approval_mode, generation_mode, platforms_json, created_at)
+       VALUES (@id, @name, @niche, @status, @approvalMode, @generationMode, @platformsJson, @now)`
     )
     .run({
       id,
@@ -62,6 +71,7 @@ export function insertCampaign(
       niche: input.niche,
       status: input.status ?? 'active',
       approvalMode: input.approvalMode,
+      generationMode: input.generationMode ?? 'video',
       platformsJson: JSON.stringify(input.platforms),
       now
     });

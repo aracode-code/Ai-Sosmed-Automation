@@ -54,6 +54,7 @@ interface SeedOptions {
   approvalStatus?: 'pending' | 'approved' | 'rejected' | 'not_required';
   approvedCaption?: unknown;
   connectionStatus?: 'connected' | 'reauth_required' | 'disconnected';
+  assetMimeType?: 'video/mp4' | 'image/png';
 }
 
 function seed(db: DatabaseHandle, options: SeedOptions = {}) {
@@ -91,7 +92,7 @@ function seed(db: DatabaseHandle, options: SeedOptions = {}) {
     contentId: content.id,
     path: `content/${content.id}/video.mp4`,
     sha256: ASSET_SHA,
-    mimeType: 'video/mp4',
+    mimeType: options.assetMimeType ?? 'video/mp4',
     sizeBytes: 4_096,
     durationMs: 30_000,
     validationStatus: 'valid'
@@ -282,6 +283,21 @@ class AuthFailingAdapter extends MockYouTubeAdapter {
 }
 
 describe('PUBLISH handler', () => {
+  it('menolak publikasi bila satu-satunya aset valid adalah gambar', async () => {
+    const db = tempDb();
+    const seeded = seed(db, { assetMimeType: 'image/png' });
+    enqueuePublish(db, {
+      campaignId: seeded.campaign.id,
+      contentId: seeded.content.id,
+      accountId: seeded.account.id
+    });
+
+    const result = await dispatcherWith(db, new MockYouTubeAdapter({ now })).runOnce();
+
+    expect(result?.status).toBe('FAILED');
+    expect(result?.lastErrorCode).toBe('VALIDATION');
+  });
+
   it('mempublikasikan lalu memverifikasi lewat getStatus, menutup job ke PUBLISHED', async () => {
     const db = tempDb();
     const seeded = seed(db);

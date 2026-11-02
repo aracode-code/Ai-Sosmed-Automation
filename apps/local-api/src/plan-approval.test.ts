@@ -50,15 +50,22 @@ interface SeededPlan {
 }
 
 function seedPlan(
-  options: { jobStatus?: JobStatus; itemCount?: number; jobType?: 'PLAN_CONTENT' | 'PUBLISH' } = {}
+  options: {
+    jobStatus?: JobStatus;
+    itemCount?: number;
+    jobType?: 'PLAN_CONTENT' | 'PUBLISH';
+    generationMode?: 'video' | 'image';
+  } = {}
 ): SeededPlan {
   seq += 1;
+  const generationMode = options.generationMode ?? 'video';
   const campaign = insertCampaign(
     db.raw,
     {
       name: 'Edukasi AI',
       niche: 'teknologi',
       approvalMode: 'required',
+      generationMode,
       platforms: ['youtube']
     },
     T0
@@ -89,6 +96,7 @@ function seedPlan(
         decision: 'create_video',
         videoPrompt: `video ${index}`,
         aspectRatio: '9:16',
+        mediaKind: generationMode,
         rationale: 'alasan',
         planJobId: job.id,
         itemIndex: index,
@@ -124,6 +132,13 @@ function generateJobs(contentId: string): { payload: unknown; status: string }[]
       const value = row as { payload: string; status: string };
       return { payload: JSON.parse(value.payload) as unknown, status: value.status };
     });
+}
+
+function imageJobCount(): number {
+  const row = db.raw
+    .prepare("SELECT COUNT(*) AS n FROM jobs WHERE job_type = 'GENERATE_IMAGE'")
+    .get() as { n: number };
+  return row.n;
 }
 
 function contentStatus(contentId: string): string {
@@ -195,6 +210,39 @@ describe('POST /api/v1/plans/:jobId/approve', () => {
       .prepare("SELECT action, result FROM audit_logs WHERE resource_id = ?")
       .all(plan.jobId) as { action: string; result: string }[];
     expect(audit).toEqual([{ action: 'plan.approve', result: 'success' }]);
+  });
+
+  it('menyetujui rencana campaign image: menghasilkan GENERATE_IMAGE, bukan GENERATE_VIDEO', async () => {
+    const plan = seedPlan({ generationMode: 'image' });
+
+    const review = await app.inject({ method: 'GET', url: `/api/v1/plans/${plan.jobId}` });
+    expect(review.statusCode).toBe(200);
+    expect(review.json<{ campaign: { generationMode: string } }>().campaign.generationMode).toBe(
+      'image'
+    );
+    expect(
+      review.json<{ contents: { mediaKind: string }[] }>().contents.map((item) => item.mediaKind)
+    ).toEqual(['image', 'image']);
+
+    const response = await app.inject({
+      method: 'POST',
+      url: `/api/v1/plans/${plan.jobId}/approve`,
+      payload: { bindingHash: bindingHashOf(plan.contentIds), decidedBy: 'owner' }
+    });
+
+    expect(response.statusCode).toBe(201);
+    expect(imageJobCount()).toBe(2);
+    expect(
+      (db.raw.prepare("SELECT COUNT(*) AS n FROM jobs WHERE job_type = 'GENERATE_VIDEO'").get() as {
+        n: number;
+      }).n
+    ).toBe(0);
+    for (const contentId of plan.contentIds) {
+      const job = db.raw
+        .prepare("SELECT payload_json AS payload FROM jobs WHERE job_type = 'GENERATE_IMAGE' AND content_id = ?")
+        .get(contentId) as { payload: string };
+      expect(JSON.parse(job.payload)).toMatchObject({ contentId });
+    }
   });
 
   it('menolak keputusan kedua untuk rencana yang sama tanpa menggandakan job', async () => {

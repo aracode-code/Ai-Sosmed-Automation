@@ -12,6 +12,7 @@ const PLATFORM_OPTIONS = [
 ] as const;
 
 type ApprovalMode = 'required' | 'automatic';
+type GenerationMode = 'video' | 'image';
 
 export function CreateCampaignForm({
   onCreated
@@ -21,6 +22,7 @@ export function CreateCampaignForm({
   const [name, setName] = useState('');
   const [niche, setNiche] = useState('');
   const [approvalMode, setApprovalMode] = useState<ApprovalMode>('required');
+  const [generationMode, setGenerationMode] = useState<GenerationMode>('video');
   const [platforms, setPlatforms] = useState<string[]>(['youtube']);
   const [submitting, setSubmitting] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
@@ -44,12 +46,14 @@ export function CreateCampaignForm({
         name: name.trim(),
         niche: niche.trim(),
         approvalMode,
+        generationMode,
         platforms
       });
       setNotice(`Campaign ${created.campaignId} dibuat. Baris di tabel sudah dipilih.`);
       setName('');
       setNiche('');
       setApprovalMode('required');
+      setGenerationMode('video');
       setPlatforms(['youtube']);
       onCreated(created.campaignId);
     } catch (caught) {
@@ -69,8 +73,9 @@ export function CreateCampaignForm({
     <Section title="Buat campaign">
       <div className="panel-pad">
         <p className="hint">
-          Campaign baru langsung aktif. Platform yang sudah punya adapter baru YouTube; platform lain
-          dicatat tetapi target videonya belum didukung.
+          Campaign baru langsung aktif. Mode generasi menentukan artefak yang diproduksi: video
+          (dapat diterbitkan ke YouTube) atau gambar. Platform yang sudah punya adapter baru
+          YouTube; platform lain dicatat tetapi publikasinya belum didukung.
         </p>
         <form
           className="form-grid"
@@ -120,6 +125,21 @@ export function CreateCampaignForm({
             >
               <option value="required">required — setujui tiap rencana</option>
               <option value="automatic">automatic — rencana langsung diproduksi</option>
+            </select>
+          </div>
+          <div className="field">
+            <label className="field-label" htmlFor="campaign-generation">
+              Mode generasi
+            </label>
+            <select
+              id="campaign-generation"
+              className="input"
+              value={generationMode}
+              disabled={submitting}
+              onChange={(event) => setGenerationMode(event.target.value as GenerationMode)}
+            >
+              <option value="video">video — diproduksi dan dapat diterbitkan</option>
+              <option value="image">image — diproduksi, belum diterbitkan</option>
             </select>
           </div>
           <div className="field">

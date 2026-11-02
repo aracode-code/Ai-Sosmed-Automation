@@ -1,5 +1,5 @@
 export * from './dispatcher';
-export * from './handlers/generate-video';
+export * from './handlers/generate-media';
 export * from './handlers/plan-content';
 export * from './handlers/publish';
 export * from './recovery';

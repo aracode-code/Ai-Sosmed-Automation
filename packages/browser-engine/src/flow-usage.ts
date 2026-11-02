@@ -1,4 +1,4 @@
-import { AppError } from '@saa/domain';
+import { AppError, type MediaKind } from '@saa/domain';
 
 /**
  * Guard pemakaian Flow. Tidak ada API saldo kredit, jadi guard ini membatasi
@@ -12,7 +12,8 @@ export interface FlowGuard {
   dryRun: boolean;
 }
 
-export type FlowMediaKind = 'image' | 'video';
+/** Alias historis; sumber tunggal jenis media ada di `@saa/domain`. */
+export type FlowMediaKind = MediaKind;
 
 export type UsageStatus = 'started' | 'succeeded' | 'failed';
 

@@ -1,4 +1,5 @@
 import type { ApprovalBinding, ApprovalDecision } from './approval';
+import type { GenerationMode } from './generation';
 import type { JobStatus, JobType } from './job';
 import type { PlatformId } from './platform';
 import type { ScheduleConfig } from './schedule';
@@ -9,6 +10,8 @@ export interface Campaign {
   niche: string;
   status: string;
   approvalMode: 'automatic' | 'required';
+  /** Artefak yang diproduksi campaign ini; publikasi baru tersedia untuk video. */
+  generationMode: GenerationMode;
   /** Target platform campaign; disimpan sebagai `platforms_json` (ADR-0003). */
   platforms: PlatformId[];
   createdAt: string;

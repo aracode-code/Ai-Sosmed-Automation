@@ -1,16 +1,21 @@
 import { createHash } from 'node:crypto';
 import { readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { AppError } from '@saa/domain';
+import { AppError, type MediaKind } from '@saa/domain';
 import { generateFlowMedia, type FlowGenerateResult } from './flow-generator';
 import { inspectFlowReady, type FlowReadiness } from './flow-readiness';
-import type { GeneratedVideo, VideoGenerationRequest, VideoGenerator } from './types';
+import type { GeneratedMedia, MediaGenerationRequest, MediaGenerator } from './types';
 
 /**
- * Generator video nyata lewat studio Flow (tab `Video`, model default Veo).
- * Memakai browser yang sudah login dan di-attach via CDP; tidak menangani
- * CAPTCHA dan tidak mengubah setelan akun.
+ * Generator media nyata lewat studio Flow (video: tab `Video`/Veo, gambar: tab
+ * `Gambar`/Nano Banana). Memakai browser yang sudah login dan di-attach via CDP;
+ * tidak menangani CAPTCHA dan tidak mengubah setelan akun.
  */
+
+const DEFAULT_RENDER_TIMEOUT_MS: Record<MediaKind, number> = {
+  video: 15 * 60_000,
+  image: 5 * 60_000
+};
 
 export interface FlowPlaywrightGeneratorOptions {
   /** Endpoint CDP Chrome yang sudah login, mis. `http://127.0.0.1:9222`. */
@@ -22,7 +27,7 @@ export interface FlowPlaywrightGeneratorOptions {
   generateMedia?: (options: {
     endpoint: string;
     prompt: string;
-    kind: 'video';
+    kind: MediaKind;
     outputDirectory: string;
     aspectRatio?: '9:16' | '16:9' | '1:1';
     renderTimeoutMs?: number;
@@ -40,7 +45,7 @@ function mimeTypeOf(filePath: string): string {
   return 'application/octet-stream';
 }
 
-export class FlowPlaywrightGenerator implements VideoGenerator {
+export class FlowPlaywrightGenerator implements MediaGenerator {
   private readonly endpoint: string;
   private readonly outputRoot: string;
   private readonly renderTimeoutMs: number | undefined;
@@ -64,7 +69,7 @@ export class FlowPlaywrightGenerator implements VideoGenerator {
       if (!ready.promptPresent || !ready.submitPresent) {
         return {
           available: false,
-          reason: 'komposer Flow tidak ditemukan; buka satu project dengan tab Video aktif'
+          reason: 'komposer Flow tidak ditemukan; buka satu project dengan tab Video atau Gambar aktif'
         };
       }
       return { available: true };
@@ -76,15 +81,16 @@ export class FlowPlaywrightGenerator implements VideoGenerator {
     }
   }
 
-  async generate(request: VideoGenerationRequest): Promise<GeneratedVideo> {
+  async generate(request: MediaGenerationRequest): Promise<GeneratedMedia> {
+    const kind = request.kind ?? 'video';
     const outputDirectory = join(this.outputRoot, request.correlationId);
     const result = await this.runGenerate({
       endpoint: this.endpoint,
       prompt: request.prompt,
-      kind: 'video',
+      kind,
       outputDirectory,
       aspectRatio: request.aspectRatio,
-      ...(this.renderTimeoutMs === undefined ? {} : { renderTimeoutMs: this.renderTimeoutMs })
+      renderTimeoutMs: this.renderTimeoutMs ?? DEFAULT_RENDER_TIMEOUT_MS[kind]
     });
 
     const stats = statSync(result.filePath);

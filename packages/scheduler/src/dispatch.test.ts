@@ -48,6 +48,7 @@ interface SeedOptions {
   assetStatus?: 'valid' | 'invalid' | null;
   accountStatus?: 'connected' | 'reauth_required' | 'disconnected';
   platforms?: PlatformId[];
+  generationMode?: 'video' | 'image';
 }
 
 function seed(db: DatabaseHandle, options: SeedOptions = {}) {
@@ -57,6 +58,7 @@ function seed(db: DatabaseHandle, options: SeedOptions = {}) {
     name: 'Edukasi AI',
     niche: 'teknologi',
     approvalMode,
+    generationMode: options.generationMode ?? 'video',
     platforms
   });
   const content = upsertContentItem(db.raw, {
@@ -103,6 +105,14 @@ function seed(db: DatabaseHandle, options: SeedOptions = {}) {
 }
 
 describe('enqueueDuePublicationJobs', () => {
+  it('melewati campaign mode image: tidak ada job PUBLISH', () => {
+    const db = openMigrated();
+    const { schedule } = seed(db, { generationMode: 'image' });
+
+    expect(enqueueDuePublicationJobs(db, schedule, CONTEXT, ['youtube'])).toEqual([]);
+    expect(listJobs(db.raw).items).toHaveLength(0);
+  });
+
   it('membuat satu job PUBLISH dengan payload dan key idempoten per akun', () => {
     const db = openMigrated();
     const { campaign, content, account, schedule } = seed(db);

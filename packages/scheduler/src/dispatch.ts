@@ -59,6 +59,8 @@ export function enqueueDuePublicationJobs(
 
   const campaign = getCampaign(db.raw, schedule.campaignId);
   if (campaign === null || campaign.status !== 'active') return [];
+  // Publikasi baru tersedia untuk video (ADR-0012); campaign gambar berhenti di produksi media.
+  if (campaign.generationMode !== 'video') return [];
 
   const newest = listContentByCampaign(db.raw, campaign.id)[0];
   if (newest === undefined || newest.approvalStatus === 'rejected') return [];
@@ -84,7 +86,7 @@ export function enqueueDuePublicationJobs(
 
   for (const content of candidates) {
     const validAssets = listMediaByContent(db.raw, content.id).filter(
-      (asset) => asset.validationStatus === 'valid'
+      (asset) => asset.validationStatus === 'valid' && asset.mimeType === 'video/mp4'
     );
     const asset = validAssets[validAssets.length - 1];
     if (asset === undefined) continue;

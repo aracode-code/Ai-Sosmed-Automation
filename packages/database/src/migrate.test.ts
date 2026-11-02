@@ -27,7 +27,8 @@ describe('migrasi', () => {
       '0000_init.sql',
       '0001_campaign_platforms.sql',
       '0002_scheduler_and_approval.sql',
-      '0003_plan_approvals.sql'
+      '0003_plan_approvals.sql',
+      '0004_campaign_generation_mode.sql'
     ]);
 
     const tables = (db.raw
@@ -59,8 +60,24 @@ describe('migrasi', () => {
       '0000_init.sql',
       '0001_campaign_platforms.sql',
       '0002_scheduler_and_approval.sql',
-      '0003_plan_approvals.sql'
+      '0003_plan_approvals.sql',
+      '0004_campaign_generation_mode.sql'
     ]);
+  });
+
+  it('menambahkan generation_mode pada campaign dengan default video', () => {
+    const db = tempDb();
+    runMigrations(db.raw);
+    db.raw
+      .prepare(
+        `INSERT INTO campaigns (id, name, niche, status, approval_mode, created_at)
+         VALUES ('c2', 'N', 'niche', 'active', 'required', '2026-01-01T00:00:00.000Z')`
+      )
+      .run();
+    const row = db.raw.prepare("SELECT generation_mode FROM campaigns WHERE id = 'c2'").get() as {
+      generation_mode: string;
+    };
+    expect(row.generation_mode).toBe('video');
   });
 
   it('menambahkan platforms_json pada campaign dengan default kosong', () => {

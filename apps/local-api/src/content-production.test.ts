@@ -135,4 +135,67 @@ describe('produksi konten otomatis antar slot', () => {
     expect(new Set(contents.map((item) => item.id)).size).toBe(2);
     expect(getSchedule(db.raw, schedule.id)?.nextRunAt).toBe('2026-01-01T05:00:00.000Z');
   });
+
+  it('campaign image: konten diproduksi sebagai PNG dan tidak pernah diterbitkan', async () => {
+    const campaign = insertCampaign(db.raw, {
+      name: 'Ilustrasi AI',
+      niche: 'teknologi',
+      approvalMode: 'automatic',
+      generationMode: 'image',
+      platforms: ['youtube']
+    });
+    insertSocialAccount(db.raw, {
+      platform: 'youtube',
+      label: 'YouTube utama',
+      connectionStatus: 'connected'
+    });
+    const schedule = insertSchedule(db.raw, {
+      campaignId: campaign.id,
+      mode: 'fixed',
+      minMinutes: 60,
+      timezone: 'Asia/Jakarta',
+      dailyLimit: 3,
+      nextRunAt: T0
+    });
+
+    const publication = createPublicationEnqueuer({ db, platforms: ['youtube'] });
+    const production = createContentProductionEnqueuer({ db });
+    const enqueue: EnqueueFn = async (dueSchedule, context) => [
+      ...(await publication(dueSchedule, context)),
+      ...(await production(dueSchedule, context))
+    ];
+
+    const firstSlot = new Scheduler(db, { now: () => new Date(T0), rng: () => 0 });
+    const summary1 = await firstSlot.runOnce(enqueue);
+    expect(summary1).toMatchObject({ due: 1, enqueued: 1, failed: [] });
+    expect(listJobs(db.raw).items.map((job) => job.jobType)).toEqual(['PLAN_CONTENT']);
+
+    const dispatcher = new Dispatcher({
+      db,
+      workerId: 'w1',
+      handlers: buildHandlerRegistry({
+        db,
+        mediaRoot,
+        planner: fakePlanner(campaign.id),
+        publisher: new MockYouTubeAdapter()
+      })
+    });
+    await dispatcher.runOnce(); // PLAN_CONTENT
+    await dispatcher.runOnce(); // GENERATE_IMAGE
+
+    const [content] = listContentByCampaign(db.raw, campaign.id);
+    expect(content?.prompt).toMatchObject({ mediaKind: 'image' });
+    const asset = getMediaAsset(db.raw, `med_${content?.id}`);
+    expect(asset).toMatchObject({ mimeType: 'image/png', validationStatus: 'valid' });
+    expect(asset?.durationMs).toBeNull();
+
+    const secondSlot = new Scheduler(db, { now: () => new Date(T1), rng: () => 0 });
+    const summary2 = await secondSlot.runOnce(enqueue);
+    expect(summary2.enqueued).toBe(1);
+
+    const types = listJobs(db.raw).items.map((job) => job.jobType);
+    expect(types.filter((type) => type === 'PUBLISH')).toHaveLength(0);
+    expect(types.filter((type) => type === 'PLAN_CONTENT')).toHaveLength(2);
+    expect(getSchedule(db.raw, schedule.id)?.nextRunAt).toBe('2026-01-01T05:00:00.000Z');
+  });
 });

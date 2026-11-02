@@ -1,5 +1,5 @@
 import type { FastifyPluginAsync } from 'fastify';
-import { PLATFORM_IDS, type PlatformId } from '@saa/domain';
+import { GENERATION_MODES, PLATFORM_IDS, type PlatformId } from '@saa/domain';
 import {
   getCampaign,
   insertCampaign,
@@ -25,6 +25,7 @@ const createCampaignSchema = z.object({
   name: z.string().trim().min(1).max(120),
   niche: z.string().trim().min(1).max(120),
   approvalMode: z.enum(['automatic', 'required']).default('required'),
+  generationMode: z.enum(GENERATION_MODES).default('video'),
   platforms: z.array(platformSchema).min(1).max(PLATFORM_IDS.length)
 });
 
@@ -37,6 +38,7 @@ export const campaignRoutes: FastifyPluginAsync<CampaignRoutesDeps> = async (app
       name: body.name,
       niche: body.niche,
       approvalMode: body.approvalMode,
+      generationMode: body.generationMode,
       platforms: [...new Set(body.platforms)]
     });
     return reply.status(202).send({ campaignId: campaign.id, status: 'created' });

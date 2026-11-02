@@ -35,11 +35,15 @@ afterEach(() => {
   while (cleanups.length > 0) cleanups.pop()?.();
 });
 
-function seed(db: DatabaseHandle, options: { status?: string; platforms?: PlatformId[] } = {}) {
+function seed(
+  db: DatabaseHandle,
+  options: { status?: string; platforms?: PlatformId[]; generationMode?: 'video' | 'image' } = {}
+) {
   const campaign = insertCampaign(db.raw, {
     name: 'Edukasi AI',
     niche: 'teknologi',
     approvalMode: 'automatic',
+    generationMode: options.generationMode ?? 'video',
     platforms: options.platforms ?? ['youtube'],
     ...(options.status === undefined ? {} : { status: options.status })
   });
@@ -100,6 +104,14 @@ describe('produksi konten per slot', () => {
 
     expect(enqueueDueContentPlan(db, schedule, CONTEXT)).toEqual([]);
     expect(listJobs(db.raw).items).toHaveLength(0);
+  });
+
+  it('campaign image tidak menunggu PUBLISH sehingga slot berikutnya tetap berjalan', () => {
+    const db = openMigrated();
+    const { campaign, schedule } = seed(db, { generationMode: 'image' });
+    seedContent(db, campaign.id);
+
+    expect(enqueueDueContentPlan(db, schedule, CONTEXT)).toHaveLength(1);
   });
 
   it('membuat konten berikutnya setelah konten terbaru punya job PUBLISH', () => {

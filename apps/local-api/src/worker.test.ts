@@ -52,10 +52,10 @@ afterEach(() => {
 });
 
 describe('buildHandlerRegistry', () => {
-  it('mendaftarkan GENERATE_VIDEO tanpa planner dan tidak menyediakan fallback PLAN_CONTENT', () => {
+  it('mendaftarkan produksi video dan gambar tanpa planner', () => {
     const registry = buildHandlerRegistry({ db, mediaRoot });
 
-    expect(Object.keys(registry)).toEqual(['GENERATE_VIDEO']);
+    expect(Object.keys(registry)).toEqual(['GENERATE_VIDEO', 'GENERATE_IMAGE']);
     expect(registry.PLAN_CONTENT).toBeUndefined();
   });
 
@@ -70,7 +70,11 @@ describe('buildHandlerRegistry', () => {
       })
     });
 
-    expect(Object.keys(registry).sort()).toEqual(['GENERATE_VIDEO', 'PLAN_CONTENT']);
+    expect(Object.keys(registry).sort()).toEqual([
+      'GENERATE_IMAGE',
+      'GENERATE_VIDEO',
+      'PLAN_CONTENT'
+    ]);
   });
 
   it('mendaftarkan PUBLISH hanya bila adapter publikasi diberikan', () => {
@@ -81,7 +85,11 @@ describe('buildHandlerRegistry', () => {
       mediaRoot,
       publisher: new MockYouTubeAdapter()
     });
-    expect(Object.keys(registry).sort()).toEqual(['GENERATE_VIDEO', 'PUBLISH']);
+    expect(Object.keys(registry).sort()).toEqual([
+      'GENERATE_IMAGE',
+      'GENERATE_VIDEO',
+      'PUBLISH'
+    ]);
   });
 });
 

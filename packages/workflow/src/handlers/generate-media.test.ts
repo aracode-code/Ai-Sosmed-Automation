@@ -4,9 +4,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
-  MockVideoGenerator,
-  type GeneratedVideo,
-  type VideoGenerator
+  MockMediaGenerator,
+  type GeneratedMedia,
+  type MediaGenerator
 } from '@saa/browser-engine';
 import {
   getContentItem,
@@ -19,7 +19,7 @@ import {
   upsertContentItem,
   type DatabaseHandle
 } from '@saa/database';
-import { Dispatcher, createGenerateVideoHandler, type HandlerContext } from '../index';
+import { Dispatcher, createGenerateMediaHandler, type HandlerContext } from '../index';
 
 const T0 = '2026-01-01T00:00:00.000Z';
 const now = () => new Date(T0);
@@ -71,12 +71,18 @@ function seededContent(db: DatabaseHandle) {
   return { campaign, content };
 }
 
-function enqueueVideo(db: DatabaseHandle, campaignId: string, contentId: string, aspectRatio = '9:16') {
+function enqueueMedia(
+  db: DatabaseHandle,
+  campaignId: string,
+  contentId: string,
+  jobType: 'GENERATE_VIDEO' | 'GENERATE_IMAGE',
+  aspectRatio = '9:16'
+) {
   seq += 1;
   return insertJob(
     db.raw,
     {
-      jobType: 'GENERATE_VIDEO',
+      jobType,
       idempotencyKey: `generate-${seq}`,
       payload: {
         contentId,
@@ -94,27 +100,28 @@ function enqueueVideo(db: DatabaseHandle, campaignId: string, contentId: string,
 
 function dispatcherWith(
   db: DatabaseHandle,
-  generator: VideoGenerator,
-  outputRoot: string
+  generator: MediaGenerator,
+  outputRoot: string,
+  kind: 'video' | 'image' = 'video'
 ) {
-  const handler = createGenerateVideoHandler({ db, generator, outputRoot });
+  const handler = createGenerateMediaHandler({ db, generator, outputRoot }, kind);
   return new Dispatcher({
     db,
     workerId: 'w1',
-    handlers: { GENERATE_VIDEO: handler },
+    handlers: { [kind === 'image' ? 'GENERATE_IMAGE' : 'GENERATE_VIDEO']: handler },
     now,
     backoff: { jitterMs: 0, rng: () => 0 }
   });
 }
 
-describe('GENERATE_VIDEO handler', () => {
-  it('menghasilkan media valid, menyimpan aset, dan menutup job ke COMPLETED', async () => {
+describe('handler produksi media', () => {
+  it('menghasilkan video valid, menyimpan aset, dan menutup job ke COMPLETED', async () => {
     const db = tempDb();
     const root = tempRoot();
     const { campaign, content } = seededContent(db);
-    const job = enqueueVideo(db, campaign.id, content.id);
+    const job = enqueueMedia(db, campaign.id, content.id, 'GENERATE_VIDEO');
 
-    const result = await dispatcherWith(db, new MockVideoGenerator({ outputRoot: root }), root).runOnce();
+    const result = await dispatcherWith(db, new MockMediaGenerator({ outputRoot: root }), root).runOnce();
 
     expect(result?.id).toBe(job.id);
     expect(result?.status).toBe('COMPLETED');
@@ -136,13 +143,39 @@ describe('GENERATE_VIDEO handler', () => {
     expect(createHash('sha256').update(bytes).digest('hex')).toBe(asset?.sha256);
   });
 
+  it('mode image menghasilkan PNG valid tanpa durasi', async () => {
+    const db = tempDb();
+    const root = tempRoot();
+    const { campaign, content } = seededContent(db);
+    const job = enqueueMedia(db, campaign.id, content.id, 'GENERATE_IMAGE');
+
+    const result = await dispatcherWith(
+      db,
+      new MockMediaGenerator({ outputRoot: root }),
+      root,
+      'image'
+    ).runOnce();
+
+    expect(result?.id).toBe(job.id);
+    expect(result?.status).toBe('COMPLETED');
+
+    const asset = getMediaAsset(db.raw, `med_${content.id}`);
+    expect(asset).toMatchObject({
+      mimeType: 'image/png',
+      validationStatus: 'valid',
+      durationMs: null
+    });
+    const bytes = readFileSync(asset?.path ?? '');
+    expect(bytes.subarray(0, 8).toString('hex')).toBe('89504e470d0a1a0a');
+  });
+
   it('menjadwalkan ulang ketika generator tidak tersedia', async () => {
     const db = tempDb();
     const root = tempRoot();
     const { campaign, content } = seededContent(db);
-    enqueueVideo(db, campaign.id, content.id);
+    enqueueMedia(db, campaign.id, content.id, 'GENERATE_VIDEO');
 
-    const generator: VideoGenerator = {
+    const generator: MediaGenerator = {
       async checkAvailability() {
         return { available: false, reason: 'profil browser terkunci' };
       },
@@ -162,16 +195,16 @@ describe('GENERATE_VIDEO handler', () => {
     const db = tempDb();
     const root = tempRoot();
     const { campaign, content } = seededContent(db);
-    enqueueVideo(db, campaign.id, content.id);
+    enqueueMedia(db, campaign.id, content.id, 'GENERATE_VIDEO');
 
     const bytes = Buffer.alloc(4_096, 1);
     const filePath = join(root, 'rusak.mp4');
     writeFileSync(filePath, bytes);
-    const generator: VideoGenerator = {
+    const generator: MediaGenerator = {
       async checkAvailability() {
         return { available: true };
       },
-      async generate(): Promise<GeneratedVideo> {
+      async generate(): Promise<GeneratedMedia> {
         return {
           filePath,
           mimeType: 'video/mp4',
@@ -208,7 +241,7 @@ describe('GENERATE_VIDEO handler', () => {
       T0
     );
 
-    const result = await dispatcherWith(db, new MockVideoGenerator({ outputRoot: root }), root).runOnce();
+    const result = await dispatcherWith(db, new MockMediaGenerator({ outputRoot: root }), root).runOnce();
 
     expect(result?.id).toBe(job.id);
     expect(result?.status).toBe('FAILED');
@@ -219,12 +252,15 @@ describe('GENERATE_VIDEO handler', () => {
     const db = tempDb();
     const root = tempRoot();
     const { campaign, content } = seededContent(db);
-    const job = enqueueVideo(db, campaign.id, content.id);
-    const handler = createGenerateVideoHandler({
-      db,
-      generator: new MockVideoGenerator({ outputRoot: root }),
-      outputRoot: root
-    });
+    const job = enqueueMedia(db, campaign.id, content.id, 'GENERATE_VIDEO');
+    const handler = createGenerateMediaHandler(
+      {
+        db,
+        generator: new MockMediaGenerator({ outputRoot: root }),
+        outputRoot: root
+      },
+      'video'
+    );
 
     const stubContext: HandlerContext = {
       get job() {

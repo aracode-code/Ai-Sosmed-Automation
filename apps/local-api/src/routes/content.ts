@@ -95,7 +95,10 @@ export const contentRoutes: FastifyPluginAsync<ContentRoutesDeps> = async (app, 
         );
     }
     const newest = listContentByCampaign(deps.db.raw, campaign.id)[0];
-    const waiting = newest === undefined ? [] : listPlanContentsAwaitingPublish(deps.db.raw, newest);
+    const waiting =
+      campaign.generationMode === 'video' && newest !== undefined
+        ? listPlanContentsAwaitingPublish(deps.db.raw, newest)
+        : [];
     if (waiting.length > 0) {
       return reply
         .status(409)
@@ -179,6 +182,7 @@ export const contentRoutes: FastifyPluginAsync<ContentRoutesDeps> = async (app, 
         name: campaign.name,
         platforms: campaign.platforms,
         approvalMode: campaign.approvalMode,
+        generationMode: campaign.generationMode,
         status: campaign.status
       },
       assets,

@@ -44,7 +44,10 @@ export interface PublishDeps {
 }
 
 function pickValidAsset(assets: MediaAsset[]): MediaAsset | null {
-  const valid = assets.filter((asset) => asset.validationStatus === 'valid');
+  // Adapter publikasi saat ini video-saja (ADR-0012); aset gambar tidak boleh dikirim.
+  const valid = assets.filter(
+    (asset) => asset.validationStatus === 'valid' && asset.mimeType === 'video/mp4'
+  );
   return valid.length === 0 ? null : valid[valid.length - 1];
 }
 

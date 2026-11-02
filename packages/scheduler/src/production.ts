@@ -34,7 +34,12 @@ export function enqueueDueContentPlan(
   }
 
   const newest = listContentByCampaign(db.raw, campaign.id)[0];
-  if (newest !== undefined && listPlanContentsAwaitingPublish(db.raw, newest).length > 0) {
+  // Campaign gambar tidak pernah menerbitkan konten, jadi jangan tunggu antrean PUBLISH.
+  if (
+    campaign.generationMode === 'video' &&
+    newest !== undefined &&
+    listPlanContentsAwaitingPublish(db.raw, newest).length > 0
+  ) {
     return [];
   }
 

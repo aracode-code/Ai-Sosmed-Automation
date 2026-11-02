@@ -67,6 +67,35 @@ describe('FlowPlaywrightGenerator', () => {
     expect(result.sha256).toBe(createHash('sha256').update(bytes).digest('hex'));
   });
 
+  it('meneruskan kind image dan memakai timeout gambar', async () => {
+    const bytes = Buffer.from('89504e470d0a1a0a-dummy');
+    let captured: { kind: string; timeout?: number } | null = null;
+
+    const generator = new FlowPlaywrightGenerator({
+      endpoint: 'http://127.0.0.1:9222',
+      outputRoot: workDir,
+      readiness: async () => READY,
+      generateMedia: async (options) => {
+        captured = { kind: options.kind, timeout: options.renderTimeoutMs };
+        mkdirSync(options.outputDirectory, { recursive: true });
+        const filePath = join(options.outputDirectory, 'gambar.png');
+        writeFileSync(filePath, bytes);
+        return { filePath, suggestedName: 'gambar.png', mediaKind: 'image' };
+      }
+    });
+
+    const result = await generator.generate({
+      kind: 'image',
+      prompt: 'ilustrasi apel',
+      aspectRatio: '1:1',
+      outputDirectory: workDir,
+      correlationId: 'corr-img'
+    });
+
+    expect(captured).toEqual({ kind: 'image', timeout: 5 * 60_000 });
+    expect(result.mimeType).toBe('image/png');
+  });
+
   it('menolak berkas hasil yang kosong', async () => {
     const generator = new FlowPlaywrightGenerator({
       endpoint: 'http://127.0.0.1:9222',

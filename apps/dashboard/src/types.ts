@@ -25,12 +25,15 @@ export interface Job {
   updatedAt: string;
 }
 
+export type GenerationMode = 'video' | 'image';
+
 export interface Campaign {
   id: string;
   name: string;
   niche: string;
   status: string;
   approvalMode: 'automatic' | 'required';
+  generationMode: GenerationMode;
   platforms: string[];
   createdAt: string;
 }
@@ -79,6 +82,7 @@ export interface ContentDetail {
     name: string;
     platforms: string[];
     approvalMode: string;
+    generationMode: GenerationMode;
     status: string;
   };
   assets: AssetSummary[];
@@ -98,6 +102,7 @@ export interface PlanReviewContent {
   topic: string;
   caption: unknown;
   approvalStatus: ContentItem['approvalStatus'];
+  mediaKind: GenerationMode;
 }
 
 export interface PlanApprovalRecord {
@@ -119,6 +124,7 @@ export interface PlanReview {
     name: string;
     platforms: string[];
     approvalMode: 'automatic' | 'required';
+    generationMode: GenerationMode;
   } | null;
   contents: PlanReviewContent[];
   bindingHash: string;

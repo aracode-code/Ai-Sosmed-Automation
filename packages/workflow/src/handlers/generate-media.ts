@@ -1,10 +1,10 @@
 import { join } from 'node:path';
-import { AppError } from '@saa/domain';
+import { AppError, type MediaKind } from '@saa/domain';
 import {
   unavailableProbe,
   validateMediaFile,
-  type MediaProbe,
-  type VideoGenerator
+  type MediaGenerator,
+  type MediaProbe
 } from '@saa/browser-engine';
 import {
   getContentItem,
@@ -22,26 +22,35 @@ const payloadSchema = z.object({
   targets: z.array(z.unknown()).optional()
 });
 
-export interface GenerateVideoDeps {
+export interface GenerateMediaDeps {
   db: DatabaseHandle;
-  /** Kontrak LLD §10.1; adapter Flow asli belum aktif (OD-1). */
-  generator: VideoGenerator;
+  generator: MediaGenerator;
   /** Akar penyimpanan media; berkas di luar akar ditolak. */
   outputRoot: string;
   probe?: MediaProbe;
 }
 
+const JOB_TYPE_BY_KIND: Record<MediaKind, 'GENERATE_VIDEO' | 'GENERATE_IMAGE'> = {
+  video: 'GENERATE_VIDEO',
+  image: 'GENERATE_IMAGE'
+};
+
 /**
- * Handler langkah GENERATE_VIDEO: satu job = satu langkah workflow (LLD §4.1).
+ * Handler langkah produksi media: satu job = satu langkah workflow (LLD §4.1).
+ * Jenis artefak ditentukan oleh campaign (ADR-0012), bukan oleh payload job.
  * Hasil generator dimaterialkan ke disk lebih dulu, baru dicatat sebagai aset.
  */
-export function createGenerateVideoHandler(deps: GenerateVideoDeps): JobHandler {
+export function createGenerateMediaHandler(
+  deps: GenerateMediaDeps,
+  kind: MediaKind
+): JobHandler {
   const probe = deps.probe ?? unavailableProbe;
+  const jobType = JOB_TYPE_BY_KIND[kind];
 
   return async (ctx) => {
     const parsed = payloadSchema.safeParse(ctx.job.payload);
     if (!parsed.success) {
-      throw new AppError('VALIDATION', 'payload GENERATE_VIDEO tidak valid', {
+      throw new AppError('VALIDATION', `payload ${jobType} tidak valid`, {
         cause: parsed.error
       });
     }
@@ -63,11 +72,12 @@ export function createGenerateVideoHandler(deps: GenerateVideoDeps): JobHandler 
     if (!availability.available) {
       throw new AppError(
         'RESOURCE_BUSY',
-        availability.reason ?? 'generator video sedang tidak tersedia'
+        availability.reason ?? `generator ${kind} sedang tidak tersedia`
       );
     }
 
     const generated = await deps.generator.generate({
+      kind,
       prompt: parsed.data.videoPrompt,
       aspectRatio: parsed.data.aspectRatio,
       outputDirectory: join('content', content.id),
@@ -77,6 +87,7 @@ export function createGenerateVideoHandler(deps: GenerateVideoDeps): JobHandler 
     const media = await validateMediaFile({
       root: deps.outputRoot,
       path: generated.filePath,
+      kind,
       expectedSha256: generated.sha256,
       probe
     });
@@ -88,8 +99,8 @@ export function createGenerateVideoHandler(deps: GenerateVideoDeps): JobHandler 
       sha256: media.sha256,
       mimeType: media.mimeType,
       sizeBytes: media.sizeBytes,
-      // Probe absen → durasi yang dilaporkan generator, bukan hasil ukur.
-      durationMs: media.durationMs ?? generated.durationMs ?? null,
+      // Probe absen → durasi yang dilaporkan generator, bukan hasil ukur. Gambar tanpa durasi.
+      durationMs: kind === 'video' ? (media.durationMs ?? generated.durationMs ?? null) : null,
       validationStatus: 'valid'
     });
 

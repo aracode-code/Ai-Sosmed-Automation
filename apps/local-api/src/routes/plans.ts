@@ -1,5 +1,5 @@
 import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
-import type { ContentItem } from '@saa/domain';
+import type { ContentItem, MediaKind } from '@saa/domain';
 import {
   appendAudit,
   getCampaign,
@@ -64,6 +64,11 @@ interface GeneratePayload {
   targets?: unknown[];
 }
 
+interface PreparedGeneration {
+  payload: GeneratePayload;
+  mediaKind: MediaKind;
+}
+
 function targetsOfCaption(caption: unknown): unknown[] {
   if (caption === null || typeof caption !== 'object' || Array.isArray(caption)) return [];
   return Object.entries(caption as Record<string, unknown>).map(([platform, value]) => ({
@@ -72,21 +77,40 @@ function targetsOfCaption(caption: unknown): unknown[] {
   }));
 }
 
-/** Payload `GENERATE_VIDEO` dibangun ulang dari prompt + caption yang disimpan handler rencana. */
-function generatePayloadOf(content: ContentItem, campaignId: string): GeneratePayload | null {
+function storedMediaKind(prompt: { mediaKind?: unknown }): MediaKind {
+  return prompt.mediaKind === 'image' ? 'image' : 'video';
+}
+
+function mediaKindOfContent(content: ContentItem): MediaKind {
   const prompt =
     content.prompt !== null && typeof content.prompt === 'object'
-      ? (content.prompt as { videoPrompt?: unknown; aspectRatio?: unknown })
+      ? (content.prompt as { mediaKind?: unknown })
+      : {};
+  return storedMediaKind(prompt);
+}
+
+function jobTypeForKind(kind: MediaKind): 'GENERATE_VIDEO' | 'GENERATE_IMAGE' {
+  return kind === 'image' ? 'GENERATE_IMAGE' : 'GENERATE_VIDEO';
+}
+
+/** Payload produksi dibangun ulang dari prompt + caption yang disimpan handler rencana. */
+function generatePayloadOf(content: ContentItem, campaignId: string): PreparedGeneration | null {
+  const prompt =
+    content.prompt !== null && typeof content.prompt === 'object'
+      ? (content.prompt as { videoPrompt?: unknown; aspectRatio?: unknown; mediaKind?: unknown })
       : {};
   if (typeof prompt.videoPrompt !== 'string' || prompt.videoPrompt.trim() === '') return null;
 
   const targets = targetsOfCaption(content.caption);
   return {
-    contentId: content.id,
-    campaignId,
-    videoPrompt: prompt.videoPrompt,
-    aspectRatio: typeof prompt.aspectRatio === 'string' ? prompt.aspectRatio : '9:16',
-    ...(targets.length === 0 ? {} : { targets })
+    mediaKind: storedMediaKind(prompt),
+    payload: {
+      contentId: content.id,
+      campaignId,
+      videoPrompt: prompt.videoPrompt,
+      aspectRatio: typeof prompt.aspectRatio === 'string' ? prompt.aspectRatio : '9:16',
+      ...(targets.length === 0 ? {} : { targets })
+    }
   };
 }
 
@@ -116,14 +140,16 @@ export const planRoutes: FastifyPluginAsync<PlanRoutesDeps> = async (app, deps) 
               id: campaign.id,
               name: campaign.name,
               platforms: campaign.platforms,
-              approvalMode: campaign.approvalMode
+              approvalMode: campaign.approvalMode,
+              generationMode: campaign.generationMode
             },
       contents: review.contents.map((content) => ({
         id: content.id,
         version: content.version,
         topic: content.topic,
         caption: content.caption,
-        approvalStatus: content.approvalStatus
+        approvalStatus: content.approvalStatus,
+        mediaKind: mediaKindOfContent(content)
       })),
       bindingHash: review.bindingHash,
       approval: review.approval
@@ -181,11 +207,11 @@ export const planRoutes: FastifyPluginAsync<PlanRoutesDeps> = async (app, deps) 
           );
       }
 
-      const payloads = new Map<string, GeneratePayload>();
+      const payloads = new Map<string, PreparedGeneration>();
       if (decision === 'approved') {
         for (const content of review.contents) {
-          const payload = generatePayloadOf(content, review.campaignId);
-          if (payload === null) {
+          const prepared = generatePayloadOf(content, review.campaignId);
+          if (prepared === null) {
             return reply.status(409).send(
               errorEnvelope(
                 'PLAN_INVALID',
@@ -194,7 +220,7 @@ export const planRoutes: FastifyPluginAsync<PlanRoutesDeps> = async (app, deps) 
               )
             );
           }
-          payloads.set(content.id, payload);
+          payloads.set(content.id, prepared);
         }
       }
 
@@ -225,17 +251,17 @@ export const planRoutes: FastifyPluginAsync<PlanRoutesDeps> = async (app, deps) 
         const enqueuedJobIds: string[] = [];
         if (decision === 'approved') {
           for (const content of review.contents) {
-            const payload = payloads.get(content.id);
-            if (payload === undefined) continue;
+            const prepared = payloads.get(content.id);
+            if (prepared === undefined) continue;
             const job = insertJobIdempotent(
               deps.db.raw,
               {
-                jobType: 'GENERATE_VIDEO',
+                jobType: jobTypeForKind(prepared.mediaKind),
                 idempotencyKey: `generate:${content.id}`,
                 campaignId: review.campaignId,
                 contentId: content.id,
                 parentJobId: review.jobId,
-                payload
+                payload: prepared.payload
               },
               decidedAt
             );

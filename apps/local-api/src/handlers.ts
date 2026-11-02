@@ -1,13 +1,13 @@
 import type { Planner } from '@saa/agent-core';
 import {
-  MockVideoGenerator,
-  type MediaProbe,
-  type VideoGenerator
+  MockMediaGenerator,
+  type MediaGenerator,
+  type MediaProbe
 } from '@saa/browser-engine';
 import type { DatabaseHandle } from '@saa/database';
 import type { SocialAdapter } from '@saa/domain';
 import {
-  createGenerateVideoHandler,
+  createGenerateMediaHandler,
   createPlanContentHandler,
   createPublishHandler,
   type HandlerRegistry
@@ -19,7 +19,7 @@ export interface HandlerRegistryOptions {
   mediaRoot: string;
   /** Tanpa planner, `PLAN_CONTENT` sengaja tidak terdaftar (bukan fallback diam-diam). */
   planner?: Planner;
-  generator?: VideoGenerator;
+  generator?: MediaGenerator;
   probe?: MediaProbe;
   /** Tanpa adapter, `PUBLISH` sengaja tidak terdaftar. */
   publisher?: SocialAdapter;
@@ -27,15 +27,18 @@ export interface HandlerRegistryOptions {
 
 export function buildHandlerRegistry(options: HandlerRegistryOptions): HandlerRegistry {
   const generator =
-    options.generator ?? new MockVideoGenerator({ outputRoot: options.mediaRoot });
+    options.generator ?? new MockMediaGenerator({ outputRoot: options.mediaRoot });
+
+  const mediaDeps = {
+    db: options.db,
+    generator,
+    outputRoot: options.mediaRoot,
+    ...(options.probe === undefined ? {} : { probe: options.probe })
+  };
 
   const registry: HandlerRegistry = {
-    GENERATE_VIDEO: createGenerateVideoHandler({
-      db: options.db,
-      generator,
-      outputRoot: options.mediaRoot,
-      ...(options.probe === undefined ? {} : { probe: options.probe })
-    })
+    GENERATE_VIDEO: createGenerateMediaHandler(mediaDeps, 'video'),
+    GENERATE_IMAGE: createGenerateMediaHandler(mediaDeps, 'image')
   };
 
   if (options.planner !== undefined) {

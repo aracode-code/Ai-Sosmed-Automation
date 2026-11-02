@@ -41,6 +41,7 @@ export function CampaignsPage({
   );
 
   const selectedCampaign = list.data?.items.find((campaign) => campaign.id === selectedId) ?? null;
+  const mediaLabel = selectedCampaign?.generationMode === 'image' ? 'gambar' : 'video';
 
   useEffect(() => {
     setPlanJobId(null);
@@ -114,6 +115,7 @@ export function CampaignsPage({
                 <th>Niche</th>
                 <th>Platform</th>
                 <th>Approval</th>
+                <th>Generasi</th>
                 <th>Status</th>
                 <th>Dibuat</th>
               </tr>
@@ -132,6 +134,7 @@ export function CampaignsPage({
                   <td>{campaign.niche}</td>
                   <td className="mono">{campaign.platforms.join(', ')}</td>
                   <td>{campaign.approvalMode}</td>
+                  <td>{campaign.generationMode}</td>
                   <td>
                     <StatusPill value={campaign.status} />
                   </td>
@@ -156,8 +159,11 @@ export function CampaignsPage({
             <p className="hint">
               Form ini membuat job PLAN_CONTENT untuk rencana berikutnya.
               {selectedCampaign.approvalMode === 'required'
-                ? ' Karena approval wajib, pembuatan video baru diantrekan setelah rencana disetujui.'
-                : ' Campaign otomatis: rencana yang selesai langsung dilanjutkan ke pembuatan video.'}
+                ? ` Karena approval wajib, pembuatan ${mediaLabel} baru diantrekan setelah rencana disetujui.`
+                : ` Campaign otomatis: rencana yang selesai langsung dilanjutkan ke pembuatan ${mediaLabel}.`}
+              {selectedCampaign.generationMode === 'image'
+                ? ' Mode gambar berhenti di produksi media; publikasi belum tersedia.'
+                : null}
             </p>
             <form
               className="field"
