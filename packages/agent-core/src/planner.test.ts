@@ -67,6 +67,33 @@ describe('planner', () => {
     expect(llm.calls[0]?.messages[0]?.role).toBe('system');
   });
 
+  it('menerima output batch items dan tetap menegakkan approval campaign', async () => {
+    const batch = JSON.stringify({
+      campaignId: 'cmp_1',
+      decision: 'create_video',
+      items: [
+        {
+          topic: 'Tokenisasi',
+          videoPrompt: 'Animasi memecah kalimat menjadi token',
+          targets: [{ platform: 'youtube', contentFormat: 'short', caption: 'Apa itu token?' }]
+        },
+        {
+          topic: 'Embedding',
+          videoPrompt: 'Animasi vektor makna kata',
+          targets: [{ platform: 'youtube', contentFormat: 'short', caption: 'Embedding itu apa?' }]
+        }
+      ],
+      approvalRequired: false,
+      rationale: 'Dua video pendek.'
+    });
+    const llm = scriptedLlm([batch]);
+
+    const result = await createPlanner({ llm }).plan(input);
+
+    expect(result.plan.items).toHaveLength(2);
+    expect(result.plan.approvalRequired).toBe(true);
+  });
+
   it('memperbaiki output JSON invalid dalam batas percobaan', async () => {
     const llm = scriptedLlm(['bukan json', validResponse]);
     const planner = createPlanner({ llm });

@@ -60,13 +60,37 @@ const planResponse = {
       { platform: 'youtube' as const, contentFormat: 'short', caption: 'Apa itu token?' },
       { platform: 'tiktok' as const, contentFormat: 'video', caption: 'Token itu apa?' }
     ],
-    approvalRequired: true,
+    approvalRequired: false,
     rationale: 'Cocok untuk niche edukasi.'
   },
   attempts: 1,
   repaired: false,
   model: 'mock'
 };
+
+function batchPlanResponse(campaignId: string): PlannerResult {
+  return {
+    ...planResponse,
+    plan: {
+      campaignId,
+      decision: 'create_video',
+      items: [
+        {
+          topic: 'Tokenisasi',
+          videoPrompt: 'Animasi memecah kalimat menjadi token',
+          targets: [{ platform: 'youtube', contentFormat: 'short', caption: 'Apa itu token?' }]
+        },
+        {
+          topic: 'Embedding',
+          videoPrompt: 'Animasi vektor makna kata',
+          targets: [{ platform: 'tiktok', contentFormat: 'video', caption: 'Embedding itu apa?' }]
+        }
+      ],
+      approvalRequired: false,
+      rationale: 'Dua video pendek untuk satu slot.'
+    }
+  };
+}
 
 function plannerReturning(result: PlannerResult, seen: PlannerInput[] = []): Planner {
   return {
@@ -140,7 +164,7 @@ describe('PLAN_CONTENT handler', () => {
     expect(content).toMatchObject({
       campaignId: campaign.id,
       topic: 'Tokenisasi',
-      approvalStatus: 'pending'
+      approvalStatus: 'not_required'
     });
     expect(content?.caption).toEqual({
       youtube: { contentFormat: 'short', caption: 'Apa itu token?' },
@@ -155,6 +179,65 @@ describe('PLAN_CONTENT handler', () => {
       status: 'QUEUED',
       content_id: contentId,
       parent_job_id: job.id
+    });
+  });
+
+  it('menahan GENERATE_VIDEO selama rencana menunggu approval', async () => {
+    const db = tempDb();
+    const campaign = seededCampaign(db);
+    const job = enqueuePlan(db, campaign.id);
+
+    const result = await dispatcherWith(
+      db,
+      plannerReturning({
+        ...planResponse,
+        plan: { ...planResponse.plan, campaignId: campaign.id, approvalRequired: true }
+      })
+    ).runOnce();
+
+    expect(result?.status).toBe('COMPLETED');
+    expect(result?.contentId).toBe(`cnt_${job.id}`);
+
+    const content = getContentItem(db.raw, `cnt_${job.id}`, 1);
+    expect(content?.approvalStatus).toBe('pending');
+
+    const children = db.raw
+      .prepare("SELECT * FROM jobs WHERE job_type = 'GENERATE_VIDEO'")
+      .all();
+    expect(children).toHaveLength(0);
+  });
+
+  it('rencana batch membuat satu konten dan job generate per item', async () => {
+    const db = tempDb();
+    const campaign = seededCampaign(db);
+    const job = enqueuePlan(db, campaign.id);
+
+    const result = await dispatcherWith(
+      db,
+      plannerReturning(batchPlanResponse(campaign.id))
+    ).runOnce();
+
+    expect(result?.status).toBe('COMPLETED');
+    expect(result?.contentId).toBe(`cnt_${job.id}_1`);
+
+    const contents = db.raw
+      .prepare('SELECT id, approval_status FROM content_items ORDER BY id')
+      .all() as { id: string; approval_status: string }[];
+    expect(contents.map((row) => row.id)).toEqual([`cnt_${job.id}_1`, `cnt_${job.id}_2`]);
+    expect(contents.every((row) => row.approval_status === 'not_required')).toBe(true);
+
+    const children = db.raw
+      .prepare(
+        "SELECT content_id, payload_json FROM jobs WHERE job_type = 'GENERATE_VIDEO' ORDER BY content_id"
+      )
+      .all() as { content_id: string; payload_json: string }[];
+    expect(children).toHaveLength(2);
+    expect(children.map((row) => row.content_id)).toEqual([`cnt_${job.id}_1`, `cnt_${job.id}_2`]);
+    expect(JSON.parse(children[1]?.payload_json ?? '{}')).toMatchObject({
+      contentId: `cnt_${job.id}_2`,
+      videoPrompt: 'Animasi vektor makna kata',
+      aspectRatio: '9:16',
+      targets: [{ platform: 'tiktok', contentFormat: 'video', caption: 'Embedding itu apa?' }]
     });
   });
 
@@ -264,5 +347,35 @@ describe('PLAN_CONTENT handler', () => {
       .all();
     expect(contentRows).toHaveLength(1);
     expect(childRows).toHaveLength(1);
+  });
+
+  it('pengulangan rencana batch tidak membuat konten atau job ganda', async () => {
+    const db = tempDb();
+    const campaign = seededCampaign(db);
+    const job = enqueuePlan(db, campaign.id);
+    const handler = createPlanContentHandler({
+      db,
+      planner: plannerReturning(batchPlanResponse(campaign.id)),
+      now
+    });
+
+    const stubContext: HandlerContext = {
+      get job() {
+        return getJob(db.raw, job.id) ?? job;
+      },
+      transition() {
+        return getJob(db.raw, job.id) ?? job;
+      }
+    };
+
+    await handler(stubContext);
+    await handler(stubContext);
+
+    const contentRows = db.raw.prepare('SELECT * FROM content_items').all();
+    const childRows = db.raw
+      .prepare("SELECT * FROM jobs WHERE job_type = 'GENERATE_VIDEO'")
+      .all();
+    expect(contentRows).toHaveLength(2);
+    expect(childRows).toHaveLength(2);
   });
 });

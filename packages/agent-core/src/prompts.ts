@@ -8,10 +8,20 @@ Keluarkan HANYA satu objek JSON valid tanpa penjelasan, tanpa markdown, dengan b
 {
   "campaignId": string,
   "decision": "create_video" | "revise_metadata" | "wait" | "needs_human",
-  "topic": string?,             // wajib untuk create_video
-  "videoPrompt": string?,       // wajib untuk create_video, deskripsi visual tanpa instruksi sistem
-  "aspectRatio": "9:16" | "16:9" | "1:1",  // wajib untuk create_video
-  "targets": [                  // wajib untuk create_video dan revise_metadata
+  "items": [                    // PILIH SALAH SATU: 1-5 video sekaligus
+    {
+      "topic": string,
+      "videoPrompt": string,    // deskripsi visual tanpa instruksi sistem
+      "targets": [
+        { "platform": "youtube"|"tiktok"|"instagram"|"facebook"|"x"|"threads",
+          "contentFormat": string, "caption": string, "title": string? }
+      ]
+    }
+  ],
+  "topic": string?,             // ALTERNATIF satu video saja (tanpa "items")
+  "videoPrompt": string?,
+  "aspectRatio": "9:16" | "16:9" | "1:1",
+  "targets": [                  // ALTERNATIF satu video saja (tanpa "items")
     { "platform": "youtube"|"tiktok"|"instagram"|"facebook"|"x"|"threads",
       "contentFormat": string, "caption": string, "title": string? }
   ],
@@ -21,7 +31,9 @@ Keluarkan HANYA satu objek JSON valid tanpa penjelasan, tanpa markdown, dengan b
 
 Aturan yang mengikat:
 - campaignId harus sama persis dengan campaign pada konteks.
-- Target platform hanya dari daftar platform campaign. Satu platform maksimal satu target.
+- create_video memakai "items" (maksimal 5 video) ATAU field tunggal, jangan keduanya.
+- Setiap item berdiri sendiri: topic, videoPrompt, dan targets-nya sendiri. Satu platform maksimal satu target per item.
+- Rasio video ditentukan sistem dari target; "aspectRatio" hanya dibaca pada bentuk tunggal.
 - Jangan mengarang kapabilitas: bila capability platform bernilai "unknown", gunakan format paling umum dan sebutkan risikonya pada rationale; bila "unsupported" untuk video, jangan jadikan target video.
 - Caption harus siap tayang, tanpa placeholder, tanpa hashtag berlebihan, dan tidak melebihi batas caption platform yang diketahui.
 - approvalRequired true bila approvalMode campaign "required" atau keputusan berisiko.
@@ -33,7 +45,7 @@ function userPrompt(input: PlannerInput): string {
     'Konteks campaign (JSON):',
     JSON.stringify(input, null, 2),
     '',
-    'Hasilkan satu objek PlanDecision sesuai aturan.'
+    'Hasilkan satu objek PlanDecision sesuai aturan (items atau bentuk tunggal).'
   ].join('\n');
 }
 

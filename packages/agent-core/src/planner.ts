@@ -104,7 +104,8 @@ export function createPlanner(options: PlannerOptions): Planner {
         const response = await options.llm.complete({
           messages,
           temperature: options.temperature ?? 0.2,
-          maxTokens: options.maxTokens ?? 1200,
+          // Batch 5 item x beberapa target tidak muat dalam 1200 token output.
+          maxTokens: options.maxTokens ?? 2400,
           timeoutMs: options.timeoutMs,
           jsonMode: true
         });

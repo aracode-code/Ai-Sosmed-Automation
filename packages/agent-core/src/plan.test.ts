@@ -3,6 +3,7 @@ import {
   checkPlanAgainstCampaign,
   enforceApproval,
   planDecisionSchema,
+  planItemsOf,
   plannerInputSchema,
   type PlanDecision,
   type PlannerInput
@@ -144,5 +145,86 @@ describe('kebijakan campaign', () => {
       campaign: { ...baseInput.campaign, approvalMode: 'automatic' }
     };
     expect(enforceApproval(automatic, validPlan).approvalRequired).toBe(false);
+  });
+});
+
+describe('rencana batch', () => {
+  const batchPlan: PlanDecision = {
+    campaignId: 'cmp_1',
+    decision: 'create_video',
+    items: [
+      {
+        topic: 'Tokenisasi',
+        videoPrompt: 'Animasi memecah kalimat menjadi token',
+        targets: [{ platform: 'youtube', contentFormat: 'short', caption: 'Apa itu token?' }]
+      },
+      {
+        topic: 'Embedding',
+        videoPrompt: 'Animasi vektor makna kata',
+        targets: [{ platform: 'tiktok', contentFormat: 'video', caption: 'Embedding itu apa?' }]
+      }
+    ],
+    approvalRequired: true,
+    rationale: 'Dua video pendek untuk satu slot.'
+  };
+
+  it('menerima 1–5 item dan menolak lebih dari lima', () => {
+    expect(planDecisionSchema.safeParse(batchPlan).success).toBe(true);
+
+    const six = {
+      ...batchPlan,
+      items: Array.from({ length: 6 }, (_, index) => ({
+        topic: `Topik ${index}`,
+        videoPrompt: `Prompt ${index}`,
+        targets: [{ platform: 'youtube' as const, contentFormat: 'short', caption: 'ok' }]
+      }))
+    };
+    expect(planDecisionSchema.safeParse(six).success).toBe(false);
+  });
+
+  it('tidak mewajibkan field tunggal pada bentuk batch', () => {
+    expect(checkPlanAgainstCampaign(batchPlan, baseInput)).toEqual([]);
+  });
+
+  it('memvalidasi target setiap item secara terpisah', () => {
+    const issues = checkPlanAgainstCampaign(
+      {
+        ...batchPlan,
+        items: [
+          {
+            topic: 'A',
+            videoPrompt: 'B',
+            targets: [{ platform: 'x', contentFormat: 'post', caption: 'halo' }]
+          },
+          {
+            topic: 'C',
+            videoPrompt: 'D',
+            targets: [
+              { platform: 'youtube', contentFormat: 'short', caption: 'ok' },
+              { platform: 'youtube', contentFormat: 'short', caption: 'dobel' }
+            ]
+          }
+        ]
+      },
+      baseInput
+    );
+
+    expect(issues).toContain('items[0].platform x bukan target campaign');
+    expect(issues).toContain('items[1].platform youtube muncul lebih dari sekali di targets');
+  });
+
+  it('menormalkan bentuk tunggal dan batch menjadi daftar item', () => {
+    expect(planItemsOf(validPlan)).toEqual([
+      {
+        topic: 'Cara kerja model bahasa',
+        videoPrompt: 'Animasi sederhana menjelaskan token dan prediksi kata',
+        aspectRatio: '9:16',
+        targets: validPlan.targets
+      }
+    ]);
+
+    const normalized = planItemsOf(batchPlan);
+    expect(normalized).toHaveLength(2);
+    expect(normalized[1]?.topic).toBe('Embedding');
   });
 });
