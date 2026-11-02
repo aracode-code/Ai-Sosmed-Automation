@@ -16,21 +16,19 @@ import {
   type EnqueueFn
 } from '@saa/scheduler';
 import { Dispatcher, runStartupRecovery, Worker } from '@saa/workflow';
-import { MockYouTubeAdapter } from '@saa/youtube';
+import { DpapiCredentialStore, MockYouTubeAdapter } from '@saa/youtube';
 import { buildApp } from './app';
-import { loadAiCredentials, loadConfig, loadYouTubeCredentials, type AppConfig } from './config';
+import { createAiCredentialManager, type AiCredentialManager } from './ai-credentials';
+import { loadConfig, loadYouTubeCredentials, type AppConfig } from './config';
 import { buildHandlerRegistry } from './handlers';
+import { createLazyPlanner } from './lazy-planner';
 import { createYouTubeApiPublisher } from './publisher';
 
-function buildPlanner(logger: ReturnType<typeof createLogger>): Planner | undefined {
-  const credentials = loadAiCredentials();
-  if (credentials === null) {
-    logger.warn(
-      'DEEPSEEK_API_KEY tidak ditemukan; job PLAN_CONTENT tidak terdaftar dan akan jatuh ke NEEDS_ATTENTION'
-    );
-    return undefined;
-  }
-  return createPlanner({ llm: createDeepSeekClient({ apiKey: credentials.apiKey }) });
+function buildPlanner(aiCredentials: AiCredentialManager): Planner {
+  return createLazyPlanner({
+    credentials: aiCredentials,
+    create: (apiKey) => createPlanner({ llm: createDeepSeekClient({ apiKey }) })
+  });
 }
 
 function buildPublisher(
@@ -95,7 +93,22 @@ async function main(): Promise<void> {
     );
   }
 
-  const planner = buildPlanner(logger);
+  const aiCredentials = createAiCredentialManager({
+    store: new DpapiCredentialStore()
+  });
+  await aiCredentials.refresh();
+  if (aiCredentials.status().storeError) {
+    logger.warn(
+      'kredensial AI tersimpan tidak dapat dibaca; memakai environment bila tersedia, isi ulang lewat Connections'
+    );
+  }
+  if (!aiCredentials.isConfigured()) {
+    logger.warn(
+      'kunci DeepSeek belum dikonfigurasi; PLAN_CONTENT akan eskalasi AUTH sampai kunci diisi lewat Connections'
+    );
+  }
+
+  const planner = buildPlanner(aiCredentials);
   const publisher = buildPublisher(config, logger, db);
   const generator =
     config.flowAdapter === 'real'
@@ -114,7 +127,7 @@ async function main(): Promise<void> {
     db,
     mediaRoot,
     ...(generator === undefined ? {} : { generator }),
-    ...(planner === undefined ? {} : { planner }),
+    planner,
     ...(publisher === undefined ? {} : { publisher })
   });
 
@@ -140,8 +153,11 @@ async function main(): Promise<void> {
   // oleh produksi konten berikutnya di slot yang sama.
   const enqueue: EnqueueFn = async (schedule, context) => {
     const published = await publicationEnqueue(schedule, context);
-    const planned =
-      planner === undefined ? [] : await productionEnqueue(schedule, context);
+    // Produksi konten ditahan selama kunci AI belum ada agar slot tidak
+    // menghasilkan job PLAN_CONTENT yang pasti berakhir NEEDS_ATTENTION.
+    const planned = aiCredentials.isConfigured()
+      ? await productionEnqueue(schedule, context)
+      : [];
     return [...published, ...planned];
   };
 
@@ -157,7 +173,8 @@ async function main(): Promise<void> {
     config,
     logger,
     version: '0.1.0',
-    workerActive: () => worker.isRunning
+    workerActive: () => worker.isRunning,
+    aiCredentials
   });
 
   const shutdown = async (signal: string): Promise<void> => {
@@ -202,9 +219,9 @@ async function main(): Promise<void> {
     } else if (!config.workerEnabled) {
       logger.warn('worker dimatikan; dispatch jadwal tidak dijalankan agar antrean tidak menumpuk');
     } else {
-      if (planner === undefined) {
+      if (!aiCredentials.isConfigured()) {
         logger.warn(
-          'planner tidak aktif; produksi konten otomatis tidak dijalankan (hanya publikasi konten yang sudah ada)'
+          'kunci DeepSeek belum diisi; produksi konten otomatis ditahan (hanya publikasi konten yang sudah ada)'
         );
       }
       dispatchLoop.start();

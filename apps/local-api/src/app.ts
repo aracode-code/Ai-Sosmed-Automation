@@ -7,10 +7,13 @@ import Fastify, {
 import type { Logger } from '@saa/observability';
 import type { DatabaseHandle } from '@saa/database';
 import { ZodError } from 'zod';
+import { DpapiCredentialStore } from '@saa/youtube';
+import { createAiCredentialManager, type AiCredentialManager } from './ai-credentials';
 import type { AppConfig } from './config';
 import { ConnectActionRunner, type ConnectActionController } from './connect-runner';
 import { errorEnvelope } from './errors';
 import { accountRoutes } from './routes/accounts';
+import { aiCredentialRoutes } from './routes/ai-credentials';
 import { approvalRoutes } from './routes/approvals';
 import { campaignRoutes } from './routes/campaigns';
 import { connectActionRoutes } from './routes/connect-actions';
@@ -33,6 +36,8 @@ export interface BuildAppOptions {
   connectRunner?: ConnectActionController;
   connectPreflight?: () => Promise<{ ok: boolean; detail: string | null }>;
   hasYouTubeCredentials?: () => boolean;
+  /** Manager kunci AI; default DPAPI pada mesin ini. */
+  aiCredentials?: AiCredentialManager;
 }
 
 export function buildApp(options: BuildAppOptions): FastifyInstance {
@@ -110,6 +115,11 @@ export function buildApp(options: BuildAppOptions): FastifyInstance {
   void app.register(scheduleRoutes, { db, now });
   void app.register(accountRoutes, { db });
   void app.register(connectionRoutes, { db, config: options.config });
+  void app.register(aiCredentialRoutes, {
+    credentials:
+      options.aiCredentials ??
+      createAiCredentialManager({ store: new DpapiCredentialStore() })
+  });
 
   const connectRunner: ConnectActionController =
     options.connectRunner ?? new ConnectActionRunner();

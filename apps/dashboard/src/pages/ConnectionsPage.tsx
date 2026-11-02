@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { ApiError, getJson, sendJson, useApi } from '../api';
 import { EmptyState, ErrorBox, Loading, Section, StatusPill, formatTime, shortId } from '../components';
 import type {
+  AiCredentialStatusPayload,
   ConnectActionKind,
   ConnectActionPhase,
   ConnectActionState,
@@ -109,6 +110,15 @@ export function ConnectionsPage({
   const [localToken, setLocalToken] = useState(0);
   const data = useApi<ConnectionsPayload>(`/api/v1/connections?t=${refreshToken}-${localToken}`);
 
+  const [aiToken, setAiToken] = useState(0);
+  const aiStatus = useApi<AiCredentialStatusPayload>(
+    `/api/v1/ai/status?t=${refreshToken}-${aiToken}`
+  );
+  const [apiKey, setApiKey] = useState('');
+  const [keyPending, setKeyPending] = useState(false);
+  const [keyError, setKeyError] = useState<string | null>(null);
+  const [keySaved, setKeySaved] = useState(false);
+
   const [actions, setActions] = useState<ConnectActionsPayload | null>(null);
   const [pollKey, setPollKey] = useState(0);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -186,6 +196,24 @@ export function ConnectionsPage({
       setPollKey((value) => value + 1);
     } catch (error) {
       setActionError(messageOf(error));
+    }
+  };
+
+  const saveApiKey = async (): Promise<void> => {
+    setKeyError(null);
+    setKeySaved(false);
+    setKeyPending(true);
+    try {
+      await sendJson<{ configured: boolean }>('/api/v1/ai/credentials', {
+        apiKey: apiKey.trim()
+      });
+      setApiKey('');
+      setKeySaved(true);
+      setAiToken((value) => value + 1);
+    } catch (error) {
+      setKeyError(messageOf(error));
+    } finally {
+      setKeyPending(false);
     }
   };
 
@@ -283,6 +311,71 @@ export function ConnectionsPage({
               bypass.
             </div>
           ) : null}
+        </div>
+      </Section>
+
+      <Section title="Kunci AI (DeepSeek)">
+        <div className="panel-pad">
+          <dl className="kv">
+            <dt>Status</dt>
+            <dd>
+              {aiStatus.loading ? (
+                <span className="muted">memuat…</span>
+              ) : aiStatus.data === null ? (
+                <Tone tone="warn">tidak diketahui</Tone>
+              ) : aiStatus.data.configured ? (
+                <Tone tone="ok">
+                  terkonfigurasi ({aiStatus.data.source === 'store' ? 'DPAPI' : 'environment'})
+                </Tone>
+              ) : (
+                <Tone tone="warn">belum diisi</Tone>
+              )}
+            </dd>
+          </dl>
+
+          <form
+            className="pair-form"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void saveApiKey();
+            }}
+          >
+            <label className="field">
+              <span className="field-label">API key DeepSeek</span>
+              <input
+                className="input"
+                type="password"
+                autoComplete="off"
+                spellCheck={false}
+                value={apiKey}
+                onChange={(event) => setApiKey(event.target.value)}
+                placeholder="sk-…"
+                maxLength={200}
+                disabled={keyPending}
+              />
+            </label>
+            <button
+              type="submit"
+              className="btn btn-primary"
+              disabled={keyPending || apiKey.trim().length < 10}
+            >
+              {keyPending ? 'Menyimpan…' : 'Simpan kunci'}
+            </button>
+          </form>
+
+          {keyError === null ? null : <ErrorBox message={keyError} />}
+          {keySaved ? <p className="hint">Kunci tersimpan terenkripsi di mesin ini.</p> : null}
+          {aiStatus.data?.storeError === true ? (
+            <div className="error-box" role="alert">
+              Kredensial tersimpan tidak dapat dibaca. Isi ulang kunci di atas.
+            </div>
+          ) : null}
+
+          <p className="hint">
+            Nilai kunci tidak pernah dikirim balik ke UI atau ditulis ke log. DPAPI menyimpannya per
+            user Windows; environment <code>DEEPSEEK_API_KEY</code> tetap menjadi fallback bila
+            DPAPI kosong.
+          </p>
         </div>
       </Section>
 

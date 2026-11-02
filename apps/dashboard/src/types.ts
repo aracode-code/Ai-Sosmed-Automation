@@ -170,6 +170,13 @@ export interface ConnectActionsPayload {
   actions: { flowLogin: ConnectActionState; youtubePair: ConnectActionState };
 }
 
+/** Status kunci AI; nilainya sendiri tidak pernah dikirim ke UI. */
+export interface AiCredentialStatusPayload {
+  configured: boolean;
+  source: 'store' | 'env' | 'none';
+  storeError: boolean;
+}
+
 export interface JobTimeline {
   job: { id: string; status: string; jobType: string };
   events: {
