@@ -188,6 +188,8 @@ export function insertJobIdempotent(
 
 export interface ListJobsQuery {
   status?: JobStatus;
+  jobType?: JobType;
+  campaignId?: string;
   limit?: number;
   cursor?: string | null;
 }
@@ -206,6 +208,8 @@ export function listJobs(raw: SqliteDatabase, query: ListJobsQuery = {}): ListJo
     .prepare(
       `SELECT * FROM jobs
        WHERE (@status IS NULL OR status = @status)
+         AND (@jobType IS NULL OR job_type = @jobType)
+         AND (@campaignId IS NULL OR campaign_id = @campaignId)
          AND (@cursorCreatedAt IS NULL
               OR created_at < @cursorCreatedAt
               OR (created_at = @cursorCreatedAt AND id < @cursorId))
@@ -214,6 +218,8 @@ export function listJobs(raw: SqliteDatabase, query: ListJobsQuery = {}): ListJo
     )
     .all({
       status: query.status ?? null,
+      jobType: query.jobType ?? null,
+      campaignId: query.campaignId ?? null,
       cursorCreatedAt,
       cursorId,
       limit

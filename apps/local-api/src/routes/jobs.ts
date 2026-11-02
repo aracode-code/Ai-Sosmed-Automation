@@ -1,5 +1,12 @@
 import type { FastifyPluginAsync } from 'fastify';
-import { JOB_STATUSES, transitionJob, type JobStatus } from '@saa/domain';import {
+import {
+  JOB_STATUSES,
+  JOB_TYPES,
+  transitionJob,
+  type JobStatus,
+  type JobType
+} from '@saa/domain';
+import {
   appendAudit,
   applyTransition,
   getJob,
@@ -23,8 +30,17 @@ const statusSchema = z
   })
   .transform((value) => value as JobStatus);
 
+const jobTypeSchema = z
+  .string()
+  .refine((value) => (JOB_TYPES as readonly string[]).includes(value), {
+    message: 'tipe job tidak dikenal'
+  })
+  .transform((value) => value as JobType);
+
 const listQuerySchema = z.object({
   status: statusSchema.optional(),
+  jobType: jobTypeSchema.optional(),
+  campaignId: z.string().min(1).max(100).optional(),
   limit: z.coerce.number().int().min(1).max(100).optional(),
   cursor: z.string().min(1).optional()
 });

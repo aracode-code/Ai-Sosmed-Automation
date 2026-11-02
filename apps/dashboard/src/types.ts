@@ -91,6 +91,40 @@ export interface ApprovalRecord {
   decision: 'approved' | 'rejected';
 }
 
+/** Respons GET /api/v1/plans/:jobId — bahan keputusan tingkat rencana. */
+export interface PlanReviewContent {
+  id: string;
+  version: number;
+  topic: string;
+  caption: unknown;
+  approvalStatus: ContentItem['approvalStatus'];
+}
+
+export interface PlanApprovalRecord {
+  id: string;
+  planJobId: string;
+  campaignId: string;
+  bindingHash: string;
+  itemCount: number;
+  decision: 'approved' | 'rejected';
+  decidedAt: string;
+  decidedBy: string;
+  reason: string | null;
+}
+
+export interface PlanReview {
+  plan: { jobId: string; campaignId: string; status: string };
+  campaign: {
+    id: string;
+    name: string;
+    platforms: string[];
+    approvalMode: 'automatic' | 'required';
+  } | null;
+  contents: PlanReviewContent[];
+  bindingHash: string;
+  approval: PlanApprovalRecord | null;
+}
+
 /** Respons GET /api/v1/dashboard/summary. */
 export interface DashboardSummary {
   generatedAt: string;

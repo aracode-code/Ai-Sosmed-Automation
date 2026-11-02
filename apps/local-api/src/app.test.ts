@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { FastifyInstance } from 'fastify';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { insertJob, openDatabase, runMigrations, type DatabaseHandle } from '@saa/database';
+import { insertCampaign, insertJob, openDatabase, runMigrations, type DatabaseHandle } from '@saa/database';
 import { buildApp } from './app';
 import { loadConfig } from './config';
 
@@ -140,6 +140,62 @@ describe('GET /api/v1/jobs', () => {
     expect(payload.error.code).toBe('VALIDATION_ERROR');
     expect(payload.error.requestId.startsWith('req_')).toBe(true);
     expect(payload.error.details.length).toBeGreaterThan(0);
+  });
+
+  it('memfilter berdasarkan tipe job dan campaign', async () => {
+    insertCampaign(db.raw, {
+      id: 'cmp_a',
+      name: 'A',
+      niche: 'edukasi',
+      approvalMode: 'required',
+      platforms: ['youtube']
+    });
+    insertCampaign(db.raw, {
+      id: 'cmp_b',
+      name: 'B',
+      niche: 'edukasi',
+      approvalMode: 'required',
+      platforms: ['youtube']
+    });
+
+    insertJob(db.raw, {
+      jobType: 'PLAN_CONTENT',
+      idempotencyKey: 'plan:a',
+      campaignId: 'cmp_a',
+      payload: null
+    });
+    insertJob(db.raw, {
+      jobType: 'PLAN_CONTENT',
+      idempotencyKey: 'plan:b',
+      campaignId: 'cmp_b',
+      payload: null
+    });
+    insertJob(db.raw, {
+      jobType: 'GENERATE_VIDEO',
+      idempotencyKey: 'generate:a',
+      campaignId: 'cmp_a',
+      payload: null
+    });
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/api/v1/jobs?jobType=PLAN_CONTENT&campaignId=cmp_a'
+    });
+    expect(response.statusCode).toBe(200);
+    expect(
+      response.json<{ items: Array<{ idempotencyKey: string }> }>().items.map(
+        (item) => item.idempotencyKey
+      )
+    ).toEqual(['plan:a']);
+  });
+
+  it('menolak tipe job yang tidak dikenal', async () => {
+    const response = await app.inject({ method: 'GET', url: '/api/v1/jobs?jobType=NOPE' });
+
+    expect(response.statusCode).toBe(400);
+    const payload = response.json<{ error: { code: string; details: Array<{ path: string }> } }>();
+    expect(payload.error.code).toBe('VALIDATION_ERROR');
+    expect(payload.error.details[0]?.path).toBe('jobType');
   });
 
   it('menolak limit di luar rentang', async () => {

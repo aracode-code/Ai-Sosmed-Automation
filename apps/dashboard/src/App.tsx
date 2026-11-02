@@ -152,7 +152,12 @@ export function App(): JSX.Element {
         <div className="content">
           {tab === 'overview' ? <OverviewPage refreshToken={refreshToken} /> : null}
           {tab === 'jobs' ? <JobsPage refreshToken={refreshToken} /> : null}
-          {tab === 'campaigns' ? <CampaignsPage refreshToken={refreshToken} /> : null}
+          {tab === 'campaigns' ? (
+            <CampaignsPage
+              refreshToken={refreshToken}
+              onChanged={() => setRefreshToken((value) => value + 1)}
+            />
+          ) : null}
           {tab === 'approvals' ? (
             <ApprovalsPage
               refreshToken={refreshToken}

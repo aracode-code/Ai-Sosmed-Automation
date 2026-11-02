@@ -6,6 +6,7 @@ import {
   applyTransition,
   claimDueJob,
   getJob,
+  insertCampaign,
   insertJob,
   listExpiredLeases,
   listJobs,
@@ -144,5 +145,39 @@ describe('repository jobs', () => {
 
     const page2 = listJobs(db.raw, { limit: 1, cursor: page1.nextCursor });
     expect(page2.items.map((job) => job.id)).toEqual([a.id]);
+  });
+
+  it('memfilter daftar job berdasarkan tipe dan campaign', () => {
+    const db = tempDb();
+    insertCampaign(db.raw, {
+      id: 'cmp_a',
+      name: 'A',
+      niche: 'edukasi',
+      approvalMode: 'required',
+      platforms: ['youtube']
+    });
+    insertCampaign(db.raw, {
+      id: 'cmp_b',
+      name: 'B',
+      niche: 'edukasi',
+      approvalMode: 'required',
+      platforms: ['youtube']
+    });
+
+    const planA = newJob(db, { campaignId: 'cmp_a', idempotencyKey: 'plan-a' });
+    newJob(db, { campaignId: 'cmp_b', idempotencyKey: 'plan-b' });
+    const genA = newJob(db, {
+      campaignId: 'cmp_a',
+      jobType: 'GENERATE_VIDEO',
+      idempotencyKey: 'gen-a'
+    });
+
+    const plans = listJobs(db.raw, { campaignId: 'cmp_a', jobType: 'PLAN_CONTENT' });
+    expect(plans.items.map((job) => job.id)).toEqual([planA.id]);
+
+    const campaignA = listJobs(db.raw, { campaignId: 'cmp_a' });
+    expect(campaignA.items.map((job) => job.id).sort()).toEqual([planA.id, genA.id].sort());
+
+    expect(listJobs(db.raw, { campaignId: 'cmp_missing' }).items).toHaveLength(0);
   });
 });

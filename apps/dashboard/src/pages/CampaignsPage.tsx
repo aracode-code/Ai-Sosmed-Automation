@@ -1,5 +1,6 @@
-import { useState } from 'react';
-import { useApi } from '../api';
+import { useEffect, useState } from 'react';
+import { ApiError, sendJson, useApi } from '../api';
+import { PlanReviewPanel } from '../PlanReviewPanel';
 import {
   EmptyState,
   ErrorBox,
@@ -10,14 +11,81 @@ import {
   preview,
   shortId
 } from '../components';
-import type { Campaign, CampaignDetail, ListResponse } from '../types';
+import type { Campaign, CampaignDetail, Job, ListResponse } from '../types';
 
-export function CampaignsPage({ refreshToken }: { refreshToken: number }): JSX.Element {
+export function CampaignsPage({
+  refreshToken,
+  onChanged
+}: {
+  refreshToken: number;
+  onChanged: () => void;
+}): JSX.Element {
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [planJobId, setPlanJobId] = useState<string | null>(null);
+  const [notes, setNotes] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
+
   const list = useApi<ListResponse<Campaign>>(`/api/v1/campaigns?t=${refreshToken}`);
   const detail = useApi<CampaignDetail>(
-    selectedId === null ? null : `/api/v1/campaigns/${selectedId}`
+    selectedId === null
+      ? null
+      : `/api/v1/campaigns/${encodeURIComponent(selectedId)}?t=${refreshToken}`
   );
+  const plans = useApi<ListResponse<Job>>(
+    selectedId === null
+      ? null
+      : `/api/v1/jobs?jobType=PLAN_CONTENT&campaignId=${encodeURIComponent(selectedId)}&limit=5&t=${refreshToken}`
+  );
+
+  const selectedCampaign = list.data?.items.find((campaign) => campaign.id === selectedId) ?? null;
+
+  useEffect(() => {
+    setPlanJobId(null);
+    setNotes('');
+    setNotice(null);
+    setFormError(null);
+  }, [selectedId]);
+
+  const blockedRequest =
+    selectedCampaign === null
+      ? null
+      : selectedCampaign.status !== 'active'
+        ? `Campaign berstatus ${selectedCampaign.status}; aktifkan dulu sebelum meminta rencana.`
+        : selectedCampaign.platforms.length === 0
+          ? 'Campaign belum punya platform target.'
+          : null;
+
+  async function requestPlan(): Promise<void> {
+    if (selectedCampaign === null || blockedRequest !== null) return;
+    setSubmitting(true);
+    setFormError(null);
+    setNotice(null);
+    try {
+      const created = await sendJson<{ jobId: string; status: string }>('/api/v1/content', {
+        campaignId: selectedCampaign.id,
+        ...(notes.trim() === '' ? {} : { notes: notes.trim() })
+      });
+      setNotes('');
+      setNotice(
+        created.status === 'duplicate'
+          ? `Permintaan ini sudah ada sebagai job ${created.jobId}.`
+          : `Job rencana ${created.jobId} dibuat (${created.status}). Setelah COMPLETED, tinjau di daftar bawah.`
+      );
+      onChanged();
+    } catch (caught) {
+      setFormError(
+        caught instanceof ApiError
+          ? `${caught.code}: ${caught.message}`
+          : caught instanceof Error
+            ? caught.message
+            : 'kesalahan tidak dikenal'
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   return (
     <div className="stack">
@@ -67,6 +135,111 @@ export function CampaignsPage({ refreshToken }: { refreshToken: number }): JSX.E
         ) : null}
       </Section>
 
+      {selectedCampaign !== null ? (
+        <Section
+          title={`Permintaan approval · ${selectedCampaign.name}`}
+          actions={
+            <button type="button" className="btn" onClick={() => setSelectedId(null)}>
+              Tutup
+            </button>
+          }
+        >
+          <div className="panel-pad">
+            <p className="hint">
+              Form ini membuat job PLAN_CONTENT untuk rencana berikutnya.
+              {selectedCampaign.approvalMode === 'required'
+                ? ' Karena approval wajib, pembuatan video baru diantrekan setelah rencana disetujui.'
+                : ' Campaign otomatis: rencana yang selesai langsung dilanjutkan ke pembuatan video.'}
+            </p>
+            <form
+              className="field"
+              onSubmit={(event) => {
+                event.preventDefault();
+                void requestPlan();
+              }}
+            >
+              <label className="field-label" htmlFor="plan-notes">
+                Catatan untuk planner (opsional)
+              </label>
+              <textarea
+                id="plan-notes"
+                className="input textarea"
+                rows={2}
+                maxLength={2000}
+                value={notes}
+                disabled={submitting || blockedRequest !== null}
+                onChange={(event) => setNotes(event.target.value)}
+                placeholder="mis. fokus promo akhir pekan"
+              />
+              <div className="detail-actions">
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  disabled={submitting || blockedRequest !== null}
+                >
+                  {submitting ? 'Mengirim…' : 'Minta rencana'}
+                </button>
+              </div>
+            </form>
+            {blockedRequest !== null ? <div className="notice">{blockedRequest}</div> : null}
+            {notice !== null ? <div className="notice notice-ok">{notice}</div> : null}
+            {formError !== null ? <ErrorBox message={formError} /> : null}
+          </div>
+
+          {plans.loading ? <Loading /> : null}
+          {plans.error !== null ? <ErrorBox message={plans.error} /> : null}
+          {plans.data !== null && plans.data.items.length === 0 ? (
+            <EmptyState
+              title="Belum ada permintaan rencana"
+              hint="Kirim form di atas; job PLAN_CONTENT akan muncul di sini."
+            />
+          ) : null}
+          {plans.data !== null && plans.data.items.length > 0 ? (
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Dibuat</th>
+                  <th>Status</th>
+                  <th>Job</th>
+                  <th aria-label="aksi" />
+                </tr>
+              </thead>
+              <tbody>
+                {plans.data.items.map((job) => (
+                  <tr
+                    key={job.id}
+                    className={job.id === planJobId ? 'row row-static row-active' : 'row row-static'}
+                  >
+                    <td>{formatTime(job.createdAt)}</td>
+                    <td>
+                      <StatusPill value={job.status} />
+                    </td>
+                    <td className="mono">{shortId(job.id)}</td>
+                    <td className="cell-action">
+                      <button type="button" className="btn" onClick={() => setPlanJobId(job.id)}>
+                        Tinjau
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : null}
+        </Section>
+      ) : null}
+
+      {planJobId !== null ? (
+        <PlanReviewPanel
+          jobId={planJobId}
+          onClose={() => setPlanJobId(null)}
+          onDecided={(message) => {
+            setPlanJobId(null);
+            setNotice(message);
+            onChanged();
+          }}
+        />
+      ) : null}
+
       {selectedId !== null ? (
         <Section
           title="Konten campaign"
@@ -81,7 +254,7 @@ export function CampaignsPage({ refreshToken }: { refreshToken: number }): JSX.E
           {detail.data !== null && detail.data.content.length === 0 ? (
             <EmptyState
               title="Belum ada konten"
-              hint="Konten dibuat oleh job PLAN_CONTENT pada slot jadwal, atau lewat POST /api/v1/content."
+              hint="Konten dibuat oleh job PLAN_CONTENT pada slot jadwal, atau lewat form permintaan di atas."
             />
           ) : null}
           {detail.data !== null && detail.data.content.length > 0 ? (
