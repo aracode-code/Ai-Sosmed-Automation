@@ -1,6 +1,6 @@
 # Modul — Browser Engine (P3 Mock Flow + Sesi Flow)
 
-**Status:** PARTIAL — mock adapter + sesi profil Flow & login manual selesai; adapter generasi nyata belum · commit `013531a`, `fd62314`
+**Status:** PARTIAL — mock adapter + sesi profil Flow + adapter generasi nyata (`FlowPlaywrightGenerator`) selesai; smoke nyata lewat CLI (gambar) dan lewat aplikasi (video, pembuatan sukses) terverifikasi, unduhan via worker menunggu uji ulang · commit `013531a`, `fd62314`, `a7aad95`
 **Sumber:** kode aktual (E1). Keputusan: `ADR-0003` D16–D21, `ADR-0010` (F1–F7). Kontrak: LLD §10.1, §10.4, §13.2, §7.3.
 
 ## Peta Paket
@@ -16,7 +16,7 @@
 | `packages/browser-engine/src/flow-session.ts` | `resolveFlowProfileDir`, `detectInstalledBrowser`, `resolveFlowBrowserChannel`, `checkFlowBrowser`, `openFlowSession` — profil persisten + lock + launcher Playwright (ADR-0010) |
 | `packages/browser-engine/src/flow-inspect.ts` | `collectPageOutline` — outline input/tombol/heading + deteksi halaman login, dievaluasi di halaman (read-only) |
 | `packages/browser-engine/src/flow-readiness.ts` | `inspectFlowReady(endpoint)` — cek prompt/kirim/tantangan tanpa mengubah apa pun |
-| `packages/browser-engine/src/flow-generator.ts` | `generateFlowMedia` — tutup panel Setelan via toggle `tune`, pilih tab mode & rasio bila perlu → isi prompt ProseMirror → kirim → tunggu hasil → unduh via menu `Opsi lainnya → Download → Ukuran asli` |
+| `packages/browser-engine/src/flow-generator.ts` | `generateFlowMedia` — setel `Browser.setDownloadBehavior` (dialog native diblokir), tutup panel Setelan via toggle `tune`, terapkan rasio dalam satu ekspresi async (render panel asinkron, verifikasi `aria-checked` sebelum `Simpan`) → isi prompt ProseMirror → kirim → tunggu hasil (`FLOW-VIDEO-TILE` poster) → unduh via menu `Opsi lainnya → Download → Ukuran asli` |
 | `packages/browser-engine/src/flow-usage.ts` | Guard hitungan: `parseFlowGuard`, `decideGeneration`, ledger `parseLedger`/`appendUsage`/`updateLastStatus`, `dayOf` (Asia/Jakarta) |
 | `packages/browser-engine/src/flow-playwright-generator.ts` | `FlowPlaywrightGenerator` (`VideoGenerator`) — memanggil `generateFlowMedia` (tab Video), menghitung sha256/ukuran/mime; `checkAvailability` dari `inspectFlowReady` |
 
@@ -67,7 +67,7 @@ Probe yang gagal dieksekusi menandai `available:false` dan **tidak** menggagalka
 
 ```bash
 corepack pnpm --filter @saa/browser-engine typecheck
-corepack pnpm vitest run packages/browser-engine   # 23 test (media, generator, lock, flow-session)
+corepack pnpm vitest run packages/browser-engine   # test paket: media, generator, lock, flow-session, flow-ratio, flow-usage
 corepack pnpm --filter @saa/local-api flow:login --check   # cek profil + browser tanpa membuka jendela
 corepack pnpm --filter @saa/local-api flow:login           # login manual, tunggu jendela ditutup
 corepack pnpm --filter @saa/local-api flow:inspect [--url https://flow.google.com/…] [--wait ms]
@@ -79,7 +79,8 @@ Guard: `FLOW_MAX_GENERATIONS_PER_DAY` (default 1), `FLOW_REQUIRE_CONFIRM` (defau
 
 ## Belum Ada (P3 penuh — tertahan OD-1)
 
-- Adapter generasi Flow nyata (isi prompt, tunggu render, unduh hasil, deteksi tantangan keamanan) — selektor belum dipetakan dari akun nyata (ADR-0010 F6).
-- Pemetaan `SECURITY_CHALLENGE`/`UI_CHANGED` dari halaman Flow.
-- `checkAvailability` berbasis sesi/akun nyata.
+- Smoke unduhan **lewat aplikasi** end-to-end: fix `Browser.setDownloadBehavior` sudah ada dan mekanismenya terbukti di uji terkontrol, tetapi handler worker belum dijalankan ulang (butuh 1 kredit dengan izin owner; ADR-0010 F31/F34).
+- Guard/ledger `flow-usage` di jalur aplikasi (`FlowPlaywrightGenerator` tidak menerima `onSubmit` dan tidak membaca ledger; ADR-0010 F33).
+- Retry tanpa submit untuk job yang medianya sudah tersimpan (retry saat ini men-submit ulang; ADR-0010 F34).
+- Durasi media `null` bila `ffprobe` tidak terpasang (probe opsional).
 - Pembersihan artefak lama dan kebijakan retensi media (OD-6).

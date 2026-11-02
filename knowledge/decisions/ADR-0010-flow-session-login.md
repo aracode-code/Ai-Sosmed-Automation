@@ -98,3 +98,29 @@ Catatan penting:
 - **"Publikasikan ke YouTube"** ada di Flow — alternatif jalur publikasi tanpa API; keputusan owner bila ingin dipakai (bukan bagian adapter saat ini).
 - Kuota kredit dan biaya per model **belum** terukur; pembuatan uji memakai kredit akun owner.
 - Unduhan harus lewat UI (menu), bukan URL bertanda tangan.
+
+## Adendum — Alur generasi melalui aplikasi (E1, 2026-11-02)
+
+Smoke P3 lewat aplikasi (`FLOW_ADAPTER=real`, job `GENERATE_VIDEO`) menambah fakta dan keputusan berikut.
+
+### Fakta DOM (project bersih, akun owner)
+
+- Project Flow kini memakai **panel agen** ("Setelan agen" / "Halo Mang, Apa yang ingin Anda buat?"): tidak ada tab mode; agen memilih gambar/video dari prompt. Komposer tetap `div[role="textbox"][contenteditable="true"]`; tombol kirim tetap `button[aria-label="Mulai pembuatan"]`.
+- Setelan: "Konfirmasi sebelum membuat" (`Selalu` default / `Jangan pernah`), rasio gambar 16:9/4:3/1:1/3:4/9:16, rasio video 16:9/9:16, x1–x4, model `Nano Banana 2.1` / `Veo 3.1 - Lite`, dan tombol **`Simpan`** yang menutup panel.
+- Panel dirender **asinkron** setelah klik `tune`; `tune` menjadi 0×0/tersembunyi saat panel terbuka.
+- Hasil video muncul sebagai `FLOW-VIDEO-TILE` dengan poster `img` (`/asb/`, 288×512, alt "Thumbnail video yang dihasilkan") + overlay `play_circle`; elemen `<video>` tidak ada sampai tile dibuka. `MEDIA_PROBE` karena itu mengembalikan poster, dan `OPEN_CARD_MENU` bekerja pada kartu tile.
+- Menu kartu: Favorit, Gunakan kembali perintah, Tambahkan ke adegan/perintah, **Download** (submenu `270p GIF Animasi`, `720p Ukuran asli`, `1080p Resolusi ditingkatkan`, `4K Resolusi ditingkatkan`), Salin, Ganti nama, Bagikan, Publikasikan ke YouTube, Tetapkan sampul, Laporkan, Pindahkan ke sampah.
+
+### Keputusan implementasi
+
+- **F30** — Rasio diterapkan dalam **satu ekspresi** yang mencari cakupan berdasarkan kontrak (`depth < 3`, satu tombol model + radio), menunggu render panel (maks. 15×200 ms), memverifikasi `aria-checked` **sebelum** menekan `Simpan` (yang menutup panel). `buildVerifyRatioExpression` dan pembukaan ulang panel dihapus: pembukaan ulang menutupi komposer (`kotak prompt tidak terlihat`).
+- **F31** — `generateFlowMedia` wajib memanggil `Browser.setDownloadBehavior {behavior:'allow', downloadPath: outputDirectory, eventsEnabled:true}` sebelum interaksi. Tanpa itu, Chrome yang di-attach dengan profil pengguna membuka dialog native "Save As" dan `waitForEvent('download')` tidak pernah menerima event (terverifikasi: dialog `#32770`; setelah diset, event `download` muncul tanpa dialog).
+- **F32** — Pembuatan otomatis mensyaratkan setelan project "Konfirmasi sebelum membuat" = `Jangan pernah`; default `Selalu` menghentikan agen pada konfirmasi manual. Setelan diubah manual lewat UI (bukan lewat otomasi).
+- **F33** — Jalur aplikasi (`FlowPlaywrightGenerator`) **tidak** memakai guard/ledger `flow-usage`; kredit yang dipakai lewat worker tidak tercatat otomatis. Untuk sesi ini ledger dicatat manual setelah submit terverifikasi. Wiring guard ke generator dicatat sebagai backlog.
+- **F34** — Job yang medianya sudah dipulihkan **tidak** ditandai COMPLETED: job dieskalasi `NEEDS_ATTENTION` (`UI_CHANGED`) + audit `job.manual_reconciliation`. Retry dari UI akan menjalankan handler dari awal (submit ulang = kredit baru) sampai kebijakan retry-tanpa-submit dibuat.
+
+### Bukti
+
+- Job `job_0705ff16-ab0c-45bd-aac1-48d240e6f1fb` (konten `cnt_smoke_p3_20261102`) → video jadi; media `data/media/job_0705ff16-…/flow-video.mp4` **3.466.852 byte**, `ftyp isom`, sha256 `59df3899f62af680a14b2f4504473b5d0759e305d323f98cb433ad508fe98051`.
+- Ledger `data/flow-usage.json`: entri video `2026-11-01T23:53:07.242Z` `submitted=true` `succeeded`; pemakaian 1/1 (2026-11-02 WIB).
+- Typecheck exit 0 · 53 file / 443 test hijau (`flow-ratio.test.ts` 12 test).

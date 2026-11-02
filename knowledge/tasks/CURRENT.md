@@ -1,74 +1,71 @@
 # CURRENT — Task Aktif
 
-**Session:** SESSION-2026-11-01-3
-**Updated:** 2026-11-02T03:32:00+07:00
-**Change class:** MEDIUM (route mutasi baru + runner proses lokal + UI Connections beraksi; tanpa perubahan schema/migrasi)
+**Session:** SESSION-2026-11-02-1
+**Updated:** 2026-11-02T07:20:00+07:00
+**Change class:** MEDIUM (perbaikan `flow-generator` + test; tanpa schema/migrasi/route)
 
 ## Active Task
 
-_Tidak ada task aktif._ Owner meminta **aksi connect dipicu dari UI**. Slice selesai: halaman Connections dapat memulai `flow:login` dan `pair:youtube` sebagai proses lokal, memantau fase/log, dan menghentikannya. Sisa yang butuh owner: login Flow nyata (profil sedang dipakai Chrome CDP) dan pairing YouTube (env OAuth belum di-set).
+Owner memilih **smoke lewat aplikasi (P3)**: job `GENERATE_VIDEO` dengan `FLOW_ADAPTER=real` agar worker benar-benar memanggil Flow, lalu verifikasi media tersimpan. Hasil: pembuatan nyata **berhasil** (video Veo 3.1 - Lite, 9:16, satu kredit), tetapi unduhan worker tertahan **dialog "Save As" native Chrome**; media dipulihkan dari URL video bertanda tangan dan dicatat sebagai aset `valid`. Job **tidak** ditandai COMPLETED (dieskalasi jujur ke `NEEDS_ATTENTION`).
 
 | Field | Nilai |
 |---|---|
-| Task terakhir | **R4** — aksi connect dari UI (`989aa2f` backend, `acdcf17` UI) |
-| Status | **P4 PARTIAL** (UI approval + aksi connect DONE; reauth belum) · P3 PARTIAL · P5 PARTIAL |
-| Mode eksekusi | SINGLE-WRITER sequential |
-| DoD tercapai | ✅ typecheck exit 0 · ✅ **443 test / 53 file** · ✅ `vite build` · ✅ smoke UI 1440 px tanpa overflow |
+| Job | `job_0705ff16-ab0c-45bd-aac1-48d240e6f1fb` → `NEEDS_ATTENTION`, `last_error_code=UI_CHANGED` |
+| Konten | `cnt_smoke_p3_20261102` (campaign `cmp_6773ab06-…`, dibuat lewat repository aplikasi karena `DEEPSEEK_API_KEY` tidak ada) |
+| Media | `data/media/job_0705ff16-ab0c-45bd-aac1-48d240e6f1fb/flow-video.mp4` — **3.466.852 byte**, `ftyp isom`, sha256 `59df3899…8051`, `durationMs=null` (ffprobe tidak tersedia) |
+| Status | **P3 PARTIAL** — pembuatan via worker TERVERIFIKASI; unduhan via worker belum (fix sudah ditulis, belum diuji end-to-end karena butuh kredit baru) |
+| Mode eksekusi | SINGLE-WRITER sequential, L1 |
 
-## Bukti Sesi Ini (aktual 2026-11-01)
+## Bukti Sesi Ini (aktual 2026-11-02 WIB)
 
 | Bukti | Hasil |
 |---|---|
-| Commit | `989aa2f` runner + route + cause logging · `acdcf17` UI Connections beraksi |
-| Typecheck | PASS — 10 paket + `tests/tsconfig.json` (exit 0) |
-| Test | **443 test / 53 file** hijau (`vitest run --no-file-parallelism`); baru: `connect-runner.test.ts` 11, `connect-actions.test.ts` 13 |
-| Build UI | PASS — CSS 11,20 kB / JS 181,79 kB |
-| API riil | `GET /api/v1/connections/actions` 200 pada 4317 (DB demo `data/database/ui-demo.sqlite`) |
-| UI riil | `localhost:5174` lebar 1440, `scrollWidth` 1440 (tanpa overflow); tombol pairing disabled saat label kosong |
-| Aksi login Flow | fase `failed`; penyebab `Opening in existing browser session…` karena Chrome PID 5252 memakai profil Flow yang sama (CDP 9222) — sebelum Chrome ditutup |
-| Aksi login Flow (ulang) | 2026-11-02 03.23 — Chrome `flow-profile` ditutup via CDP `Browser.close` (PID 7288 lahir baru) → fase **`waiting`** di UI nyata, jendela Chrome login terbuka, tombol Hentikan tampil ([desktop-connections-login-waiting.png]) |
-| Login Flow selesai | 2026-11-02 03.29 — jendela ditutup (`CloseMainWindow`) → aksi **`succeeded` (exit 0)** |
-| `flow:inspect` (landing) | `https://flow.google.com/` → bukan sign-in, akun terlihat, 40 tombol marketing |
-| `flow:inspect` (project) | `https://flow.google.com/project/445c6cd0-…` → "Testing Flow", komposer "Apa yang ingin Anda buat?" ada, 3 input, 60 tombol; **sesi valid & persisten** ([flow-inspect-project.png]) |
-| Pasca-inspect | 0 proses Chrome `flow-profile`, tanpa `SingletonLock`, port 9222 bebas |
-| Aksi pairing | 412 `MISSING_CREDENTIALS` — `GOOGLE_OAUTH_CLIENT_ID` belum di-set (nilai tidak dicetak) |
-| Screenshot | `data/desktop-connections-connect.png`, `-login.png`, `-login-stopped.png`, `-pair-error.png` |
+| Enqueue | `PLAN_CONTENT` tidak tersedia (tanpa `DEEPSEEK_API_KEY`); campaign/konten/job disisipkan lewat repository aplikasi (`insertCampaign`, `upsertContentItem`, `insertJobIdempotent`) dengan skrip sementara yang sudah dihapus |
+| Worker nyata | API `FLOW_ADAPTER=real FLOW_CDP_ENDPOINT=http://127.0.0.1:9222 WORKER_INTERVAL_MS=1000` pada port 4317; job klaim → `GENERATING` |
+| Pembuatan Flow | Prompt bubble terkirim; muncul tile `FLOW-VIDEO-TILE` (poster `img` 288×512, alt "Thumbnail video yang dihasilkan"); editor menampilkan timeline **00–11** → video jadi |
+| Kegagalan unduhan | Dialog native **"Save As"** (`#32770`) terbuka → `waitForEvent('download')` tidak pernah menerima event; worker dihentikan manual sebelum timeout 120 s agar tidak retry (retry akan men-submit ulang = kredit kedua) |
+| Akar masalah | Saat attach ke Chrome profil pengguna, perilaku unduhan Chrome tidak disetel; klik `Download → 720p Ukuran asli` memicu dialog native |
+| Bukti perbaikan | Setelah `Browser.setDownloadBehavior {behavior:'allow', downloadPath, eventsEnabled:true}`, klik `Download → Ukuran asli` **memicu event `download`** (`Coffee_cup_on_wooden_table_f02d740a.mp4`) tanpa dialog (uji terkontrol, tanpa kredit) |
+| Perbaikan kode | `generateFlowMedia` menyetel `Browser.setDownloadBehavior` sebelum interaksi; typecheck exit 0 |
+| Pemulihan media | URL bertanda tangan `flow-content.google/video/<id>?Expires=…` → HTTP 200 `video/mp4` 3.466.852 byte → `validateMediaFile` (berkas aplikasi) → `upsertMediaAsset` `med_cnt_smoke_p3_20261102` `validationStatus=valid` |
+| Rekonsiliasi job | `ESCALATE` `GENERATING → NEEDS_ATTENTION`, lease dilepas, audit `job.manual_reconciliation` (alasan + sha256 + ukuran) |
+| Ledger kredit | Entri baru `2026-11-01T23:53:07.242Z` video `submitted=true` `succeeded`; pemakaian **1/1** untuk 2026-11-02 WIB; dua entri lama dipulihkan setelah bug pemanggilan `parseLedger({raw})` (sempat terbuang, sudah diperbaiki) |
+| Quality gate | typecheck 10 paket + `tests/tsconfig.json` exit 0 · **53 file / 443 test** hijau (`vitest run --no-file-parallelism`) |
 
 ## Temuan yang Mengikat
 
 | Temuan | Dampak |
 |---|---|
-| Satu profil Flow = satu proses | `flow:login` dari UI gagal bila Chrome/CDP owner memakai `flow-profile`; API tidak menutup browser owner (ADR-0010 F22) |
-| Status aksi hanya di memori | Restart API menghapus snapshot; proses anak yang masih hidup dihentikan lewat `dispose` pada `onClose` |
-| Fase `waiting` = konsen manual | Ditandai baris log CLI, bukan interaksi otomatis; UI tidak mengisi kredensial |
-| Body pairing `.strict()` | Field tambahan (mis. `clientSecret`) ditolak 400 tanpa echo |
-| Log aksi disunting | ANSI dibuang, pola token → `[disunting]`, 60 baris terakhir, ≤400 karakter/baris |
+| Panel Setelan dirender **asinkron** | Klik `tune` tidak menjamin tombol model/radio ada; ekspresi rasio wajib menunggu (maks. 15×200 ms) |
+| `Simpan` menutup panel | Verifikasi `aria-checked` harus di dalam ekspresi yang sama **sebelum** `Simpan`; membuka panel lagi untuk verifikasi menutupi komposer (`kotak prompt tidak terlihat`) |
+| Setelan agen "Konfirmasi sebelum membuat" | Default `Selalu` membuat agen berhenti minta konfirmasi; untuk pembuatan otomatis project harus `Jangan pernah` (diubah manual lewat UI) |
+| Hasil video = tile, bukan `<video>` | `MEDIA_PROBE` mengembalikan poster `img` (`/asb/`, 288×512); `OPEN_CARD_MENU` bekerja pada kartu tile |
+| Unduhan butuh perilaku CDP | Tanpa `Browser.setDownloadBehavior`, Chrome memunculkan dialog native dan event `download` tidak pernah tiba |
+| Jalur aplikasi ≠ ledger | `FlowPlaywrightGenerator` tidak memanggil guard/ledger `flow-usage`; kredit lewat aplikasi tidak tercatat otomatis (dicatat manual sesi ini) |
+| `PLAN_CONTENT` butuh `DEEPSEEK_API_KEY` | Tanpa key, produksi konten otomatis tidak bisa dipakai; smoke memakai enqueue manual |
 
 ## Impact Map
 
-- **Berkas baru:** `apps/local-api/src/connect-runner.ts`, `connect-runner.test.ts`, `apps/local-api/src/routes/connect-actions.ts`, `connect-actions.test.ts`.
-- **Diubah:** `apps/local-api/src/app.ts` (wiring runner + hook `onClose`), `apps/local-api/src/flow-login.ts` (cetak penyebab), `apps/dashboard/src/{App.tsx,pages/ConnectionsPage.tsx,styles.css,types.ts}`, `docs/security.md`, `knowledge/modules/{local-api,dashboard}.md`, `knowledge/decisions/ADR-0010-flow-session-login.md`.
-- **DB/route/migrasi:** tidak ada migrasi; route 22 → **26**.
-- **Rahasia:** tidak ada kredensial di kode/log/body HTTP; pairing tetap membuat token lewat CLI + DPAPI.
+- **Diubah:** `packages/browser-engine/src/flow-generator.ts` (perilaku unduhan CDP), `packages/browser-engine/src/flow-ratio.test.ts` (12 test, ekspresi rasio async + verifikasi satu langkah).
+- **DB lokal (data, gitignored):** `media_assets` +1 baris, `jobs` 1 baris dieskalasi, `audit_logs` +1, `data/flow-usage.json` +1 entri video.
+- **Tidak berubah:** schema/migrasi (3 berkas, 12 tabel), route (26), paket/workspace.
 
 ## Drift Tercatat
 
-- Fase `waiting` dan `succeeded` kini terverifikasi di UI nyata (2026-11-02); tombol **Hentikan** belum diuji end-to-end.
-- `/` dan `/?pli=1` menampilkan halaman marketing; daftar project hanya terlihat pada URL project. `flow:inspect` tidak mengumpulkan tautan, jadi URL project harus berasal dari bukti lain.
-- P3 tetap PARTIAL: adapter generasi + smoke satu video melalui aplikasi belum.
-- P5 tetap PARTIAL: pairing + unggah `private` live belum.
-- Pairing dari UI belum diuji dengan env OAuth terisi.
-- FK `content_items` drift (PK) masih menunggu keputusan owner.
-- `AGENTS.md` untracked.
+- **P3 PARTIAL**: pembuatan via worker terverifikasi; unduhan via worker **belum** (fix belum diuji end-to-end; perlu 1 kredit baru dengan izin owner).
+- **Ledger aplikasi**: kredit via aplikasi tidak dicatat otomatis — perlu wiring `onSubmit`/guard ke `FlowPlaywrightGenerator` (backlog).
+- **Durasi media** `null` karena ffprobe tidak terpasang; `validateMediaFile` menerima `probe` opsional.
+- Halaman Flow project kini berada di mode editor (`/edit/<id>`) setelah tile diklik; buka ulang project sebelum smoke berikutnya.
+- P4 PARTIAL (reauth), P5 PARTIAL (unggah nyata), P7 auth/`Origin` belum; `AGENTS.md` tetap untracked.
+
+## Next Session Handoff
+
+1. Minta izin owner untuk **1 kredit** guna menguji ulang jalur aplikasi end-to-end setelah fix `Browser.setDownloadBehavior` (guard 1/hari sudah 1/1 hari ini → tunggu 2026-11-03 WIB).
+2. Sebelum smoke: buka project Flow yang bersih, set "Konfirmasi sebelum membuat" = `Jangan pernah`, pastikan komposer terlihat dan tidak ada panel terbuka.
+3. Tambahkan guard/ledger ke `FlowPlaywrightGenerator` (maks. 1/hari + konfirmasi) agar jalur aplikasi tidak melewati batas kredit.
+4. `PLAN_CONTENT` end-to-end masih menunggu `DEEPSEEK_API_KEY` di environment proses API.
+5. Rekonsiliasi job `NEEDS_ATTENTION` yang sudah punya aset `valid`: **jangan** klik retry (akan men-submit ulang); putuskan kebijakan (retry tanpa submit / tandai selesai manual) sebelum UI retry dipakai.
 
 ## Team Scope
 
 _Tidak ada gelombang aktif._ `state.open_wave = null`.
-
-## Next Session Handoff
-
-1. Login Flow & verifikasi sesi **selesai** (2026-11-02): profil tersimpan, `flow:inspect` pada project melihat komposer.
-2. Berikutnya: uji adapter generasi end-to-end — `FLOW_ADAPTER=real` + `flow:generate --dry-run` (gratis), lalu smoke nyata hanya setelah izin owner (kredit, guard 1/hari).
-3. Pairing YouTube dari UI menunggu `GOOGLE_OAUTH_CLIENT_ID` di environment proses API.
-4. Pertimbangkan (keputusan owner): hentikan Chrome/CDP pemakai profil via tombol UI sebelum login (saat ini manual), dan persistensi status aksi lintas restart.
-5. Guard `Origin`/auth local API (P7) sebelum route mutasi dipakai di jaringan.
