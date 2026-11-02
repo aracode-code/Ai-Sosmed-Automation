@@ -1,7 +1,7 @@
 # Modul — Scheduler (P4 engine + P4b dispatch + P4c produksi)
 
-**Status:** COMPLETED (engine + API + dispatch + produksi konten) 2026-10-30 · commit `4b513ab`, `bfc7c72`, `77fbb9c`, `5af62ca`
-**Sumber:** kode aktual (E1). Keputusan: `ADR-0003` D10–D14, `ADR-0006` S1–S9, `ADR-0007` C1–C7. Kontrak: LLD §8.1–8.3.
+**Status:** COMPLETED (engine + API + dispatch + produksi konten) 2026-10-30; guard mode generasi ditambahkan 2026-11-02 (ADR-0012) · commit `4b513ab`, `bfc7c72`, `77fbb9c`, `5af62ca`
+**Sumber:** kode aktual (E1). Keputusan: `ADR-0003` D10–D14, `ADR-0006` S1–S9, `ADR-0007` C1–C7, `ADR-0012` G9–G10. Kontrak: LLD §8.1–8.3.
 
 ## Peta Paket
 
@@ -34,9 +34,9 @@ Ringkasan hasil: `{paused, due, seeded, shifted, quotaSkipped, enqueued, failed[
 `createPublicationEnqueuer({ db, platforms })` mengembalikan `EnqueueFn`. Untuk setiap jadwal due:
 
 1. `platforms` kosong → tidak ada job (tanpa adapter, job hanya akan `NO_HANDLER`).
-2. Campaign harus ada dan `status === 'active'`.
+2. Campaign harus ada dan `status === 'active'`; **campaign `generationMode !== 'video'` → berhenti tanpa job** (media gambar tidak dapat diterbitkan oleh adapter video; ADR-0012 G9).
 3. Ambil konten terbaru campaign (`listContentByCampaign`, urut versi turun); `rejected` → berhenti. Mode `required`: bila approval rencana valid (`plan_approvals` + `hashPlanBinding` cocok), kandidat = **seluruh item rencana** (`listContentByPlanJob`) kecuali `rejected`; selain itu hanya konten terbaru.
-4. Butuh aset media `valid` terakhir; tanpa itu → berhenti (per konten).
+4. Butuh aset media `valid` terakhir **dengan `mimeType === 'video/mp4'`**; tanpa itu → berhenti (per konten).
 5. Akun kandidat = akun `connected` pada platform campaign yang adapter-nya terdaftar.
 6. Per akun: caption platform wajib ada (`resolveCaption`); mode `required` wajib `approvalStatus === 'approved'` **dan** — hanya bila gerbang rencana tidak dipakai — `getLatestApproval` + `checkApprovalBinding` cocok (caption hash dihitung dari peta caption yang sama).
 7. Key idempoten `publish:<contentId>:v<version>:<accountId>:<platform>`; job yang sudah ada dilewati.
@@ -50,7 +50,7 @@ Konsekuensi yang disadari: satu batch per slot, slot tetap maju walau tidak ada 
 
 1. Campaign harus ada, `status === 'active'`, dan punya platform target.
 2. Ada `PLAN_CONTENT` non-terminal untuk campaign (`NEEDS_ATTENTION` dihitung aktif) → tidak ada job baru.
-3. Konten terbaru ada tetapi masih ada item rencana tanpa job `PUBLISH` (`listPlanContentsAwaitingPublish`) → tidak ada job baru (kedalaman satu).
+3. Konten terbaru ada tetapi masih ada item rencana tanpa job `PUBLISH` (`listPlanContentsAwaitingPublish`) → tidak ada job baru (kedalaman satu). Pemeriksaan ini **dilewati** untuk campaign `generationMode !== 'video'` karena item gambar tidak akan pernah punya job `PUBLISH` (ADR-0012 G10).
 4. Selain itu: job `PLAN_CONTENT` `QUEUED` dibuat dengan key `plan:<scheduleId>:<slot>`, payload `{campaignId}`.
 
 `slot` = `schedule.nextRunAt` saat jadwal due (fallback `context.now`). Helper `hasActiveJobForCampaign`/`hasJobForContent` tinggal di `@saa/database`; guard per rencana memakai `listPlanContentsAwaitingPublish` (Slice 3, `8b9a512`).
@@ -58,6 +58,8 @@ Konsekuensi yang disadari: satu batch per slot, slot tetap maju walau tidak ada 
 **Urutan dalam satu tick:** publikasi lebih dulu, lalu produksi. Tanpa urutan ini, konten yang baru direncanakan (belum punya media) akan menahan publikasi slot berjalan.
 
 Hasil berantai: slot 1 merencanakan konten → worker membuat konten + `GENERATE_VIDEO` → media valid → slot 2 menerbitkan konten itu **dan** merencanakan konten berikutnya.
+
+Campaign `generationMode=image`: rantai berhenti di media — slot 1 merencanakan konten → `GENERATE_IMAGE` → PNG valid; slot berikutnya langsung merencanakan konten baru (tidak ada `PUBLISH` dan guard kedalaman tidak menahan slot).
 
 ## Loop Dispatch
 

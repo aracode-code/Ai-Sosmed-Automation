@@ -3,8 +3,8 @@
   "mode": "LIGHTWEIGHT_GREP",
   "status": "DEGRADED",
   "reason": "Tidak ada tool SQLite index di runtime ini (`sqlite_query_tool` missing). Pencarian memakai ripgrep terhadap source aktual; tidak ada code.db.",
-  "indexed_commit": "4650d906c6b178dde35849c227ff62a3c5a87e73",
-  "indexed_at": "2026-11-02T09:05:00+07:00",
+  "indexed_commit": "81dd916647a1efd65661d91f04842c2ec26d6ab3",
+  "indexed_at": "2026-11-02T09:28:00+07:00",
   "scope": [
     "apps/local-api/src/**",
     "apps/dashboard/src/**",
@@ -20,18 +20,18 @@
     "docs/**"
   ],
   "counts": {
-    "files": 173,
+    "files": 174,
     "test_files": 57,
     "symbols": null,
     "imports": null,
     "apis": 31,
     "db_objects": 13,
-    "tests": 489
+    "tests": 501
   },
   "validation": {
-    "last_validated_at": "2026-11-02T09:05:00+07:00",
+    "last_validated_at": "2026-11-02T09:28:00+07:00",
     "result": "partial",
-    "note": "Scope = git ls-files (ts/tsx) pada commit 4650d90: 173 file (termasuk 57 file test) + docs/. Metadata simbol/import null karena tanpa index SQLite. Endpoint 31, tabel 13, test 489 (vitest aktual). Perubahan sesi: komponen CreateCampaignForm.tsx + wiring di CampaignsPage.tsx + kelas form-grid/check-row di styles.css (POST /api/v1/campaigns dari UI)."
+    "note": "Scope = git ls-files (ts/tsx) + perubahan kerja mode generasi: 174 file (termasuk 57 file test) + docs/. Metadata simbol/import null karena tanpa index SQLite. Endpoint 31 (tidak berubah), tabel 13 (tanpa tabel baru), test 501 (vitest aktual). Perubahan sesi: generation.ts, generate-media.ts(+test), mock-generator/media/types browser-engine, campaign generationMode (schema/migrasi 0004/repo/route), scheduler dispatch/production, plan-content/publish, routes plans/content, UI Campaigns/CreateCampaignForm/PlanReviewPanel."
   },
   "fallback": {
     "engine": "LIGHTWEIGHT_GREP",

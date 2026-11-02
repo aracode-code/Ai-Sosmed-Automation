@@ -7,8 +7,8 @@
 
 | Paket | Tanggung jawab | Titik masuk |
 |---|---|---|
-| `@saa/domain` | Tipe entitas, `JobType`/`JobStatus`, kelas error, state machine murni | `packages/domain/src/{job,state-machine,errors,entities,platform}.ts` |
-| `@saa/database` | Schema Drizzle 13 tabel, client + PRAGMA, migrator SQL, repository | `packages/database/src/{schema,client,migrate,paths}.ts`, `repositories/{jobs,audit,approvals,publish-attempts,plan-approvals}.ts` |
+| `@saa/domain` | Tipe entitas, `JobType`/`JobStatus`, kelas error, state machine murni, mode generasi (`generation.ts`) | `packages/domain/src/{job,state-machine,errors,entities,platform,generation}.ts` |
+| `@saa/database` | Schema Drizzle 13 tabel, client + PRAGMA, migrator SQL, repository | `packages/database/src/{schema,client,migrate,paths}.ts`, `repositories/{jobs,audit,approvals,publish-attempts,plan-approvals,campaigns}.ts` |
 | `@saa/youtube` | Adapter publikasi YouTube (mock) yang mengimplementasikan kontrak domain | `packages/youtube/src/mock-adapter.ts` (rinci di `modules/youtube.md`) |
 | `@saa/workflow` | Dispatcher antrean, klasifikasi retry, recovery lease saat startup | `packages/workflow/src/{dispatcher,retry,recovery}.ts` |
 | `@saa/observability` | Logger Pino + redaksi secret | `packages/observability/src/{logger,sanitize}.ts` |
@@ -24,14 +24,14 @@ Arah dependensi: `domain` ← `database` ← `workflow` ← `local-api`; `observ
 - **Transisi optimistis**: `applyTransition({from,to})` gagal (null) bila status sudah berubah — mencegah dua worker menimpa.
 - **Recovery startup** (`packages/workflow/src/recovery.ts`): lease kedaluwarsa → `QUEUED` bila reversibel, `NEEDS_ATTENTION` untuk `PUBLISHING`/`VERIFYING` atau attempts habis; `lastErrorCode = LEASE_EXPIRED`.
 - **API**: 31 route terdaftar (health, jobs, campaigns, approvals, plans, schedules, accounts, content, dashboard, connections + aksi connect, ai — daftar lengkap di `modules/local-api.md`); envelope error LLD §6.2; request id `req_<uuid>`.
-- **Migrasi**: `0000_init` … `0003_plan_approvals` (4 berkas, 13 tabel); `plan_approvals` mencatat keputusan rencana dengan binding hash (`8b9a512`).
+- **Migrasi**: `0000_init` … `0004_campaign_generation_mode` (5 berkas, 13 tabel); `plan_approvals` mencatat keputusan rencana dengan binding hash (`8b9a512`); `campaigns.generation_mode` default `video` (ADR-0012).
 - **Konfigurasi**: host non-loopback ditolak kecuali `APP_ALLOW_NETWORK=true`; `DATABASE_PATH` relatif diresolusi terhadap root workspace (`paths.ts`).
 
 ## Perintah
 
 ```bash
-corepack pnpm typecheck                              # 9 paket + tests/ (per 2026-10-30)
-corepack pnpm test                                   # seluruh workspace (235 test per 2026-10-30)
+corepack pnpm typecheck                              # 10 paket + tests/ (per 2026-11-02)
+corepack pnpm test                                   # seluruh workspace (501 test per 2026-11-02)
 corepack pnpm migrate                                 # terapkan migrations/*.sql
 corepack pnpm start                                   # local API di 127.0.0.1:4317
 ```

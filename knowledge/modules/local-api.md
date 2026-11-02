@@ -1,7 +1,7 @@
 # Modul — Local API (App, Route, Composition Root)
 
-**Status:** P1–P5 backend (mock publish) + worker loop + dispatch jadwal + produksi konten + pemicu konten manual + CLI kesiapan COMPLETED (2026-10-31) · aksi connect dari UI COMPLETED (2026-11-01, runner proses lokal) · kredensial AI (kunci DeepSeek DPAPI + planner lazy) COMPLETED (2026-11-02, ADR-0011) · approval rencana + publikasi satu gerbang COMPLETED (2026-11-02, `8b9a512`) · commit `debdaaf`, `4b513ab`, `6ad9547`, `7d13431`, `bfc7c72`, `77fbb9c`, `1f27cd5`, `bb1ba57`, `bbfe83a`, `1dfcadf`, `8b9a512`
-**Sumber:** kode aktual (E1). Keputusan: `ADR-0001` (konfigurasi), `ADR-0003` D15, `ADR-0004` (worker + registry), `ADR-0005` (publikasi mock), `ADR-0006` (dispatch jadwal), `ADR-0007` (produksi konten per slot), `ADR-0011` (kredensial AI).
+**Status:** P1–P5 backend (mock publish) + worker loop + dispatch jadwal + produksi konten + pemicu konten manual + CLI kesiapan COMPLETED (2026-10-31) · aksi connect dari UI COMPLETED (2026-11-01, runner proses lokal) · kredensial AI (kunci DeepSeek DPAPI + planner lazy) COMPLETED (2026-11-02, ADR-0011) · approval rencana + publikasi satu gerbang COMPLETED (2026-11-02, `8b9a512`) · dua mode generasi video/gambar COMPLETED (2026-11-02, ADR-0012) · commit `debdaaf`, `4b513ab`, `6ad9547`, `7d13431`, `bfc7c72`, `77fbb9c`, `1f27cd5`, `bb1ba57`, `bbfe83a`, `1dfcadf`, `8b9a512`
+**Sumber:** kode aktual (E1). Keputusan: `ADR-0001` (konfigurasi), `ADR-0003` D15, `ADR-0004` (worker + registry), `ADR-0005` (publikasi mock), `ADR-0006` (dispatch jadwal), `ADR-0007` (produksi konten per slot), `ADR-0011` (kredensial AI), `ADR-0012` (mode generasi).
 
 ## Peta Berkas
 
@@ -31,7 +31,7 @@ loadConfig → createLogger → openDatabase → runMigrations → runStartupRec
 → worker.start() (bila WORKER_ENABLED) → dispatchLoop.start() (bila syarat S8 terpenuhi)
 ```
 
-- `buildHandlerRegistry`: `GENERATE_VIDEO` selalu terdaftar (default `MockVideoGenerator` dengan `outputRoot = MEDIA_ROOT`); `PLAN_CONTENT` **selalu** terdaftar dan memakai `createLazyPlanner` (kunci diresolusi per job — ADR-0011 A3); `PUBLISH` **hanya** bila `publisher` disuntikkan (dari `YOUTUBE_ADAPTER=mock|api`).
+- `buildHandlerRegistry`: `GENERATE_VIDEO` dan `GENERATE_IMAGE` selalu terdaftar (dua pemanggilan `createGenerateMediaHandler` dengan `MockMediaGenerator`/`MediaGenerator` dan `outputRoot = MEDIA_ROOT`, ADR-0012); `PLAN_CONTENT` **selalu** terdaftar dan memakai `createLazyPlanner` (kunci diresolusi per job — ADR-0011 A3); `PUBLISH` **hanya** bila `publisher` disuntikkan (dari `YOUTUBE_ADAPTER=mock|api`).
 - Tanpa kunci: `PLAN_CONTENT` tetap terdaftar; job berakhir `NEEDS_ATTENTION` + `AUTH`; produksi terjadwal **ditahan** sampai kunci diisi (`aiCredentials.isConfigured()`), sedangkan publikasi konten lama tetap berjalan.
 - Kegagalan membaca store DPAPI: `storeError=true`, fallback env, peringatan boot; API tidak gagal start.
 - Tanpa adapter: `YOUTUBE_ADAPTER=off` (default) → log peringatan, job `PUBLISH` berakhir `NEEDS_ATTENTION` + `NO_HANDLER`.
@@ -48,13 +48,13 @@ loadConfig → createLogger → openDatabase → runMigrations → runStartupRec
 |---|---|
 | Health | `GET /health`, `GET /api/v1/health` (`workers.active` dari worker nyata) |
 | Jobs | `GET /api/v1/jobs` — filter opsional `status`, `jobType` (divalidasi `JOB_TYPES`), `campaignId`, `limit`, `cursor`; `GET /api/v1/jobs/:id` |
-| Campaigns | `POST /api/v1/campaigns`, `GET /api/v1/campaigns`, `GET /api/v1/campaigns/:id` |
+| Campaigns | `POST /api/v1/campaigns` — body `{name, niche, approvalMode?, generationMode? ('video' default|'image'), platforms[]}`; `GET /api/v1/campaigns`, `GET /api/v1/campaigns/:id` (respons campaign menyertakan `generationMode`) |
 | Approvals | `POST /api/v1/content/:id/approve`, `POST /api/v1/content/:id/reject` |
-| Plans | `GET /api/v1/plans/:jobId` — rencana `PLAN_CONTENT` + `contents[]` + `bindingHash` + keputusan; 404 bila job tidak ada/bukan `PLAN_CONTENT`. `POST /api/v1/plans/:jobId/approve` dan `/reject` — body `{bindingHash, decidedBy?, reason?}`; 409 `PLAN_NOT_READY`/`PLAN_EMPTY`/`PLAN_ALREADY_DECIDED`/`PLAN_MISMATCH` (+`PLAN_INVALID` saat approve bila ada item tanpa `videoPrompt`); 201 `{approval, contentIds, enqueuedJobIds}` |
+| Plans | `GET /api/v1/plans/:jobId` — rencana `PLAN_CONTENT` + `contents[]` + `bindingHash` + keputusan + `campaign.generationMode` + `mediaKind` per item; 404 bila job tidak ada/bukan `PLAN_CONTENT`. `POST /api/v1/plans/:jobId/approve` dan `/reject` — body `{bindingHash, decidedBy?, reason?}`; 409 `PLAN_NOT_READY`/`PLAN_EMPTY`/`PLAN_ALREADY_DECIDED`/`PLAN_MISMATCH` (+`PLAN_INVALID` saat approve bila ada item tanpa `videoPrompt`); 201 `{approval, contentIds, enqueuedJobIds}`; approve meng-enqueue `GENERATE_IMAGE` atau `GENERATE_VIDEO` sesuai `mediaKind` item |
 | Schedules | `POST /api/v1/schedules`, `GET /api/v1/schedules`, `PATCH /api/v1/schedules/:id`, `POST /api/v1/scheduler/pause`, `POST /api/v1/scheduler/resume` |
 | Accounts | `GET /api/v1/accounts` (tanpa `secretRef`/`profileKey`) |
-| Content | `POST /api/v1/content` — 202 `{jobId, status:'queued'|'duplicate'}`; key `plan:manual:<campaignId>:<requestId|uuid>`; 404 campaign, 409 `CAMPAIGN_INACTIVE`/`CAMPAIGN_NO_PLATFORM`/`PLAN_IN_PROGRESS`/`PIPELINE_BUSY` |
-| Content detail | `GET /api/v1/content/:id?version=n` — konten (default versi tertinggi pada baris id itu), `campaign {platforms, approvalMode}`, `assets` tanpa `path`, `captionHash` dihitung server, `accounts` kandidat sesuai platform campaign; 404 konten/versi, 400 versi invalid |
+| Content | `POST /api/v1/content` — 202 `{jobId, status:'queued'|'duplicate'}`; key `plan:manual:<campaignId>:<requestId|uuid>`; 404 campaign, 409 `CAMPAIGN_INACTIVE`/`CAMPAIGN_NO_PLATFORM`/`PLAN_IN_PROGRESS`/`PIPELINE_BUSY`; `PIPELINE_BUSY` hanya berlaku untuk campaign `generationMode='video'` (ADR-0012 G10) |
+| Content detail | `GET /api/v1/content/:id?version=n` — konten (default versi tertinggi pada baris id itu), `campaign {platforms, approvalMode, generationMode}`, `assets` tanpa `path`, `captionHash` dihitung server, `accounts` kandidat sesuai platform campaign; 404 konten/versi, 400 versi invalid |
 | Dashboard | `GET /api/v1/dashboard/summary?recentFailures=n&trendDays=d` — hitungan job/attempt/campaign/konten/akun, `recentFailures` (default 5, maks 20), dan `trend` harian Asia/Jakarta (`jobs`, `published`, `failed`; default 7 hari, maks 30); 400 bila parameter di luar rentang |
 | Jobs retry | `POST /api/v1/jobs/:id/retry` — hanya `NEEDS_ATTENTION` → `QUEUED` via `RECOVER_REQUEUE`; reset `attempts`/`lastErrorCode`/lease, `runAt = now`, audit `job.retry`; 202 `{jobId, status:"queued"}`, 409 `NOT_RETRYABLE`/`CONCURRENT_UPDATE`, 404 |
 | Jobs cancel | `POST /api/v1/jobs/:id/cancel` — status terminal & `PUBLISHING`/`VERIFYING` ditolak; `CANCELLED` lewat state machine, `lastErrorCode="CANCELLED_BY_USER"`, `runAt`/lease dikosongkan, audit `job.cancel`; 202, 409 `NOT_CANCELLABLE`/`CONCURRENT_UPDATE`, 404 |
@@ -91,7 +91,7 @@ loadConfig → createLogger → openDatabase → runMigrations → runStartupRec
 | `YOUTUBE_ADAPTER` | `off` | `mock` = adapter palsu (tanpa unggahan nyata); `api` = adapter YouTube Data API v3 (ADR-0008), hanya aktif bila `GOOGLE_OAUTH_CLIENT_ID` ada |
 | `YOUTUBE_UPLOAD_PRIVACY` | `private` | `private`/`unlisted`/`public`; hasil diverifikasi `videos.list` |
 | `YOUTUBE_APP_STATUS` | `unknown` | `testing`/`production`/`unknown`; `testing` dicatat `error` saat boot (ADR-0008 O3) |
-| `FLOW_ADAPTER` | `mock` | `real` = `FlowPlaywrightGenerator` (tab Video) via CDP; default mock tidak memakai kredit. **Jalur ini belum memakai guard/ledger `flow-usage`** (ADR-0010 F33) — kredit yang dipakai worker tidak tercatat otomatis |
+| `FLOW_ADAPTER` | `mock` | `real` = `FlowPlaywrightGenerator` via CDP; tab dan timeout mengikuti mode (`video` 15 menit / `image` 5 menit, ADR-0012); default mock tidak memakai kredit. **Jalur ini belum memakai guard/ledger `flow-usage`** (ADR-0010 F33) — kredit yang dipakai worker tidak tercatat otomatis |
 | `FLOW_CDP_ENDPOINT` | `http://127.0.0.1:9222` | **Wajib loopback**; endpoint non-loopback ditolak config |
 | `DEEPSEEK_API_KEY` | — | **Fallback**; kunci dari DPAPI (`POST /api/v1/ai/credentials`) menang. Tidak pernah dilog/dipersistensi ke DB |
 
@@ -116,3 +116,4 @@ Argumen script diteruskan apa adanya; jangan memakai `--` pemisah (`--` ikut men
 - Produksi konten ikut berhenti bila adapter publikasi tidak terdaftar, karena loop dispatch digerbangi adapter (ADR-0006 S8).
 - Aksi connect **tidak** menyelesaikan konflik profil: `flow:login` gagal bila Chrome/CDP lain sudah memakai profil Flow yang sama (`Opening in existing browser session`). Menghentikan Chrome milik owner bukan wewenang API; kondisi ini diteruskan ke UI sebagai error aksi + catatan.
 - Approval rencana tersedia lewat API (`/api/v1/plans/:jobId`) dan UI Campaigns (form permintaan, daftar job `PLAN_CONTENT`, panel keputusan — `1656c9f`); halaman Approvals masih per-konten dan belum menampilkan rencana.
+- Publikasi media gambar belum ada: campaign `image` hanya memproduksi artefak; `PUBLISH` tidak dibuat dan handler menolak aset non-video (ADR-0012).

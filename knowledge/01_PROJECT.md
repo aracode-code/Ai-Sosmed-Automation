@@ -9,7 +9,7 @@
 | Tipe | Aplikasi desktop lokal Windows, satu pengguna utama | VERIFIED (HLD §2.3) |
 | Deployment | Windows PC lokal; packaging Electron/Tauri belum dipilih | VERIFIED (HLD §4, LLD §19) |
 | Dokumen induk | `HLD.md` v1.0 dan `LLD.md` v1.0 (keduanya berstatus Draft) | VERIFIED |
-| Implementasi kode | **P1 + P2 + P3 mock + P4 backend + P4b/P4c otomatisasi + P5 mock + adapter YouTube API (A1–A7) + CLI preflight + dashboard (approval beraksi) + sesi Flow/login + kredensial AI (DPAPI) + rencana batch `items[]` + approval rencana & publikasi satu gerbang + form permintaan & keputusan rencana di Campaigns + form buat campaign** — 8 paket + `apps/local-api` + `apps/dashboard`, 489 test hijau | VERIFIED (commit `debdaaf` … `4650d90`, 2026-11-02) |
+| Implementasi kode | **P1 + P2 + P3 mock + P4 backend + P4b/P4c otomatisasi + P5 mock + adapter YouTube API (A1–A7) + CLI preflight + dashboard (approval beraksi) + sesi Flow/login + kredensial AI (DPAPI) + rencana batch `items[]` + approval rencana & publikasi satu gerbang + form permintaan & keputusan rencana di Campaigns + form buat campaign + dua mode generasi (video/gambar)** — 8 paket + `apps/local-api` + `apps/dashboard`, 501 test hijau | VERIFIED (commit `debdaaf` … `4650d90` + perubahan mode generasi 2026-11-02) |
 
 ## Tujuan Produk
 
@@ -52,20 +52,20 @@ Mengotomatisasi alur produksi video dari perencanaan sampai publikasi lintas pla
 
 ```text
 apps/local-api            # Fastify + composition root: health, jobs, campaigns, approvals, schedules, accounts; worker loop
-apps/dashboard            # React 18 + Vite: shell + halaman Jobs/Campaigns (buat campaign, form rencana + keputusan)/Approvals (per-konten)/Accounts, proxy ke API
-packages/domain           # entitas, JobType/JobStatus, error class, state machine, approval binding, schedule config, kontrak SocialAdapter
-packages/database         # schema Drizzle 13 tabel, client, migrator SQL, repository (termasuk publish_attempts, plan_approvals)
-packages/workflow         # dispatcher, worker loop, retry, recovery, handler PLAN_CONTENT + GENERATE_VIDEO + PUBLISH
+apps/dashboard            # React 18 + Vite: shell + halaman Jobs/Campaigns (buat campaign + mode generasi, form rencana + keputusan)/Approvals (per-konten)/Accounts, proxy ke API
+packages/domain           # entitas, JobType/JobStatus, error class, state machine, approval binding, schedule config, mode generasi, kontrak SocialAdapter
+packages/database         # schema Drizzle 13 tabel, client, migrator SQL (0000–0004), repository (termasuk publish_attempts, plan_approvals)
+packages/workflow         # dispatcher, worker loop, retry, recovery, handler PLAN_CONTENT + GENERATE_VIDEO/GENERATE_IMAGE + PUBLISH
 packages/observability    # logger Pino + redaksi secret
 packages/agent-core       # skema PlanDecision + planner + adapter DeepSeek + tool allowlist
 packages/scheduler        # zona waktu, window/quiet, kuota harian, Scheduler pause/runOnce, enqueuer PUBLISH + dispatch loop
-packages/browser-engine   # kontrak VideoGenerator, mock Flow, validasi media, lock profil
+packages/browser-engine   # kontrak MediaGenerator, mock video/gambar, validasi media, lock profil
 packages/youtube          # adapter YouTube mock (kontrak SocialAdapter), idempoten per key
 tests/integration         # migrasi, restart recovery, klaim lintas koneksi, envelope API
 docs                      # runbook operasional + security checklist (merujuk LLD §13, tidak menduplikasi)
 ```
 
-Belum dibuat (P3 penuh–P7): adapter Flow nyata, `packages/integrations/*`, reauth akun di UI.
+Belum dibuat (P3 penuh–P7): adapter Flow nyata, adapter publikasi gambar, `packages/integrations/*`, reauth akun di UI.
 
 > Catatan: HLD/LLD berada di root repo (bukan `docs/`). Pindahkan hanya bila diputuskan di ADR — jangan memindahkan dokumen canonical tanpa jejak.
 
@@ -89,7 +89,8 @@ Belum dibuat (P3 penuh–P7): adapter Flow nyata, `packages/integrations/*`, rea
 - Approval: terikat versi konten + sha256 aset + hash caption + akun + platform; mismatch → `409 APPROVAL_MISMATCH` (ADR-0003 D7–D9).
 - Approval rencana: satu keputusan per job `PLAN_CONTENT` (`plan_approvals`, unique `plan_job_id`) dengan binding `hashPlanBinding` atas `{contentId, versi, hash caption}` — tanpa aset karena media belum ada. `POST /api/v1/plans/:jobId/approve|reject` menuntut `bindingHash` dari `GET /api/v1/plans/:jobId`; approve membangkitkan `GENERATE_VIDEO` untuk semua item, reject menandai semua item `rejected` (2026-11-02, Slice 3).
 - Scheduler: `next_run_at` persisten, kuota harian per akun+platform, pause lewat `settings` — tidak menghapus jadwal (ADR-0003 D10–D14).
-- P3 saat ini memakai generator **mock** (MP4-shaped, bukan video yang dapat diputar); Flow asli menunggu OD-1 (ADR-0003 D16–D17).
+- P3 saat ini memakai generator **mock** (`MockMediaGenerator`): video MP4-shaped yang tidak dapat diputar, atau PNG valid untuk mode gambar; Flow asli menunggu OD-1 (ADR-0003 D16–D17, ADR-0012).
+- Mode generasi adalah atribut campaign (`generationMode: video|image`, default `video`, migrasi `0004`). Mode gambar berhenti di produksi media: scheduler tidak membuat `PUBLISH`, filter aset mensyaratkan `video/mp4`, dan handler `PUBLISH` menolak aset non-video (`VALIDATION`) — adapter yang ada hanya YouTube (ADR-0012).
 - Status job: 15 status (termasuk `COMPLETED` untuk job langkah); publication tetap berakhir `PUBLISHED`.
 - Worker: loop in-process, satu job per siklus, `WORKER_INTERVAL_MS` default 1000, `WORKER_ENABLED=false` = API baca-saja; `PLAN_CONTENT` selalu terdaftar, tetapi tanpa kunci AI job berakhir `NEEDS_ATTENTION` + `AUTH` (ADR-0011).
 - Kunci AI DeepSeek disimpan di DPAPI `deepseek-api-key` (diisi lewat Connections) dan **menang** atas `DEEPSEEK_API_KEY` env; nilai tidak pernah masuk `AppConfig` maupun output/log/state (ADR-0011).
@@ -111,7 +112,7 @@ Belum dibuat (P3 penuh–P7): adapter Flow nyata, `packages/integrations/*`, rea
 - Kesiapan uji live (`bbfe83a`): `corepack pnpm --filter @saa/local-api preflight:youtube` memeriksa platform, adapter, kredensial OAuth (status ada/tidak), `YOUTUBE_APP_STATUS`, privasi, database, akun + blob DPAPI, dan aset media; exit 0 lulus/peringatan, 1 ada FAIL, 2 konfigurasi/pemakaian. Tidak memanggil Google dan tidak mencetak rahasia.
 - Dokumen operasional (`365643d`): `docs/runbook.md` (perintah, env, prosedur smoke live + bukti, troubleshooting kode galat adapter, backup) dan `docs/security.md` (status kontrol aktual, celah auth/`Origin` local API, insiden, checklist P7). LLD §13 tetap kanonik.
 - Aplikasi tidak membaca `.env`; semua konfigurasi dari environment proses. Perintah script pakai `pnpm run <script> <flag>` tanpa `--` pemisah (argumen `--` ikut diteruskan dan ditolak CLI).
-- Dashboard (ADR-0009): `apps/dashboard` React 18 + Vite, dev di `localhost:5174` dengan proxy `/api` dan `/health` ke `127.0.0.1:4317`; halaman Overview/Jobs/Campaigns/Approvals/Accounts/Connections. **Aksi approve/reject per-konten** memakai binding dari `GET /api/v1/content/:id` (UI tidak menghitung hash). **Campaigns** memuat form **Buat campaign** (`POST /api/v1/campaigns`, `4650d90`), form "Minta rencana" (`POST /api/v1/content`), daftar job `PLAN_CONTENT` per campaign (`GET /api/v1/jobs?jobType=…&campaignId=…`), dan panel keputusan rencana (`GET /api/v1/plans/:jobId` → approve/reject dengan `bindingHash` server); campaign `automatic` tampil baca-saja. **Aksi connect** (login Flow, pairing YouTube) dijalankan sebagai proses lokal dari halaman Connections (ADR-0010 F22). Tanpa router dan tanpa Tailwind pada iterasi ini; tidak ada test UI otomatis.
+- Dashboard (ADR-0009): `apps/dashboard` React 18 + Vite, dev di `localhost:5174` dengan proxy `/api` dan `/health` ke `127.0.0.1:4317`; halaman Overview/Jobs/Campaigns/Approvals/Accounts/Connections. **Aksi approve/reject per-konten** memakai binding dari `GET /api/v1/content/:id` (UI tidak menghitung hash). **Campaigns** memuat form **Buat campaign** (`POST /api/v1/campaigns`, `4650d90`) dengan select **Mode generasi** (video/gambar) serta kolom **Generasi** di tabel (ADR-0012), form "Minta rencana" (`POST /api/v1/content`), daftar job `PLAN_CONTENT` per campaign (`GET /api/v1/jobs?jobType=…&campaignId=…`), dan panel keputusan rencana (`GET /api/v1/plans/:jobId` → approve/reject dengan `bindingHash` server); campaign `automatic` tampil baca-saja. **Aksi connect** (login Flow, pairing YouTube) dijalankan sebagai proses lokal dari halaman Connections (ADR-0010 F22). Tanpa router dan tanpa Tailwind pada iterasi ini; tidak ada test UI otomatis.
 - D7 dijawab sebagian oleh ADR-0009 U6: artefak build dashboard = `vite build` (`apps/dashboard/dist`, gitignored), typecheck = `tsc`, **lint belum dipilih**.
 - **Drift skema (2026-11-01):** `content_items` memakai PK `id` tunggal sementara LLD §5 menyebut `unique(id, version)`; versi baru untuk id yang sama tidak dapat disimpan (`UNIQUE constraint failed`). Saat ini satu baris per konten (versi selalu 1); revisi multi-versi menunggu keputusan owner (migrasi PK komposit vs tetapkan satu baris per id).
 - Flow (ADR-0010): `playwright` + **Chrome/Edge terpasang** (fallback Chromium; `FLOW_BROWSER_CHANNEL` menimpa) karena Google menolak sign-in di Chromium for Testing. Profil persisten `%LOCALAPPDATA%\saa\browser\flow-profile` (`FLOW_PROFILE_DIR` absolut); `openFlowSession` memegang lock profil dan melepasnya pada semua jalur; URL Flow **`https://flow.google.com/`**. `flow:login` membuka browser headed untuk login manual (tanpa mengisi kredensial/menembus CAPTCHA); `flow:inspect` memetakan DOM read-only. Sesi tersimpan belum terautentikasi (`/about`), sehingga adapter generasi belum ditulis.
@@ -127,11 +128,11 @@ Belum dibuat (P3 penuh–P7): adapter Flow nyata, `packages/integrations/*`, rea
 | P0 Bootstrap knowledge OS | COMPLETED (2026-10-29) |
 | P1 Foundation (workspace, DB, API, logs, state machine, queue) | **COMPLETED (2026-10-30, commit `debdaaf`)** |
 | P2 Agent core (kontrak planner, adapter DeepSeek, tool allowlist) | **COMPLETED (2026-10-30, commits `7d02a06`,`9cd360c`)** |
-| P3 Flow (mock adapter + validasi media + handler GENERATE_VIDEO) | **PARTIAL (2026-10-30/11-01, commits `013531a`,`b8c85e0`,`fd62314`)** — mock + validasi media selesai; sesi profil Flow + `flow:login` selesai (ADR-0010); adapter generasi nyata & smoke menunggu login owner |
+| P3 Flow (mock adapter + validasi media + handler GENERATE_VIDEO/GENERATE_IMAGE) | **PARTIAL (2026-10-30/11-01, commits `013531a`,`b8c85e0`,`fd62314`)** — mock + validasi media selesai; sesi profil Flow + `flow:login` selesai (ADR-0010); dua mode generasi video/gambar (ADR-0012) dengan generator mock; adapter generasi nyata & smoke menunggu login owner |
 | P4 Approval & Scheduler (backend + engine + worker loop) | **PARTIAL (2026-10-30, commits `4b513ab`,`6ad9547`)** — UI approval per-konten (2026-11-01) dan keputusan rencana di Campaigns (`1656c9f`, 2026-11-02) tersedia; reauth akun di UI belum |
 | P4b Dispatch jadwal → job `PUBLISH` otomatis (milestone turunan P4/P5) | **COMPLETED (2026-10-30, commit `bfc7c72`)** |
 | P4c Produksi konten per slot (milestone turunan P4/P5) | **COMPLETED (2026-10-30, commit `77fbb9c`)** — pipeline kedalaman satu |
 | P5 YouTube (adapter mock + PUBLISH handler + verify/reconcile) | **PARTIAL (2026-10-30, commit `7d13431`)** — upload nyata UNVERIFIED; OD-2/OD-5 dijawab (ADR-0008) dan slice **A1 credential store** (`442d3be`) + **A2 OAuth client** (`5cbe70b`) + **A3 adapter API** (`26e557a`) + **A4 wiring/onboarding** (`0b4194f`) + **A5 uji lintas lapisan** (`df9a2b7`, diperkuat `8b8a698`) + **A6 resume 308** (`c310d1f`) + **A7 rekonsiliasi lintas restart** (`a6dde05`, `bb1ba57`) DONE, ditambah **CLI `preflight:youtube`** (`bbfe83a`) dan **runbook/security docs** (`365643d`); smoke live belum |
 | P6 Platform lain · P7 Hardening | NOT STARTED |
 
-Rincian fase + Definition of Done: `tasks/BACKLOG.md`. Bukti: `modules/foundation.md` (P1), `modules/agent-core.md` (P2), `modules/workflow.md`, `modules/scheduler.md` (P4 engine + P4b/P4c), `modules/browser-engine.md`, `modules/youtube.md`, `modules/local-api.md` (worker + dispatch loop + composition root), `decisions/ADR-0006-schedule-publish-dispatch.md` (P4b), `decisions/ADR-0007-content-production-per-slot.md` (P4c), `decisions/ADR-0008-youtube-real-adapter-od2-od5.md` (OD-2/OD-5 YouTube).
+Rincian fase + Definition of Done: `tasks/BACKLOG.md`. Bukti: `modules/foundation.md` (P1), `modules/agent-core.md` (P2), `modules/workflow.md`, `modules/scheduler.md` (P4 engine + P4b/P4c), `modules/browser-engine.md`, `modules/youtube.md`, `modules/local-api.md` (worker + dispatch loop + composition root), `decisions/ADR-0006-schedule-publish-dispatch.md` (P4b), `decisions/ADR-0007-content-production-per-slot.md` (P4c), `decisions/ADR-0008-youtube-real-adapter-od2-od5.md` (OD-2/OD-5 YouTube), `decisions/ADR-0012-generation-modes.md` (dua mode generasi).
